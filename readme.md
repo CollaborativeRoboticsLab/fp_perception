@@ -49,8 +49,8 @@ Each base class includes a helper `initialize_base()` method to handle common se
 
 ## Plugins
 
-- [Perception Vision Driver](../perception/perception_driver_vision/readme.md) plugins required to interact with visual data
-- [Perception Audio Driver](../perception/perception_driver_audio/readme.md) plugins required to interact with visual data
+- [Perception Vision Driver](https://github.com/CollaborativeRoboticsLab/perception/blob/main/perception_driver_vision/readme.md) plugins required to interact with visual data
+- [Perception Audio Driver](https://github.com/CollaborativeRoboticsLab/perception/blob/main/perception_driver_audio/readme.md) plugins required to interact with visual data
 
 ## Writing Your Own Plugins
 

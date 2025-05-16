@@ -81,11 +81,6 @@ public:
     return ros_img;
   }
 
-  std::string getName() const override
-  {
-    return "OpenCVVisionDriver";
-  }
-
 protected:
   mutable cv::VideoCapture capture_device;
 };

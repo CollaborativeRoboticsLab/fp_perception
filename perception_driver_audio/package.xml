@@ -9,10 +9,19 @@
 
   <buildtool_depend>ament_cmake</buildtool_depend>
 
+  <depend>rclcpp</depend>
+  <depend>pluginlib</depend>
+  <depend>perception</depend>
+  <depend>perception_events</depend>
+  <depend>perception_msgs</depend>
+
   <test_depend>ament_lint_auto</test_depend>
   <test_depend>ament_lint_common</test_depend>
 
+  <!-- Export PortAudio note (system-level dependency) -->
   <export>
     <build_type>ament_cmake</build_type>
+    <architecture_independent/>
+    <exec_depend>portaudio</exec_depend> <!-- Add this as a note, though portaudio is usually installed outside rosdep -->
   </export>
 </package>

@@ -46,6 +46,19 @@ public:
   }
 
   /**
+   * @brief Set data to the driver
+   *
+   * This function should be overridden in derived classes to provide specific data.
+   *
+   * @param  input The latest data from the driver.
+   * @throws perception_exception if not implemented in derived classes
+   */
+  virtual void setData(std::any& input) const
+  {
+    throw perception_exception("setData() not implemented for this driver.");
+  }
+
+  /**
    * @brief Get latest data from the driver as a stream
    *
    * This function should be overridden in derived classes to provide specific data.
@@ -56,6 +69,19 @@ public:
   virtual std::any getDataStream() const
   {
     throw perception_exception("getDataStream() not implemented for this driver.");
+  }
+
+  /**
+   * @brief Set data to the driver as a stream
+   *
+   * This function should be overridden in derived classes to provide specific data.
+   *
+   * @return std::any The latest data from the driver.
+   * @throws perception_exception if not implemented in derived classes
+   */
+  virtual void setDataStream(std::any& input) const
+  {
+    throw perception_exception("setDataStream() not implemented for this driver.");
   }
 
 protected:
@@ -72,6 +98,11 @@ protected:
     event_ = std::make_shared<EventClient>(node_, config.name, "/events");
   }
 
+  /**
+   * @brief Get the name of the driver
+   *
+   * @return std::string The name of the driver
+   */
   virtual std::string getName() const
   {
     return config_.name;

@@ -1,0 +1,12 @@
+<library path="perception_driver_audio">
+    <class type="perception::MicrophoneAudioDriver" base_class_type="perception::DriverBase">
+        <description>
+            A plugin that provide basic audio driver functionality for listening to microphone audio
+        </description>
+    </class>
+    <class type="perception::SpeakerAudioDriver" base_class_type="perception::DriverBase">
+        <description>
+            A plugin that provide basic audio driver functionality for playing audio through speakers
+        </description>
+    </class>
+</library>

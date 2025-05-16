@@ -20,7 +20,7 @@ It enables modular development and dynamic loading of components at runtime usin
 
 
 
-## 🔌 Plugin Architecture
+## Plugin Architecture
 
 ### Base Classes
 
@@ -47,35 +47,22 @@ void stop();
 Each base class includes a helper `initialize_base()` method to handle common setup like ROS node storage and event client creation.
 
 
-## Example Use Case
+## Plugins
 
-1. Load a camera driver plugin (e.g., RealSense, OpenCV-based) via a plugin loader.
-2. Load a face detection algorithm plugin.
-3. Stream image data from the driver to the algorithm.
-4. Emit events (e.g., `face_detected`) through the `EventClient`.
-
-This modular setup allows swapping or upgrading components independently.
+- [Perception Vision Driver](../perception/perception_driver_vision/readme.md) plugins required to interact with visual data
+- [Perception Audio Driver](../perception/perception_driver_audio/readme.md) plugins required to interact with visual data
 
 ## Writing Your Own Plugins
 
 1. Inherit from `perception::DriverBase` or `perception::AlgorithmBase`.
-2. Implement required methods (`initialize`, `start`, `stop`, `getName`).
+2. Implement required methods (`initialize`, `start`, `stop`, `getData`, `getDataStream`, `setData`, `setDataStream`).
 3. Register your plugin using `PLUGINLIB_EXPORT_CLASS`.
 4. Define a plugin XML manifest.
 
 
-## Dependencies
-
-* ROS 2 (Humble or newer)
-* `pluginlib`
-* `rclcpp`
-* Custom packages:
-
-  * `perception_events`
-
 ## Future Extensions
 
-* Dynamic runtime reconfiguration
-* Built-in diagnostics
-* Visualization tools for debugging perception pipelines
-* Performance benchmarking and logging
+- [ ] Dynamic runtime reconfiguration
+- [ ] Built-in diagnostics
+- [ ] Visualization tools for debugging perception pipelines
+- [ ] Performance benchmarking and logging

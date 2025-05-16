@@ -20,30 +20,9 @@ include_directories(
   include
 )
 
-add_library(${PROJECT_NAME} SHARED
-  src/perception.cpp
-)
-
-ament_target_dependencies(${PROJECT_NAME}
-  rclcpp
-  pluginlib
-  perception_msgs
-  perception_events
-)
-
-# pluginlib_export_plugin_description_file(${PROJECT_NAME} plugins.xml)
-
-install(TARGETS ${PROJECT_NAME}
-  EXPORT ${PROJECT_NAME}
-  ARCHIVE DESTINATION lib
-  LIBRARY DESTINATION lib
-  RUNTIME DESTINATION bin
-)
-
 install(DIRECTORY include/
   DESTINATION include
 )
 
 ament_export_include_directories(include)
-ament_export_libraries(${PROJECT_NAME})
 ament_package()

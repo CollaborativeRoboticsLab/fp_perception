@@ -14,9 +14,8 @@ namespace perception
 struct driver_options
 {
   std::string name;
-  std::string type;
-  std::string name_space; 
-  std::string address;
+  std::string topic;
+  std::string device_id;
   std::string started_by;
   std::string pid;
 };
@@ -30,7 +29,6 @@ struct driver_options
 struct algorithm_options
 {
   std::string name;
-  std::string name_space;
   std::string started_by;
   std::string pid;
 };

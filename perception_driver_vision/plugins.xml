@@ -1,0 +1,12 @@
+<library path="perception_driver_vision">
+    <class type="perception::DefaultVisionDriver" base_class_type="perception::DriverBase">
+        <description>
+            A plugin that provide basic vision driver functionality with default ros2 topic
+        </description>
+    </class>
+    <class type="perception::OpenCVVisionDriver" base_class_type="perception::DriverBase">
+        <description>
+            A plugin that provide basic vision driver functionality with opencv capture device
+        </description>
+    </class>
+</library>

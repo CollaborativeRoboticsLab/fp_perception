@@ -1,44 +1,64 @@
-#ifndef OPENCV_VISION_DRIVER_HPP_
-#define OPENCV_VISION_DRIVER_HPP_
+#pragma once
 
 #include <mutex>
 #include <opencv2/opencv.hpp>
 #include <cv_bridge/cv_bridge.h>
 #include <sensor_msgs/msg/image.hpp>
-#include <perception/driver_base.hpp>
+#include <perception_base/driver_base.hpp>
 
 namespace perception
 {
 
-class OpenCVVisionDriver : public DriverBase
+class OpenCVDriver : public DriverBase
 {
 public:
-  OpenCVVisionDriver() = default;
-  ~OpenCVVisionDriver() override
+  OpenCVDriver() = default;
+  ~OpenCVDriver() override
   {
     stop();
   }
 
   /**
-   * @brief Start the driver streaming with a ROS node and namespace
+   * @brief Initialize the driver
+   *
+   * This function should be overridden in derived classes to provide specific initialization.
    *
    * @param node Shared pointer to the ROS node
-   * @param config configuration loaded from the yaml file
    */
-  void start(const rclcpp::Node::SharedPtr& node, const driver_options& config) override
+  void initialize(const rclcpp::Node::SharedPtr& node) override
   {
-    initialize_base(node, config);
+    // Configure parameters for the node
+    node_->declare_parameter("driver.vision.OpenCVDriver.name", "OpenCVDriver");
+    node_->declare_parameter("driver.vision.OpenCVDriver.device_id", "0");
 
+    // Load parameters from the node
+    config_.name = node_->get_parameter("driver.vision.OpenCVDriver.name").as_string();
+    config_.device_id = node_->get_parameter("driver.vision.OpenCVDriver.device_id").as_int();
+
+    // Publish about the assigned driver parameters
+    event_->info("Assigned driver name: " + config_.name);
+    event_->info("Assigned driver device_id: " + std::to_string(config_.device_id));
+
+    initialize_base(node);
+
+    event_->info("Initialized");
+  }
+
+  /**
+   * @brief Start the driver streaming with a ROS node and namespace
+   */
+  void start() override
+  {
     // open the camera device
     capture_device.open(config_.device_id);
 
     // check if the camera opened successfully
     if (!capture_device.isOpened())
     {
-      throw perception_exception("OpenCVVisionDriver failed to open video device ID: " + config_.device_id);
+      throw perception_exception("OpenCVDriver failed to open video device ID: " + config_.device_id);
     }
 
-    event_->info("OpenCVVisionDriver started on video device " + config_.device_id);
+    event_->info("OpenCVDriver started on video device " + config_.device_id);
   }
 
   /**
@@ -50,7 +70,7 @@ public:
     if (capture_device.isOpened())
     {
       capture_device.release();
-      event_->info("OpenCVVisionDriver stopped.");
+      event_->info("OpenCVDriver stopped.");
     }
   }
 
@@ -86,5 +106,3 @@ protected:
 };
 
 }  // namespace perception
-
-#endif  // OPENCV_VISION_DRIVER_HPP_

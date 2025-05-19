@@ -1,36 +1,58 @@
-#ifndef DEFAULT_VISION_DRIVER_HPP_
-#define DEFAULT_VISION_DRIVER_HPP_
+#pragma once
 
 #include <mutex>
-#include <perception/driver_base.hpp>
+#include <condition_variable>
+#include <perception_base/driver_base.hpp>
 #include <sensor_msgs/msg/image.hpp>
 #include <image_transport/image_transport.hpp>
 
 namespace perception
 {
 
-class DefaultVisionDriver : public DriverBase
+class DefaultDriver : public DriverBase
 {
 public:
-  DefaultVisionDriver() = default;
-  ~DefaultVisionDriver() override = default;
+  DefaultDriver() = default;
+  ~DefaultDriver() override = default;
+
+  /**
+   * @brief Initialize the driver
+   *
+   * This function should be overridden in derived classes to provide specific initialization.
+   *
+   * @param node Shared pointer to the ROS node
+   */
+  void initialize(const rclcpp::Node::SharedPtr& node) override
+  {
+    // Configure parameters for the node
+    node_->declare_parameter("driver.vision.DefaultDriver.name", "DefaultDriver");
+    node_->declare_parameter("driver.vision.DefaultDriver.topic", "/camera/raw");
+
+    // Load parameters from the node
+    config_.name = node_->get_parameter("driver.vision.DefaultDriver.name").as_string();
+    config_.topic = node_->get_parameter("driver.vision.DefaultDriver.topic").as_string();
+
+    // Publish about the assigned driver parameters
+    event_->info("Assigned driver name: " + config_.name);
+    event_->info("Assigned driver topic: " + config_.topic);
+
+    initialize_base(node);
+
+    event_->info("Initialized");
+  }
 
   /**
    * @brief Start the driver streaming with a ROS node and namespace
    *
-   * @param node Shared pointer to the ROS node
-   * @param config configuration loaded from the yaml file
    */
-  void start(const rclcpp::Node::SharedPtr& node, const driver_options& config) override
+  void start() override
   {
-    initialize_base(node, config);
-
     image_transport::ImageTransport transport(node_);
 
-    image_sub_ = transport.subscribe(config_.topic, 1,
-                                     std::bind(&DefaultVisionDriver::imageCallback, this, std::placeholders::_1));
+    image_sub_ =
+        transport.subscribe(config_.topic, 1, std::bind(&DefaultDriver::imageCallback, this, std::placeholders::_1));
 
-    event_->info("Initialized. Subscribed to image topic: " + config_.topic);
+    event_->info("Started. Subscribed to image topic: " + config_.topic);
   }
 
   /**
@@ -52,6 +74,10 @@ public:
    */
   std::any getData() const override
   {
+    std::unique_lock<std::mutex> lock(image_mutex_);
+
+    image_ready_cv_.wait(lock, [this] { return latest_image_ != nullptr; });
+
     return std::make_shared<sensor_msgs::msg::Image>(*latest_image_);
   }
 
@@ -63,14 +89,16 @@ protected:
     std::lock_guard<std::mutex> lock(image_mutex_);
     latest_image_ = msg;
 
+    image_ready_cv_.notify_all();
+
     event_->debug("Image data updated.");
   }
 
   image_transport::Subscriber image_sub_;
   sensor_msgs::msg::Image::ConstSharedPtr latest_image_;
-  std::mutex image_mutex_;
+  
+  mutable std::mutex image_mutex_;
+  mutable std::condition_variable image_ready_cv_;
 };
 
 }  // namespace perception
-
-#endif  // DEFAULT_VISION_DRIVER_HPP_

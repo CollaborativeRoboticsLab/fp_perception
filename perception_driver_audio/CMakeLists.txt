@@ -12,8 +12,9 @@ endif()
 
 find_package(ament_cmake REQUIRED)
 find_package(rclcpp REQUIRED)
+find_package(rclcpp_components REQUIRED)
 find_package(pluginlib REQUIRED)
-find_package(perception REQUIRED)
+find_package(perception_base REQUIRED)
 find_package(perception_events REQUIRED)
 find_package(perception_msgs REQUIRED)
 
@@ -30,20 +31,22 @@ add_library(${PROJECT_NAME} SHARED
   src/audio_drivers.cpp
 )
 
-ament_target_dependencies(${PROJECT_NAME}
-  rclcpp
-  pluginlib
-  perception
-  perception_events
-  perception_msgs
-)
-
 # Link PortAudio
 target_link_libraries(${PROJECT_NAME}
   ${PORTAUDIO_LIBRARIES}
 )
 
-pluginlib_export_plugin_description_file(perception plugins.xml)
+ament_target_dependencies(${PROJECT_NAME}
+  rclcpp
+  rclcpp_components
+  pluginlib
+  perception_base
+  perception_events
+  perception_msgs
+  PORTAUDIO
+)
+
+pluginlib_export_plugin_description_file(${PROJECT_NAME} plugins.xml)
 
 install(TARGETS ${PROJECT_NAME}
   EXPORT ${PROJECT_NAME}

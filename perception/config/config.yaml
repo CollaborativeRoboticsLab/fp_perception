@@ -1,0 +1,22 @@
+# config for perception drivers
+# This file is used to configure the parameters for the perception drivers in the perception system.
+/**:
+  ros__parameters:
+    driver:
+      vision:
+        DefaultDriver:
+          name: DefaultDriver
+          topic: /camera/image_raw
+
+        OpenCVDriver:
+          name: OpenCVDriver
+          device_id: 0
+
+      audio:
+        MicrophoneAudioDriver:
+          name: MicrophoneAudioDriver
+          device_id: 0
+
+        SpeakerAudioDriver:
+          name: SpeakerAudioDriver
+          device_id: 0

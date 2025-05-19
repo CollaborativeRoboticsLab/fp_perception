@@ -15,9 +15,7 @@ struct driver_options
 {
   std::string name;
   std::string topic;
-  std::string device_id;
-  std::string started_by;
-  std::string pid;
+  int device_id;
 };
 
 /**

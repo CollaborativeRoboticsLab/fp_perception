@@ -1,5 +1,4 @@
-#ifndef DRIVER_BASE_HPP_
-#define DRIVER_BASE_HPP_
+#pragma once
 
 #include <string>
 #include <any>
@@ -7,8 +6,8 @@
 #include <rclcpp/rclcpp.hpp>
 
 #include <perception_events/event_client.hpp>
-#include <perception/options.hpp>
-#include <perception/exceptions.hpp>
+#include <perception_base/utils/options.hpp>
+#include <perception_base/utils/exceptions.hpp>
 
 namespace perception
 {
@@ -19,12 +18,22 @@ public:
   virtual ~DriverBase() = default;
 
   /**
-   * @brief Start the driver streaming with a ROS node and namespace
+   * @brief Initialize the driver
+   *
+   * This function should be overridden in derived classes to provide specific initialization.
    *
    * @param node Shared pointer to the ROS node
-   * @param config configuration loaded from the yaml file
    */
-  virtual void start(const rclcpp::Node::SharedPtr& node, const driver_options& config) = 0;
+  virtual void initialize(const rclcpp::Node::SharedPtr& node)
+  {
+    initialize_base(node);
+  }
+
+  /**
+   * @brief Start the driver streaming
+   *
+   */
+  virtual void start() = 0;
 
   /**
    * @brief Stop driver streaming
@@ -89,13 +98,11 @@ protected:
    * @brief Initializer base driver in place of constructor due to plugin semantics
    *
    * @param node shared pointer to the ROS node.
-   * @param run_config configuration loaded from the yaml file
    */
-  void initialize_base(const rclcpp::Node::SharedPtr& node, const driver_options& config)
+  void initialize_base(const rclcpp::Node::SharedPtr& node)
   {
     node_ = node;
-    config_ = config;
-    event_ = std::make_shared<EventClient>(node_, config.name, "/events");
+    event_ = std::make_shared<EventClient>(node_, config_.name, "/events");
   }
 
   /**
@@ -124,5 +131,3 @@ protected:
   std::shared_ptr<EventClient> event_;
 };
 }  // namespace perception
-
-#endif  // DRIVER_BASE_HPP_

@@ -1,10 +1,9 @@
-#ifndef ALGORITHM_BASE_HPP_
-#define ALGORITHM_BASE_HPP_
+#pragma once
 
 #include <rclcpp/rclcpp.hpp>
 #include <string>
-#include <perception/options.hpp>
-#include <perception/exceptions.hpp>
+#include <perception_base/utils/options.hpp>
+#include <perception_base/utils/exceptions.hpp>
 #include <perception_events/event_client.hpp>
 
 namespace perception
@@ -75,5 +74,3 @@ private:
 };
 
 }  // namespace perception
-
-#endif  // DRIVER_BASE_HPP_

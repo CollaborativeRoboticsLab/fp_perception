@@ -11,7 +11,7 @@
 
   <depend>rclcpp</depend>
   <depend>pluginlib</depend>
-  <depend>perception</depend>
+  <depend>perception_base</depend>
   <depend>perception_events</depend>
   <depend>perception_msgs</depend>
 

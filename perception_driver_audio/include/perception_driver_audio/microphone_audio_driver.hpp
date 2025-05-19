@@ -1,10 +1,10 @@
-#ifndef MICROPHONE_DRIVER_HPP_
-#define MICROPHONE_DRIVER_HPP_
+#pragma once
 
 #include <portaudio.h>
 #include <vector>
+#include <deque>
 #include <mutex>
-#include <perception/driver_base.hpp>
+#include <perception_base/driver_base.hpp>
 
 namespace perception
 {
@@ -28,27 +28,58 @@ public:
   }
 
   /**
-   * @brief Start the driver streaming with a ROS node and namespace. This function
-   * initializes the microphone driver and starts the audio stream. It uses PortAudio
-   * to open the default audio stream and starts it.
+   * @brief Initialize the driver
+   *
+   * This function should be overridden in derived classes to provide specific initialization.
    *
    * @param node Shared pointer to the ROS node
-   * @param config configuration loaded from the yaml file
    */
-  void start(const rclcpp::Node::SharedPtr& node, const driver_options& config) override
+  void initialize(const rclcpp::Node::SharedPtr& node) override
   {
-    initialize_base(node, config);
+    // Configure parameters for the nodevision
+    node_->declare_parameter("driver.audio.MicrophoneAudioDriver.name", "MicrophoneAudioDriver");
+    node_->declare_parameter("driver.audio.MicrophoneAudioDriver.device_id", "0");  // default device
 
+    // Load parameters from the node
+    config_.name = node_->get_parameter("driver.audio.MicrophoneAudioDriver.name").as_string();
+    config_.device_id = node_->get_parameter("driver.audio.MicrophoneAudioDriver.device_id").as_int();
+
+    // Publish about the assigned driver parameters
+    event_->info("Assigned driver name: " + config_.name);
+    event_->info("Assigned driver device_id: " + std::to_string(config_.device_id));
+
+    initialize_base(node);
+
+    event_->info("Initialized");
+  }
+
+  /**
+   * @brief Start the driver streaming. This function initializes the microphone driver and
+   * starts the audio stream. It uses PortAudio to open the default audio stream and starts it.
+   *
+   */
+  void start() override
+  {
     Pa_Initialize();
 
-    PaError err = Pa_OpenDefaultStream(&stream_, 1, 0, paInt16, 44100, 256, nullptr, nullptr);
-    if (err != paNoError) {
+    PaStreamParameters inputParams;
+    inputParams.device = config_.device_id;
+    inputParams.channelCount = 1;
+    inputParams.sampleFormat = paInt16;
+    inputParams.suggestedLatency = Pa_GetDeviceInfo(config_.device_id)->defaultLowInputLatency;
+    inputParams.hostApiSpecificStreamInfo = nullptr;
+
+    PaError err =
+        Pa_OpenStream(&stream_, &inputParams, nullptr, 44100, 256, paNoFlag, &MicrophoneAudioDriver::paCallback, this);
+
+    if (err != paNoError)
+    {
       throw perception_exception("Failed to open microphone stream: " + std::string(Pa_GetErrorText(err)));
     }
-    
+
     Pa_StartStream(stream_);
 
-    event_->info("MicrophoneAudioDriver started.");
+    event_->info("MicrophoneAudioDriver started (non-blocking).");
   }
   /**
    * @brief Stop driver streaming. This function stops the audio stream and closes it.
@@ -74,18 +105,42 @@ public:
    */
   std::any getData() const override
   {
-    if (!stream_ || !Pa_IsStreamActive(stream_))
-      throw perception_exception("Microphone stream not active");
+    std::lock_guard<std::mutex> lock(buffer_mutex_);
 
-    std::vector<int16_t> buffer(256);
-    Pa_ReadStream(stream_, buffer.data(), buffer.size());
-    return buffer;
+    if (audio_buffer_.empty())
+      throw perception_exception("No audio data available");
+
+    std::vector<int16_t> chunk;
+    const size_t chunk_size = 256;
+
+    for (size_t i = 0; i < chunk_size && !audio_buffer_.empty(); ++i)
+    {
+      chunk.push_back(audio_buffer_.front());
+      audio_buffer_.pop_front();
+    }
+
+    return chunk;
   }
 
 protected:
+  static int paCallback(const void* inputBuffer, void* outputBuffer, unsigned long framesPerBuffer,
+                        const PaStreamCallbackTimeInfo* timeInfo, PaStreamCallbackFlags statusFlags, void* userData)
+  {
+    auto* self = static_cast<MicrophoneAudioDriver*>(userData);
+    const auto* in = static_cast<const int16_t*>(inputBuffer);
+
+    if (in)
+    {
+      std::lock_guard<std::mutex> lock(self->buffer_mutex_);
+      self->audio_buffer_.insert(self->audio_buffer_.end(), in, in + framesPerBuffer);
+    }
+
+    return paContinue;
+  }
+
   PaStream* stream_;
+  mutable std::deque<int16_t> audio_buffer_;
+  mutable std::mutex buffer_mutex_;
 };
 
 }  // namespace perception
-
-#endif  // MICROPHONE_DRIVER_HPP_

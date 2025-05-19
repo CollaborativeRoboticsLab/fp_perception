@@ -12,12 +12,13 @@ endif()
 
 find_package(ament_cmake REQUIRED)
 find_package(rclcpp REQUIRED)
+find_package(rclcpp_components REQUIRED)
 find_package(pluginlib REQUIRED)
 find_package(image_transport REQUIRED)
 find_package(OpenCV REQUIRED)
 find_package(cv_bridge REQUIRED)
 find_package(sensor_msgs REQUIRED)
-find_package(perception REQUIRED)
+find_package(perception_base REQUIRED)
 find_package(perception_events REQUIRED)
 find_package(perception_msgs REQUIRED)
 
@@ -30,23 +31,24 @@ add_library(${PROJECT_NAME} SHARED
   src/vision_drivers.cpp
 )
 
-ament_target_dependencies(${PROJECT_NAME}
-  rclcpp
-  pluginlib
-  cv_bridge
-  image_transport
-  sensor_msgs
-  perception
-  perception_events
-  perception_msgs
-)
-
 # Link OpenCV explicitly
 target_link_libraries(${PROJECT_NAME}
   ${OpenCV_LIBS}
 )
 
-pluginlib_export_plugin_description_file(perception plugins.xml)
+ament_target_dependencies(${PROJECT_NAME}
+  rclcpp
+  rclcpp_components
+  pluginlib
+  cv_bridge
+  image_transport
+  sensor_msgs
+  perception_base
+  perception_events
+  perception_msgs
+)
+
+pluginlib_export_plugin_description_file(${PROJECT_NAME} plugins.xml)
 
 install(TARGETS ${PROJECT_NAME}
   EXPORT ${PROJECT_NAME}

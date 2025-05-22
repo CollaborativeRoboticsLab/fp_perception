@@ -24,6 +24,19 @@ sudo apt update
 sudo apt install libportaudio2 libportaudio-dev
 ```
 
+## Parameters
+
+```yaml
+driver:
+  audio:
+    MicrophoneAudioDriver:
+      name: MicrophoneAudioDriver
+      device_id: 0
+    SpeakerAudioDriver:
+      name: SpeakerAudioDriver
+      device_id: 0
+```
+
 ## Usage
 
 This module is not meant to be run as a standalone node. Instead, it is designed to be **loaded as a plugin** or instantiated via your own driver management system in ROS2.

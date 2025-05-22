@@ -17,25 +17,27 @@ This package abstracts vision input devices so they can be easily plugged into a
 
 ## Available Drivers
 
-### 1. `DefaultVisionDriver`
+### 1. `DefaultDriver`
 
 - Subscribes to a ROS image topic using `image_transport`
 - Stores the latest image for retrieval
 
-**Required config:**
-```yaml
-topic: "/camera/image_raw"
-```
-
-### 2. `OpenCVVisionDriver`
+### 2. `OpenCVDriver`
 
 * Captures images directly from a camera device using `cv::VideoCapture`
 * Useful for quick prototyping without ROS camera drivers
 
-**Required config:**
+## Parameters
 
 ```yaml
-device_id: 0  # default is 0 if not set
+driver:
+  vision:
+    DefaultDriver:
+      name: DefaultDriver
+      topic: /camera/image_raw
+    OpenCVDriver:
+      name: OpenCVDriver
+      device_id: 0
 ```
 
 ## Using as a Plugin
@@ -63,3 +65,5 @@ cv::Mat img = std::any_cast<cv::Mat>(driver->getData());
 -[ ] Camera info publisher integration
 -[ ] Dynamic reconfiguration of camera parameters
 -[ ] Stereo camera and RGB-D support
+
+

@@ -47,10 +47,32 @@ void stop();
 Each base class includes a helper `initialize_base()` method to handle common setup like ROS node storage and event client creation.
 
 
-## Plugins
+## Driver Plugins
 
 - [Perception Vision Driver](https://github.com/CollaborativeRoboticsLab/perception/blob/main/perception_driver_vision/readme.md) plugins required to interact with visual data
 - [Perception Audio Driver](https://github.com/CollaborativeRoboticsLab/perception/blob/main/perception_driver_audio/readme.md) plugins required to interact with visual data
+
+## Algorithm Plugins
+
+- [Perception Eye Gaze Detection](https://github.com/CollaborativeRoboticsLab/perception/blob/main/perception_detect_eye_gaze/readme.md) plugins required to interact with visual data
+
+## Plugin selection
+
+Set the bool `true` to use a type of a plugin and then give the name of the specific plugin to load it.
+
+```yaml
+  use_vision_driver: true
+  use_microphone_driver: false
+  use_speaker_driver: false
+  use_eye_gaze_algorithm: true
+  
+  # Uncomment the following lines to enable the respective drivers
+  vision_driver: perception::DefaultDriver              # Default ROS driver for vision
+  # vision_driver: perception::OpenCVDriver             # OpenCV driver for vision
+  microphone_driver: perception::MicrophoneAudioDriver  # Driver for microphone audio
+  speaker_driver: perception::SpeakerAudioDriver        # Driver for speaker audio
+  eye_gaze_algorithm: perception::GazeAlgorithm         # Algorithm for eye gaze detection
+```
 
 ## Writing Your Own Plugins
 

@@ -27,18 +27,19 @@ public:
   void initialize(const rclcpp::Node::SharedPtr& node) override
   {
     // Configure parameters for the node
-    node_->declare_parameter("driver.vision.DefaultDriver.name", "DefaultDriver");
-    node_->declare_parameter("driver.vision.DefaultDriver.topic", "/camera/raw");
+    node->declare_parameter("driver.vision.DefaultDriver.name", "DefaultDriver");
+    node->declare_parameter("driver.vision.DefaultDriver.topic", "/camera/raw");
 
     // Load parameters from the node
-    config_.name = node_->get_parameter("driver.vision.DefaultDriver.name").as_string();
-    config_.topic = node_->get_parameter("driver.vision.DefaultDriver.topic").as_string();
+    config_.name = node->get_parameter("driver.vision.DefaultDriver.name").as_string();
+    config_.topic = node->get_parameter("driver.vision.DefaultDriver.topic").as_string();
+
+    // Initialize the base driver
+    initialize_base(node);
 
     // Publish about the assigned driver parameters
     event_->info("Assigned driver name: " + config_.name);
     event_->info("Assigned driver topic: " + config_.topic);
-
-    initialize_base(node);
 
     event_->info("Initialized");
   }
@@ -49,6 +50,7 @@ public:
    */
   void start() override
   {
+    event_->info("DefaultDriver starting on topic " + config_.topic);
     image_transport::ImageTransport transport(node_);
 
     image_sub_ =

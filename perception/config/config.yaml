@@ -8,8 +8,8 @@
     use_eye_gaze_algorithm: true
 
     # Uncomment the following lines to enable the respective drivers
-    vision_driver: perception::DefaultDriver              # Default ROS driver for vision
-    # vision_driver: perception::OpenCVDriver             # OpenCV driver for vision
+    # vision_driver: perception::DefaultDriver              # Default ROS driver for vision
+    vision_driver: perception::OpenCVDriver             # OpenCV driver for vision
     microphone_driver: perception::MicrophoneAudioDriver  # Driver for microphone audio
     speaker_driver: perception::SpeakerAudioDriver        # Driver for speaker audio
     eye_gaze_algorithm: perception::GazeAlgorithm         # Algorithm for eye gaze detection
@@ -47,4 +47,4 @@
           history_size: 10
           model_path: install/face_mesh/models/CPU/face_mesh.tflite
           attention_state: false
-          debug_mode: false
+          debug_mode: true

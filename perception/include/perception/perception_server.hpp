@@ -53,21 +53,31 @@ public:
     /*************************************************************************
      * Identify what plugins to load
      ************************************************************************/
-    this->declare_parameter("use_vision_driver", "false");
-    this->declare_parameter("use_microphone_driver", "false");
-    this->declare_parameter("use_speaker_driver", "false");
-    this->declare_parameter("use_eye_gaze_algorithm", "false");
+    this->declare_parameter("use_vision_driver", false);
+    this->declare_parameter("use_microphone_driver", false);
+    this->declare_parameter("use_speaker_driver", false);
+    this->declare_parameter("use_eye_gaze_algorithm", false);
 
     bool use_vision_driver = this->get_parameter("use_vision_driver").as_bool();
     bool use_microphone_driver = this->get_parameter("use_microphone_driver").as_bool();
     bool use_speaker_driver = this->get_parameter("use_speaker_driver").as_bool();
     bool use_eye_gaze_algorithm = this->get_parameter("use_eye_gaze_algorithm").as_bool();
 
+    if (use_vision_driver) event_->info("Will use vision driver.");
+    else event_->info("Will not use vision driver.");
+
+    if (use_microphone_driver) event_->info("Will use microphone driver.");
+    else event_->info("Will not use microphone driver.");
+
+    if (use_speaker_driver) event_->info("Will use speaker driver.");
+    else event_->info("Will not use speaker driver.");
+
+    if (use_eye_gaze_algorithm) event_->info("Will use eye gaze algorithm.");
+    else event_->info("Will not use eye gaze algorithm.");
+
     /*************************************************************************
      * vision driver plugin class loader and driver pointer
      ************************************************************************/
-
-    std::string vision_driver_name = this->declare_parameter("vision_driver", "perception::DefaultDriver");
 
     if (use_vision_driver)
     {

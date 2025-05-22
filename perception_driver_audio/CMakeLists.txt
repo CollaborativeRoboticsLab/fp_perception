@@ -46,7 +46,7 @@ ament_target_dependencies(${PROJECT_NAME}
   PORTAUDIO
 )
 
-pluginlib_export_plugin_description_file(${PROJECT_NAME} plugins.xml)
+pluginlib_export_plugin_description_file(perception plugins.xml)
 
 install(TARGETS ${PROJECT_NAME}
   EXPORT ${PROJECT_NAME}

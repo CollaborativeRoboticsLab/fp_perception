@@ -69,30 +69,33 @@ public:
   void initialize(const rclcpp::Node::SharedPtr& node) override
   {
     // Configure parameters for the nodevision
-    node_->declare_parameter("algorithm.GazeAlgorithm.name", "EyeGazeDetection");
-    node_->declare_parameter("algorithm.GazeAlgorithm.calibration.time", "10.0");
-    node_->declare_parameter("algorithm.GazeAlgorithm.calibration.sample_size", "300");
-    node_->declare_parameter("algorithm.GazeAlgorithm.calibration.angle_tolerance", "15.0");
-    node_->declare_parameter("algorithm.GazeAlgorithm.detection.attention_threshold", "0.5");
-    node_->declare_parameter("algorithm.GazeAlgorithm.detection.pitch_threshold", "15.0");
-    node_->declare_parameter("algorithm.GazeAlgorithm.detection.yaw_threshold", "20.0");
-    node_->declare_parameter("algorithm.GazeAlgorithm.detection.history_size", "10");
-    node_->declare_parameter("algorithm.GazeAlgorithm.detection.model_path", "face_landmark.tflite");
-    node_->declare_parameter("algorithm.GazeAlgorithm.detection.attention_state", "false");
-    node_->declare_parameter("algorithm.GazeAlgorithm.detection.debug_mode", "false");
+    node->declare_parameter("algorithm.GazeAlgorithm.name", "EyeGazeDetection");
+    node->declare_parameter("algorithm.GazeAlgorithm.calibration.time", 10.0);
+    node->declare_parameter("algorithm.GazeAlgorithm.calibration.sample_size", 300);
+    node->declare_parameter("algorithm.GazeAlgorithm.calibration.angle_tolerance", 15.0);
+    node->declare_parameter("algorithm.GazeAlgorithm.detection.attention_threshold", 0.5);
+    node->declare_parameter("algorithm.GazeAlgorithm.detection.pitch_threshold", 15.0);
+    node->declare_parameter("algorithm.GazeAlgorithm.detection.yaw_threshold", 20.0);
+    node->declare_parameter("algorithm.GazeAlgorithm.detection.history_size", 10);
+    node->declare_parameter("algorithm.GazeAlgorithm.detection.model_path", "face_landmark.tflite");
+    node->declare_parameter("algorithm.GazeAlgorithm.detection.attention_state", false);
+    node->declare_parameter("algorithm.GazeAlgorithm.detection.debug_mode", false);
 
     // Load parameters from the node
-    config_.name = node_->get_parameter("algorithm.GazeAlgorithm.name").as_string();
-    calibration_time = node_->get_parameter("algorithm.GazeAlgorithm.calibration.time").as_double();
-    samples_needed = node_->get_parameter("algorithm.GazeAlgorithm.calibration.sample_size").as_int();
-    gaze_angle_tolerance = node_->get_parameter("algorithm.GazeAlgorithm.calibration.gaze_angle_tolerance").as_double();
-    attention_threshold = node_->get_parameter("algorithm.GazeAlgorithm.detection.attention_threshold").as_double();
-    pitch_threshold = node_->get_parameter("algorithm.GazeAlgorithm.detection.pitch_threshold").as_double();
-    yaw_threshold = node_->get_parameter("algorithm.GazeAlgorithm.detection.yaw_threshold").as_double();
-    history_size = node_->get_parameter("algorithm.GazeAlgorithm.detection.history_size").as_int();
-    model_path = node_->get_parameter("algorithm.GazeAlgorithm.detection.model_path").as_string();
-    attention_state = node_->get_parameter("algorithm.GazeAlgorithm.detection.attention_state").as_bool();
-    debug_mode = node_->get_parameter("algorithm.GazeAlgorithm.detection.debug_mode").as_bool();
+    config_.name = node->get_parameter("algorithm.GazeAlgorithm.name").as_string();
+    calibration_time = node->get_parameter("algorithm.GazeAlgorithm.calibration.time").as_double();
+    samples_needed = node->get_parameter("algorithm.GazeAlgorithm.calibration.sample_size").as_int();
+    gaze_angle_tolerance = node->get_parameter("algorithm.GazeAlgorithm.calibration.gaze_angle_tolerance").as_double();
+    attention_threshold = node->get_parameter("algorithm.GazeAlgorithm.detection.attention_threshold").as_double();
+    pitch_threshold = node->get_parameter("algorithm.GazeAlgorithm.detection.pitch_threshold").as_double();
+    yaw_threshold = node->get_parameter("algorithm.GazeAlgorithm.detection.yaw_threshold").as_double();
+    history_size = node->get_parameter("algorithm.GazeAlgorithm.detection.history_size").as_int();
+    model_path = node->get_parameter("algorithm.GazeAlgorithm.detection.model_path").as_string();
+    attention_state = node->get_parameter("algorithm.GazeAlgorithm.detection.attention_state").as_bool();
+    debug_mode = node->get_parameter("algorithm.GazeAlgorithm.detection.debug_mode").as_bool();
+
+    // Initialize the base driver
+    initialize_base(node);
 
     // Publish about the assigned driver parameters
     event_->info("Assigned driver name: " + config_.name);
@@ -107,9 +110,7 @@ public:
     event_->info("Assigned detection attention state: " + std::to_string(attention_state));
     event_->info("Assigned detection debug mode: " + std::to_string(debug_mode));
 
-    initialize_base(node);
-
-
+    // Initialize the attention detector and calibrator
     calibrator_ = std::make_shared<AttentionCalibrator>(calibration_time, samples_needed, gaze_angle_tolerance);
     calib_detector_ = std::make_shared<CalibratedAttentionDetector>(
         calibrator_, attention_threshold, pitch_threshold, yaw_threshold, history_size, model_path, attention_state);
@@ -120,15 +121,20 @@ public:
   }
 
   void start() override
-  {
+  { 
+    event_->info("Starting Gaze Algorithm");
+
     startCalibration();
 
+    event_->info("Calibration complete. Starting attention detection.");
     is_in_attention_detection_mode_ = true;
     attention_thread_ = std::thread(&GazeAlgorithm::attentionLoop, this);
   }
 
   void stop() override
   {
+    event_->info("Stopping Gaze Algorithm");
+    
     is_in_attention_detection_mode_ = false;
 
     if (attention_thread_.joinable())
@@ -351,7 +357,6 @@ protected:
   }
 
   std::thread main_thread_;
-  rclcpp::Node::SharedPtr node_;
   double calibration_time;
   int samples_needed;
   double gaze_angle_tolerance;

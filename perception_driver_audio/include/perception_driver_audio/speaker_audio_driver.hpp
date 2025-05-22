@@ -37,19 +37,19 @@ public:
   void initialize(const rclcpp::Node::SharedPtr& node) override
   {
     // Configure parameters for the nodevision
-    node_->declare_parameter("driver.audio.SpeakerAudioDriver.name", "SpeakerAudioDriver");
-    node_->declare_parameter("driver.audio.SpeakerAudioDriver.device_id", "0");
+    node->declare_parameter("driver.audio.SpeakerAudioDriver.name", "SpeakerAudioDriver");
+    node->declare_parameter("driver.audio.SpeakerAudioDriver.device_id", 0);
 
     // Load parameters from the node
-    config_.name = node_->get_parameter("driver.audio.SpeakerAudioDriver.name").as_string();
-    config_.device_id = node_->get_parameter("driver.audio.SpeakerAudioDriver.device_id").as_int();
+    config_.name = node->get_parameter("driver.audio.SpeakerAudioDriver.name").as_string();
+    config_.device_id = node->get_parameter("driver.audio.SpeakerAudioDriver.device_id").as_int();
+
+    // Initialize the base driver
+    initialize_base(node);
 
     // Publish about the assigned driver parameters
     event_->info("Assigned driver name: " + config_.name);
     event_->info("Assigned driver device_id: " + std::to_string(config_.device_id));
-
-    initialize_base(node);
-
     event_->info("Initialized");
   }
 
@@ -60,6 +60,7 @@ public:
    */
   void start() override
   {
+    event_->info("SpeakerAudioDriver starting on device " + std::to_string(config_.device_id));
     Pa_Initialize();
 
     PaStreamParameters outputParams;
@@ -74,6 +75,7 @@ public:
 
     if (err != paNoError)
     {
+      event_->error("Failed to open speaker stream: " + std::string(Pa_GetErrorText(err)));
       throw perception_exception("Failed to open speaker stream: " + std::string(Pa_GetErrorText(err)));
     }
 

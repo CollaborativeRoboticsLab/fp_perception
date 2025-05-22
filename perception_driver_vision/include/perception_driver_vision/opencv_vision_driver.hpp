@@ -28,18 +28,19 @@ public:
   void initialize(const rclcpp::Node::SharedPtr& node) override
   {
     // Configure parameters for the node
-    node_->declare_parameter("driver.vision.OpenCVDriver.name", "OpenCVDriver");
-    node_->declare_parameter("driver.vision.OpenCVDriver.device_id", "0");
+    node->declare_parameter("driver.vision.OpenCVDriver.name", "OpenCVDriver");
+    node->declare_parameter("driver.vision.OpenCVDriver.device_id", 0);
 
     // Load parameters from the node
-    config_.name = node_->get_parameter("driver.vision.OpenCVDriver.name").as_string();
-    config_.device_id = node_->get_parameter("driver.vision.OpenCVDriver.device_id").as_int();
+    config_.name = node->get_parameter("driver.vision.OpenCVDriver.name").as_string();
+    config_.device_id = node->get_parameter("driver.vision.OpenCVDriver.device_id").as_int();
+
+    // Initialize the base driver
+    initialize_base(node);
 
     // Publish about the assigned driver parameters
     event_->info("Assigned driver name: " + config_.name);
     event_->info("Assigned driver device_id: " + std::to_string(config_.device_id));
-
-    initialize_base(node);
 
     event_->info("Initialized");
   }
@@ -49,16 +50,19 @@ public:
    */
   void start() override
   {
+    event_->info("OpenCVDriver starting on video device " + std::to_string(config_.device_id));
+
     // open the camera device
     capture_device.open(config_.device_id);
 
     // check if the camera opened successfully
     if (!capture_device.isOpened())
     {
-      throw perception_exception("OpenCVDriver failed to open video device ID: " + config_.device_id);
+      event_->error("OpenCVDriver failed to open video device ID: " + std::to_string(config_.device_id));
+      throw perception_exception("OpenCVDriver failed to open video device ID: " + std::to_string(config_.device_id));
     }
 
-    event_->info("OpenCVDriver started on video device " + config_.device_id);
+    event_->info("OpenCVDriver started on video device " + std::to_string(config_.device_id));
   }
 
   /**

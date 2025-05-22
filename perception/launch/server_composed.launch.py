@@ -20,16 +20,21 @@ def generate_launch_description():
     # load config file
     perception_config = os.path.join(get_package_share_directory('perception'), 'config', 'config.yaml')
 
-    # create perception node
-    perception_server = Node(
-        package='perception',
-        executable='perception_node',
-        name='perception_node',
-        parameters=[perception_config],
-        output='screen',
-        arguments=['--ros-args', '--log-level', 'info']
+    # create bridge composition
+    perception_server = ComposableNodeContainer(
+        name='perception_container',
+        namespace='',
+        package='rclcpp_components',
+        executable='component_container_mt',
+        composable_node_descriptions=[
+            ComposableNode(
+                package='perception',
+                plugin='perception::PerceptionServer',
+                name='perception',
+                parameters=[perception_config]
+            )
+        ]
     )
-
 
     # added perception listener launchfile
     perception_launch_path = os.path.join(get_package_share_directory('perception_events'), 'launch', 'listener.launch.py')

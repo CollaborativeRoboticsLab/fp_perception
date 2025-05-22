@@ -19,44 +19,52 @@ It enables modular development and dynamic loading of components at runtime usin
 * Integrated **event publishing** using the `EventClient` abstraction for tracing and introspection.
 
 
+## Plugins
 
-## Plugin Architecture
+### Driver Plugins
 
-### Base Classes
-
-#### `DriverBase`
-
-Used for implementing drivers that interact with perception hardware (e.g., cameras, depth sensors).
-
-```cpp
-void initialize(const rclcpp::Node::SharedPtr& node, const driver_options& config);
-void start();
-void stop();
-```
-
-#### `AlgorithmBase`
-
-Used for implementing perception algorithms (e.g., face detection, object tracking).
-
-```cpp
-void initialize(const rclcpp::Node::SharedPtr& node, const algorithm_options& config);
-void start();
-void stop();
-```
-
-Each base class includes a helper `initialize_base()` method to handle common setup like ROS node storage and event client creation.
-
-
-## Driver Plugins
+- `DriverBase` used to implement drivers that interact with perception hardware (e.g., cameras, audio devices and depth sensors).
 
 - [Perception Vision Driver](https://github.com/CollaborativeRoboticsLab/perception/blob/main/perception_driver_vision/readme.md) plugins required to interact with visual data
 - [Perception Audio Driver](https://github.com/CollaborativeRoboticsLab/perception/blob/main/perception_driver_audio/readme.md) plugins required to interact with visual data
 
-## Algorithm Plugins
+### Algorithm Plugins
+
+- `AlgorithmBase` used to implement perception algorithms (e.g., face detection, object tracking).
 
 - [Perception Eye Gaze Detection](https://github.com/CollaborativeRoboticsLab/perception/blob/main/perception_detect_eye_gaze/readme.md) plugins required to interact with visual data
 
-## Plugin selection
+## Build the system 
+
+Create the workspace folder
+```sh
+mkdir -p perception_ws/src
+cd perception_ws/src
+```
+
+Clone the repository
+```sh
+git clone https://github.com/CollaborativeRoboticsLab/perception.git
+```
+
+Install dependencies
+```sh
+cd ..
+sudo apt update
+sudo apt install libportaudio2 libportaudio-dev ros-humble-vision-opencv 
+```
+
+for any missing dependencies
+```sh
+rosdep install --from-paths src --ignore-src -r -y
+```
+
+build the workspace
+```sh
+colcon build
+```
+
+## Plugin configuration
 
 Set the bool `true` to use a type of a plugin and then give the name of the specific plugin to load it.
 
@@ -72,6 +80,18 @@ Set the bool `true` to use a type of a plugin and then give the name of the spec
   microphone_driver: perception::MicrophoneAudioDriver  # Driver for microphone audio
   speaker_driver: perception::SpeakerAudioDriver        # Driver for speaker audio
   eye_gaze_algorithm: perception::GazeAlgorithm         # Algorithm for eye gaze detection
+```
+
+build the workspace to update the configuration
+```sh
+colcon build
+```
+
+## Start the system
+
+```sh
+source install/setup.bash
+ros2 launch perception server.launch.py
 ```
 
 ## Writing Your Own Plugins

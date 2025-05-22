@@ -53,7 +53,7 @@ driver->start(node, config);
 Call `getData()` to retrieve the latest image from any loaded driver:
 
 ```cpp
-auto img_msg = std::any_cast<sensor_msgs::msg::Image::SharedPtr>(driver->getData());
+cv::Mat img = std::any_cast<cv::Mat>(driver->getData());
 // Use image for processing or visualization
 ```
 

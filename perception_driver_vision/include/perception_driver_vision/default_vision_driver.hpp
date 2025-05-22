@@ -1,6 +1,8 @@
 #pragma once
 
 #include <mutex>
+#include <opencv2/opencv.hpp>
+#include <cv_bridge/cv_bridge.h>
 #include <condition_variable>
 #include <perception_base/driver_base.hpp>
 #include <sensor_msgs/msg/image.hpp>
@@ -66,10 +68,9 @@ public:
   }
 
   /**
-   * @brief Get latest image data from the driver. cast to sensor_msgs::msg::Image::SharedPtr
-   * befure using
+   * @brief Get latest image data from the driver. cast to cv::Mat befure using
 
-   * @return std::any The latest data from the driver of type sensor_msgs::msg::Image::SharedPtr
+   * @return std::any The latest data from the driver of type cv::Mat
    * @throws perception_exception if not implemented in derived classes
    */
   std::any getData() const override
@@ -78,7 +79,16 @@ public:
 
     image_ready_cv_.wait(lock, [this] { return latest_image_ != nullptr; });
 
-    return std::make_shared<sensor_msgs::msg::Image>(*latest_image_);
+    try
+    {
+      // Convert sensor_msgs::Image to OpenCV Mat
+      auto cv_ptr = cv_bridge::toCvCopy(latest_image_, latest_image_->encoding);
+      return cv_ptr->image.clone();  // Return a deep copy of cv::Mat
+    }
+    catch (const cv_bridge::Exception& e)
+    {
+      throw perception_exception("cv_bridge conversion failed: " + std::string(e.what()));
+    }
   }
 
 protected:
@@ -96,7 +106,7 @@ protected:
 
   image_transport::Subscriber image_sub_;
   sensor_msgs::msg::Image::ConstSharedPtr latest_image_;
-  
+
   mutable std::mutex image_mutex_;
   mutable std::condition_variable image_ready_cv_;
 };

@@ -5,7 +5,7 @@
 #include <deque>
 #include <chrono>
 #include <vector>
-#include "perception_utils/3rdparty/Face_Mesh.Cpp/facemesh.hpp"  // Adjust the path as necessary
+#include <perception_utils/3rdparty/facemesh/facemesh.hpp>
 
 /* * AttentionDetector class
  * This class detects attention based on head pose estimation using a face mesh model.
@@ -17,14 +17,13 @@
 class AttentionDetector
 {
 public:
-
-
   /**
    * @brief Default constructor for AttentionDetector
    *
    */
   AttentionDetector()
-  {}
+  {
+  }
 
   /**
    * @brief Construct a new Attention Detector object
@@ -37,7 +36,8 @@ public:
    * @param attention_state Initial attention state
    */
   AttentionDetector(double attention_threshold = 0.5, double pitch_threshold = 15.0, double yaw_threshold = 20.0,
-                    size_t history_size = 10, const std::string& model_path = "face_landmark.tflite", bool attention_state = false)
+                    size_t history_size = 10, const std::string& model_path = "face_landmark.tflite",
+                    bool attention_state = false)
     : attention_threshold_(attention_threshold)
     , pitch_threshold_(pitch_threshold)
     , yaw_threshold_(yaw_threshold)
@@ -61,53 +61,69 @@ public:
    * @brief Process a video frame to detect attention and head pose angles
    *
    * @param frame Input video frame
-   * @param output_frame Output video frame with overlays
+   * @param output Output video frame with overlays
    * @param attention_detected Reference to store attention detection result
    * @param sustained_attention Reference to store sustained attention result
    * @param angles Reference to store head pose angles (pitch, yaw, roll)
    * @param face_found Reference to store face detection result
    * @return true if processing was successful, false otherwise
    */
-  bool processFrame(const cv::Mat& frame, cv::Mat& output_frame, bool& attention_detected, bool& sustained_attention,
+  bool processFrame(const cv::Mat& frame, cv::Mat& output, bool& attention_detected, bool& sustained_attention,
                     cv::Vec3d& angles, bool& face_found)
   {
-    output_frame = frame.clone();
+    output = frame.clone();
     face_found = false;
     attention_detected = false;
     sustained_attention = false;
     angles = { 0, 0, 0 };
 
-    std::vector<cv::Point2f> landmarks;
-    if (!face_mesh_.detectLandmarks(frame, landmarks))
-      return false;
+    // Load image and run inference
+    face_mesh_.load_image(output);
 
-    if (landmarks.size() < 6)
+    // Get the 3D Face landmarks
+    auto face_mesh_keypoints = face_mesh_.get_face_mesh_points();
+
+    if (face_mesh_keypoints.size() < 360)  // Ensure needed keypoints are available
       return false;
 
     face_found = true;
 
     std::vector<cv::Point2f> face_2d = {
-      landmarks[0],  // Nose tip
-      landmarks[1],  // Chin
-      landmarks[2],  // Left eye
-      landmarks[3],  // Left mouth
-      landmarks[4],  // Right eye
-      landmarks[5]   // Right mouth
+      { face_mesh_keypoints[1].x, face_mesh_keypoints[1].y },      // Nose tip
+      { face_mesh_keypoints[152].x, face_mesh_keypoints[152].y },  // Chin
+      { face_mesh_keypoints[263].x, face_mesh_keypoints[263].y },  // Left eye corner
+      { face_mesh_keypoints[61].x, face_mesh_keypoints[61].y },    // Left mouth corner
+      { face_mesh_keypoints[33].x, face_mesh_keypoints[33].y },    // Right eye corner
+      { face_mesh_keypoints[291].x, face_mesh_keypoints[291].y }   // Right mouth corner
     };
 
-    cv::Mat cam_matrix =
-        (cv::Mat_<double>(3, 3) << frame.cols, 0, frame.cols / 2.0, 0, frame.cols, frame.rows / 2.0, 0, 0, 1);
+    // Camera matrix
+    int w = frame.cols;
+    int h = frame.rows;
+    double focal_length = 1.0 * w;
+
+    cv::Mat cam_matrix = (cv::Mat_<double>(3, 3) << focal_length, 0, w / 2.0, 0, focal_length, h / 2.0, 0, 0, 1);
     cv::Mat dist_coeffs = cv::Mat::zeros(4, 1, CV_64F);
 
+    // Define 3D face model points
+    std::vector<cv::Point3d> face_3d_model = {
+      { 0.0, 0.0, 0.0 },        // Nose tip
+      { 0.0, -63.6, -12.5 },    // Chin
+      { -43.3, 32.7, -26 },     // Left eye
+      { -28.9, -28.9, -24.1 },  // Left mouth
+      { 43.3, 32.7, -26 },      // Right eye
+      { 28.9, -28.9, -24.1 }    // Right mouth
+    };
+
     cv::Vec3d rot_vec, trans_vec;
-    bool success = cv::solvePnP(face_3d_model_, face_2d, cam_matrix, dist_coeffs, rot_vec, trans_vec);
+    bool success = cv::solvePnP(face_3d_model, face_2d, cam_matrix, dist_coeffs, rot_vec, trans_vec);
     if (!success)
       return false;
 
     cv::Mat rot_matrix;
     cv::Rodrigues(rot_vec, rot_matrix);
-
     angles = smoothAngles(rotationMatrixToEulerAngles(rot_matrix));
+
     double pitch = angles[0];
     double yaw = angles[1];
 
@@ -138,19 +154,18 @@ public:
     cv::Scalar color = sustained_attention ? cv::Scalar(0, 255, 0) :
                                              (attention_detected ? cv::Scalar(0, 165, 255) : cv::Scalar(0, 0, 255));
 
-    cv::putText(output_frame, "Pitch: " + std::to_string(int(pitch)), { 20, 20 }, cv::FONT_HERSHEY_SIMPLEX, 0.7, color,
-                2);
-    cv::putText(output_frame, "Yaw: " + std::to_string(int(yaw)), { 20, 50 }, cv::FONT_HERSHEY_SIMPLEX, 0.7, color, 2);
+    cv::putText(output, "Pitch: " + std::to_string(int(pitch)), { 20, 20 }, cv::FONT_HERSHEY_SIMPLEX, 0.7, color, 2);
+    cv::putText(output, "Yaw: " + std::to_string(int(yaw)), { 20, 50 }, cv::FONT_HERSHEY_SIMPLEX, 0.7, color, 2);
 
     std::string status =
         sustained_attention ? "Sustained Attention" : (attention_detected ? "Attention Detected" : "No Attention");
-    cv::putText(output_frame, status, { 20, 80 }, cv::FONT_HERSHEY_SIMPLEX, 0.7, color, 2);
+    cv::putText(output, status, { 20, 80 }, cv::FONT_HERSHEY_SIMPLEX, 0.7, color, 2);
 
-    // Optional: draw nose direction vector
-    cv::Point2f p1 = face_2d[0];
-    cv::Point2f p2 = cv::Point2f(p1.x + yaw, p1.y - pitch);
-    cv::line(output_frame, p1, p2, color, 2);
-
+    // Nose direction line
+    cv::Point2f nose_2d = face_2d[0];
+    cv::Point2f p2 = cv::Point2f(nose_2d.x + yaw, nose_2d.y - pitch);
+    cv::line(output, nose_2d, p2, color, 2);
+    
     return true;
   }
 
@@ -195,11 +210,10 @@ private:
    * @param yaw head pose yaw angle
    * @return true if looking at the robot, false otherwise
    */
-  bool isLookingAtRobot(double pitch, double yaw) const
+  virtual bool isLookingAtRobot(double pitch, double yaw) const
   {
     return std::abs(pitch) < pitch_threshold_ && std::abs(yaw) < yaw_threshold_;
   }
-
 
   /** attention threshold in seconds */
   double attention_threshold_;

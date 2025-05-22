@@ -75,10 +75,9 @@ public:
   }
 
   /**
-   * @brief Get latest image data from the driver. cast to sensor_msgs::msg::Image::SharedPtr
-   * before using
+   * @brief Get latest image data from the driver. cast to cv::Mat before using
    *
-   * @return std::any The latest data from the driver of type sensor_msgs::msg::Image::SharedPtr
+   * @return std::any The latest data from the driver of type cv::Mat
    * @throws perception_exception if not implemented in derived classes
    */
   std::any getData() const override
@@ -92,13 +91,7 @@ public:
     if (frame.empty())
       throw perception_exception("Captured empty frame from camera");
 
-    std_msgs::msg::Header header;
-    header.stamp = node_->now();
-    header.frame_id = "camera_frame";
-
-    sensor_msgs::msg::Image::SharedPtr ros_img = cv_bridge::CvImage(header, "bgr8", frame).toImageMsg();
-
-    return ros_img;
+    return frame;
   }
 
 protected:

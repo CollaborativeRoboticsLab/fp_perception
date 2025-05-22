@@ -2,6 +2,18 @@
 # This file is used to configure the parameters for the perception drivers in the perception system.
 /**:
   ros__parameters:
+    use_vision_driver: true
+    use_microphone_driver: false
+    use_speaker_driver: false
+    use_eye_gaze_algorithm: true
+
+    # Uncomment the following lines to enable the respective drivers
+    vision_driver: perception::DefaultDriver              # Default ROS driver for vision
+    # vision_driver: perception::OpenCVDriver             # OpenCV driver for vision
+    microphone_driver: perception::MicrophoneAudioDriver  # Driver for microphone audio
+    speaker_driver: perception::SpeakerAudioDriver        # Driver for speaker audio
+    eye_gaze_algorithm: perception::GazeAlgorithm         # Algorithm for eye gaze detection
+
     driver:
       vision:
         DefaultDriver:
@@ -20,3 +32,19 @@
         SpeakerAudioDriver:
           name: SpeakerAudioDriver
           device_id: 0
+
+    algorithm:
+      GazeAlgorithm:
+        name: EyeGazeDetection
+        calibration:
+          time: 10.0
+          sample_size: 300
+          angle_tolerance: 15.0
+        detection:
+          attention_threshold: 0.5
+          pitch_threshold: 15.0
+          yaw_threshold: 20.0
+          history_size: 10
+          model_path: install/face_mesh/models/CPU/face_mesh.tflite
+          attention_state: false
+          debug_mode: false

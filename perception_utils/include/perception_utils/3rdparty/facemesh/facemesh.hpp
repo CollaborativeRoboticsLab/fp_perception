@@ -19,8 +19,8 @@
  * Modified by:     Kalana Ratnayake
  *
  */
-#ifndef FACE_MESH_HPP
-#define FACE_MESH_HPP
+
+#pragma once
 #include <string>
 #include <cstdint>
 #include <opencv2/core.hpp>

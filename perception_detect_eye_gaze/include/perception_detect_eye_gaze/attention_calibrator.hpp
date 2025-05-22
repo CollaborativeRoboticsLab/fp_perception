@@ -47,19 +47,17 @@ public:
   }
 
   /**
-   * @brief Start the calibration process
+   * @brief Initiate the calibration process
    *
    * This function clears previous samples and starts a new calibration session.
    * 
-   * @param message_out Output message indicating the calibration status
    */
-  void startCalibration( std::string& message_out)
+  void initiateCalibration()
   {
     pitch_samples_.clear();
     yaw_samples_.clear();
     is_calibrated_ = false;
     calibration_start_time_ = std::chrono::steady_clock::now();
-    message_out = "Starting calibration... Please look directly at the robot.";
   }
 
   /**
@@ -126,6 +124,16 @@ public:
   }
 
   /**
+   * @brief Set the baseline pitch angle
+   *
+   * @return double containing the baseline pitch angle
+   */
+  void setBaselinePitch(double angle)
+  {
+    baseline_pitch_ = angle;
+  }
+
+  /**
    * @brief Get the baseline yaw angle
    *
    * @return double containing the baseline yaw angle
@@ -133,6 +141,16 @@ public:
   double getBaselineYaw() const
   {
     return baseline_yaw_;
+  }
+
+  /**
+   * @brief Set the baseline yaw angle
+   *
+   * @return double containing the baseline yaw angle
+   */
+  void setBaselineYaw(double angle)
+  {
+    baseline_yaw_ = angle;
   }
 
   /**
@@ -146,6 +164,16 @@ public:
   }
 
   /**
+   * @brief Set the pitch threshold
+   *
+   * @return double containing yaw threshold
+   */
+  void setPitchThreshold(double threshold)
+  {
+    pitch_threshold_ = threshold;
+  }
+
+  /**
    * @brief Get the yaw threshold
    *
    * @return double containing the yaw threshold
@@ -153,6 +181,16 @@ public:
   double getYawThreshold() const
   {
     return yaw_threshold_;
+  }
+
+  /**
+   * @brief Set the yaw threshold
+   *
+   * @return double containing the yaw threshold
+   */
+  void setYawThreshold(double threshold)
+  {
+    yaw_threshold_ = threshold;
   }
 
 private:

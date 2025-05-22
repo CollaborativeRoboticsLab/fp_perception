@@ -6,6 +6,7 @@
 #include <rclcpp/rclcpp.hpp>
 #include <pluginlib/class_loader.hpp>
 #include <perception_base/driver_base.hpp>
+#include <perception_base/algorithm_base.hpp>
 #include <perception_events/event_client.hpp>
 
 namespace perception
@@ -24,6 +25,7 @@ public:
     , vision_driver_loader_("perception", "perception::DriverBase")
     , listener_driver_loader_("perception", "perception::DriverBase")
     , speaker_driver_loader_("perception", "perception::DriverBase")
+    , eye_gaze_algorithm_loader_("perception", "perception::AlgorithmBase")
   {
     try
     {
@@ -41,45 +43,117 @@ public:
   ~PerceptionServer()
   {
   }
-  
+
   void initialize()
   {
     event_ = std::make_shared<EventClient>(shared_from_this(), "perception_server", "/events");
+
+    event_->info("PerceptionServer initializing...");
+
+    /*************************************************************************
+     * Identify what plugins to load
+     ************************************************************************/
+    this->declare_parameter("use_vision_driver", "false");
+    this->declare_parameter("use_microphone_driver", "false");
+    this->declare_parameter("use_speaker_driver", "false");
+    this->declare_parameter("use_eye_gaze_algorithm", "false");
+
+    bool use_vision_driver = this->get_parameter("use_vision_driver").as_bool();
+    bool use_microphone_driver = this->get_parameter("use_microphone_driver").as_bool();
+    bool use_speaker_driver = this->get_parameter("use_speaker_driver").as_bool();
+    bool use_eye_gaze_algorithm = this->get_parameter("use_eye_gaze_algorithm").as_bool();
 
     /*************************************************************************
      * vision driver plugin class loader and driver pointer
      ************************************************************************/
 
-    std::string vision_driver_name = this->declare_parameter("vision_driver", "perception::DefaultVisionDriver");
-    event_->info("Loading vision driver plugin: " + vision_driver_name);
+    std::string vision_driver_name = this->declare_parameter("vision_driver", "perception::DefaultDriver");
 
-    vision_driver_ = vision_driver_loader_.createSharedInstance(vision_driver_name);
-    vision_driver_->initialize(shared_from_this());
+    if (use_vision_driver)
+    {
+      this->declare_parameter("vision_driver", "perception::DefaultDriver");
+      std::string vision_driver_name = this->get_parameter("vision_driver").as_string();
+
+      event_->info("Loading vision driver plugin: " + vision_driver_name);
+
+      vision_driver_ = vision_driver_loader_.createSharedInstance(vision_driver_name);
+      vision_driver_->initialize(shared_from_this());
+      vision_driver_->start();
+
+      event_->info("Started vision driver plugin: " + vision_driver_name);
+    }
+    else
+    {
+      event_->info("Vision driver plugin not loaded.");
+    }
 
     /*************************************************************************
      * microphone driver plugin class loader and driver pointer
      ************************************************************************/
 
-    std::string mic_driver_name = this->declare_parameter("microphone_driver", "perception::MicrophoneAudioDriver");
-    event_->info("Loading microphone driver plugin: " + mic_driver_name);
+    if (use_microphone_driver)
+    {
+      this->declare_parameter("microphone_driver", "perception::MicrophoneAudioDriver");
+      std::string mic_driver_name = this->get_parameter("microphone_driver").as_string();
 
-    microphone_driver_ = listener_driver_loader_.createSharedInstance(mic_driver_name);
-    microphone_driver_->initialize(shared_from_this());
+      event_->info("Loading microphone driver plugin: " + mic_driver_name);
 
-    // Load speaker driver
+      microphone_driver_ = listener_driver_loader_.createSharedInstance(mic_driver_name);
+      microphone_driver_->initialize(shared_from_this());
+      microphone_driver_->start();
+
+      event_->info("Started microphone driver plugin: " + mic_driver_name);
+    }
+    else
+    {
+      event_->info("Microphone driver plugin not loaded.");
+    }
+
     /*************************************************************************
-     * vision driver plugin class loader and driver pointer
+     * speaker driver plugin class loader and driver pointer
      ************************************************************************/
 
-    std::string speaker_driver_name = this->declare_parameter("speaker_driver", "perception::SpeakerAudioDriver");
-    event_->info("Loading speaker driver plugin: " + speaker_driver_name);
+    if (use_speaker_driver)
+    {
+      this->declare_parameter("speaker_driver", "perception::SpeakerAudioDriver");
+      std::string speaker_driver_name = this->get_parameter("speaker_driver").as_string();
 
-    speaker_driver_ = speaker_driver_loader_.createSharedInstance(speaker_driver_name);
-    speaker_driver_->initialize(shared_from_this());
+      event_->info("Loading speaker driver plugin: " + speaker_driver_name);
 
-    event_->info("PerceptionServer initialized.");
+      speaker_driver_ = speaker_driver_loader_.createSharedInstance(speaker_driver_name);
+      speaker_driver_->initialize(shared_from_this());
+      speaker_driver_->start();
+
+      event_->info("Started speaker driver plugin: " + speaker_driver_name);
+    }
+    else
+    {
+      event_->info("Speaker driver plugin not loaded.");
+    }
+
+    /*************************************************************************
+     * eye gaze algorithm plugin class loader and driver pointer
+     ************************************************************************/
+
+    if (use_eye_gaze_algorithm)
+    {
+      this->declare_parameter("eye_gaze_algorithm", "perception::GazeAlgorithm");
+      std::string eye_gaze_algorithm_name = this->get_parameter("eye_gaze_algorithm").as_string();
+
+      event_->info("Loading eye gaze algorithm plugin: " + eye_gaze_algorithm_name);
+
+      eye_gaze_algorithm_ = eye_gaze_algorithm_loader_.createSharedInstance(eye_gaze_algorithm_name);
+      eye_gaze_algorithm_->initialize(shared_from_this());
+      eye_gaze_algorithm_->set_vision_driver(vision_driver_);
+      eye_gaze_algorithm_->start();
+
+      event_->info("Started eye gaze algorithm plugin: " + eye_gaze_algorithm_name);
+    }
+    else
+    {
+      event_->info("Eye gaze algorithm plugin not loaded.");
+    }
   }
-
 
 protected:
   /** client for publishing events */
@@ -102,6 +176,12 @@ protected:
 
   /** shared pointer for audio speaker driver */
   std::shared_ptr<perception::DriverBase> speaker_driver_;
+
+  /** plugin loader for eye gaze algorithm */
+  pluginlib::ClassLoader<perception::AlgorithmBase> eye_gaze_algorithm_loader_;
+
+  /** shared pointer for eye gaze algorithm */
+  std::shared_ptr<perception::AlgorithmBase> eye_gaze_algorithm_;
 };
 
 }  // namespace perception

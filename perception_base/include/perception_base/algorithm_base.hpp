@@ -70,7 +70,7 @@ namespace perception
       audio_driver_ = audio_driver;
     }
 
-  private:
+  protected:
     /**
      * @brief Initializer base driver in place of constructor due to plugin semantics
      *

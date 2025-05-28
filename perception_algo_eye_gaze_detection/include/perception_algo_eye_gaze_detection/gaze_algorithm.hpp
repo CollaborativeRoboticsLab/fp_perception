@@ -61,10 +61,9 @@ public:
   /**
    * @brief Initialize the GazeAlgorithm
    *
-   * This function initializes the GazeAlgorithm with the given node and configuration.
+   * This function initializes the GazeAlgorithm with the given node.
    *
    * @param node Shared pointer to the ROS node
-   * @param config Algorithm options
    */
   void initialize(const rclcpp::Node::SharedPtr& node) override
   {
@@ -96,7 +95,7 @@ public:
     initialize_base(node);
 
     // Publish about the assigned driver parameters
-    event_->info("Assigned driver name: " + config_.name);
+    event_->info("Assigned algorithm name: " + config_.name);
     event_->info("Assigned calibration time: " + std::to_string(calibration_time));
     event_->info("Assigned calibration sample size: " + std::to_string(samples_needed));
     event_->info("Assigned calibration gaze angle tolerance: " + std::to_string(gaze_angle_tolerance));

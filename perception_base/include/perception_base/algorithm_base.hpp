@@ -61,13 +61,13 @@ namespace perception
     }
     
     /**
-     * @brief Set the audio driver shared pointer
+     * @brief Set the audio input driver shared pointer
      * 
      * @param audio_driver 
      */
-    void set_audio_driver(const std::shared_ptr<perception::DriverBase> &audio_driver)
+    void set_audio_input_driver(const std::shared_ptr<perception::DriverBase> &audio_driver)
     {
-      audio_driver_ = audio_driver;
+      audio_input_driver_ = audio_driver;
     }
 
   protected:
@@ -103,9 +103,9 @@ namespace perception
     std::shared_ptr<perception::DriverBase> vision_driver_;
 
     /**
-     * @brief driver for audio
+     * @brief driver for audio input
      */
-    std::shared_ptr<perception::DriverBase> audio_driver_;
+    std::shared_ptr<perception::DriverBase> audio_input_driver_;
   };
 
 } // namespace perception

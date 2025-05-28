@@ -2,10 +2,15 @@
 #define ATTENTION_DETECTOR_HPP
 
 #include <opencv2/opencv.hpp>
+#include <opencv2/core.hpp>
+#include <opencv2/imgproc.hpp>
 #include <deque>
 #include <chrono>
 #include <vector>
-#include <perception_utils/3rdparty/facemesh/facemesh.hpp>
+#include <array>
+#include <string>
+#include <iostream>
+#include <torch/script.h>
 
 /* * AttentionDetector class
  * This class detects attention based on head pose estimation using a face mesh model.
@@ -17,6 +22,9 @@
 class AttentionDetector
 {
 public:
+  /* Number of face landmarks */
+  static constexpr size_t NUM_OF_FACE_MESH_POINTS = 468;
+
   /**
    * @brief Default constructor for AttentionDetector
    *
@@ -36,15 +44,22 @@ public:
    * @param attention_state Initial attention state
    */
   AttentionDetector(double attention_threshold = 0.5, double pitch_threshold = 15.0, double yaw_threshold = 20.0,
-                    size_t history_size = 10, const std::string& model_path = "face_landmark.tflite",
-                    bool attention_state = false)
+                    size_t history_size = 10, const std::string& model_path = "face_landmark.pt")
     : attention_threshold_(attention_threshold)
     , pitch_threshold_(pitch_threshold)
     , yaw_threshold_(yaw_threshold)
-    , attention_state_(attention_state)
     , history_size_(history_size)
   {
-    face_mesh_.load_model(model_path);
+    try
+    {
+      face_mesh_ = torch::jit::load(model_path);
+      face_mesh_.eval();
+    }
+    catch (const c10::Error& e)
+    {
+      std::cerr << "Error loading model: " << e.what() << std::endl;
+      exit(1);
+    }
 
     // Define face model 3D points
     face_3d_model_ = {
@@ -77,30 +92,41 @@ public:
     sustained_attention = false;
     angles = { 0, 0, 0 };
 
-    // Load image and run inference
-    face_mesh_.load_image(output);
+    // Camera matrix
+    int w = frame.cols;
+    int h = frame.rows;
+    double focal_length = 1.0 * w;
 
-    // Get the 3D Face landmarks
-    auto face_mesh_keypoints = face_mesh_.get_face_mesh_points();
+    // Initialize ROI offset (if needed, can be set to zero)
+    cv::Rect roi_offset = cv::Rect(0, 0, 0, 0);
 
-    if (face_mesh_keypoints.size() < 360)  // Ensure needed keypoints are available
+    cv::Mat preprocessed_image = preprocess_image(output);
+    torch::Tensor input_tensor = convert_mat_to_tensor(preprocessed_image);
+
+    // Forward pass
+    std::vector<torch::jit::IValue> inputs;
+    inputs.push_back(input_tensor);
+
+    torch::jit::IValue output_ivalue = face_mesh_.forward(inputs);
+
+    auto output_list = output_ivalue.toList();
+    at::Tensor output_tensor = output_list.get(0).toTensor();
+
+    postprocess_output(output_tensor, w, h, roi_offset);
+
+    if (face_mesh_landmarks.size() < 360)  // Ensure needed keypoints are available
       return false;
 
     face_found = true;
 
     std::vector<cv::Point2f> face_2d = {
-      { face_mesh_keypoints[1].x, face_mesh_keypoints[1].y },      // Nose tip
-      { face_mesh_keypoints[152].x, face_mesh_keypoints[152].y },  // Chin
-      { face_mesh_keypoints[263].x, face_mesh_keypoints[263].y },  // Left eye corner
-      { face_mesh_keypoints[61].x, face_mesh_keypoints[61].y },    // Left mouth corner
-      { face_mesh_keypoints[33].x, face_mesh_keypoints[33].y },    // Right eye corner
-      { face_mesh_keypoints[291].x, face_mesh_keypoints[291].y }   // Right mouth corner
+      { face_mesh_landmarks[1].x, face_mesh_landmarks[1].y },      // Nose tip
+      { face_mesh_landmarks[152].x, face_mesh_landmarks[152].y },  // Chin
+      { face_mesh_landmarks[263].x, face_mesh_landmarks[263].y },  // Left eye corner
+      { face_mesh_landmarks[61].x, face_mesh_landmarks[61].y },    // Left mouth corner
+      { face_mesh_landmarks[33].x, face_mesh_landmarks[33].y },    // Right eye corner
+      { face_mesh_landmarks[291].x, face_mesh_landmarks[291].y }   // Right mouth corner
     };
-
-    // Camera matrix
-    int w = frame.cols;
-    int h = frame.rows;
-    double focal_length = 1.0 * w;
 
     cv::Mat cam_matrix = (cv::Mat_<double>(3, 3) << focal_length, 0, w / 2.0, 0, focal_length, h / 2.0, 0, 0, 1);
     cv::Mat dist_coeffs = cv::Mat::zeros(4, 1, CV_64F);
@@ -165,11 +191,62 @@ public:
     cv::Point2f nose_2d = face_2d[0];
     cv::Point2f p2 = cv::Point2f(nose_2d.x + yaw, nose_2d.y - pitch);
     cv::line(output, nose_2d, p2, color, 2);
-    
+
     return true;
   }
 
 private:
+  /**
+   * @brief Preprocess the input image for the model
+   *
+   * @param in Input OpenCV Mat containing the image
+   * @return cv::Mat Preprocessed image ready for model input
+   */
+  cv::Mat preprocess_image(const cv::Mat& in)
+  {
+    cv::Mat rgb, resized, float_img;
+    cv::cvtColor(in, rgb, cv::COLOR_BGR2RGB);
+    cv::resize(rgb, resized, cv::Size(192, 192));
+    resized.convertTo(float_img, CV_32FC3, 1.0 / 191.5, -1.0);
+    return float_img;
+  }
+
+  /**
+   * @brief Convert OpenCV Mat to Torch tensor
+   *
+   * @param img Input OpenCV Mat containing the image
+   * @return torch::Tensor Converted tensor in NCHW format
+   */
+  torch::Tensor convert_mat_to_tensor(const cv::Mat& img)
+  {
+    auto tensor = torch::from_blob(img.data, { 1, img.rows, img.cols, 3 }, torch::kFloat32);
+    tensor = tensor.permute({ 0, 3, 1, 2 });  // NHWC to NCHW
+    return tensor.clone();                    // clone to ensure memory safety
+  }
+
+  /**
+   * @brief Postprocess the model output to extract facial landmarks
+   *
+   * @param output Model output tensor containing the facial landmarks
+   * @param img_w Width of the original image
+   * @param img_h Height of the original image
+   * @param roi_offset Region of interest offset to adjust the landmarks
+   */
+  void postprocess_output(const at::Tensor& output, int img_w, int img_h, const cv::Rect& roi_offset)
+  {
+    auto output_flat = output.view({ -1 });
+    for (size_t i = 0; i < NUM_OF_FACE_MESH_POINTS; ++i)
+    {
+      float x = output_flat[i * 3].item<float>();
+      float y = output_flat[i * 3 + 1].item<float>();
+      float z = output_flat[i * 3 + 2].item<float>();
+
+      face_mesh_landmarks[i].x = (x * img_w) + roi_offset.x;
+      face_mesh_landmarks[i].y = (y * img_h) + roi_offset.y;
+      face_mesh_landmarks[i].z = z;
+    }
+  }
+
   /**
    * @brief Smooth the angles using a moving average filter
    *
@@ -236,7 +313,10 @@ private:
   std::vector<cv::Point3d> face_3d_model_;
 
   /** Face mesh model */
-  CLFML::FaceMesh::FaceMesh face_mesh_;
+  torch::jit::script::Module face_mesh_;
+
+  /** Number of face mesh points */
+  std::array<cv::Point3f, NUM_OF_FACE_MESH_POINTS> face_mesh_landmarks;
 };
 
 #endif  // ATTENTION_DETECTOR_HPP

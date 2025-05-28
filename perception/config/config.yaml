@@ -45,6 +45,5 @@
           pitch_threshold: 15.0
           yaw_threshold: 20.0
           history_size: 10
-          model_path: install/face_mesh/models/CPU/face_mesh.tflite
-          attention_state: false
+          # model_path: facial_landmarks.pth  # overridden via launch file
           debug_mode: true

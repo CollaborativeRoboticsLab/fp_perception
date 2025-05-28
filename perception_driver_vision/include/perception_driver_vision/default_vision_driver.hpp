@@ -93,6 +93,16 @@ public:
     }
   }
 
+  /**
+   * @brief Test function to check the driver functionality by writing the image to a file
+   */
+  void test() override
+  {
+    event_->info("DefaultDriver test function called");
+    cv::Mat frame = std::any_cast<cv::Mat>(getData());
+    cv::imwrite("test_image.jpg", frame);
+  }
+
 protected:
   void imageCallback(const sensor_msgs::msg::Image::ConstSharedPtr& msg)
   {

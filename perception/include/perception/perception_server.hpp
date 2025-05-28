@@ -89,6 +89,7 @@ public:
       vision_driver_ = vision_driver_loader_.createSharedInstance(vision_driver_name);
       vision_driver_->initialize(shared_from_this());
       vision_driver_->start();
+      vision_driver_->test();
 
       event_->info("Started vision driver plugin: " + vision_driver_name);
     }

@@ -103,6 +103,15 @@ namespace perception
       return config_.name;
     }
 
+    /**
+     * @brief Test the driver
+     * 
+     */
+    virtual void test()
+    {
+      event_->info("Driver test function called");
+    }
+
   protected:
     /**
      * @brief Initializer base driver in place of constructor due to plugin semantics

@@ -78,20 +78,18 @@ public:
     node->declare_parameter("algorithm.GazeAlgorithm.detection.yaw_threshold", 20.0);
     node->declare_parameter("algorithm.GazeAlgorithm.detection.history_size", 10);
     node->declare_parameter("algorithm.GazeAlgorithm.detection.model_path", "face_landmark.tflite");
-    node->declare_parameter("algorithm.GazeAlgorithm.detection.attention_state", false);
     node->declare_parameter("algorithm.GazeAlgorithm.detection.debug_mode", false);
 
     // Load parameters from the node
     config_.name = node->get_parameter("algorithm.GazeAlgorithm.name").as_string();
     calibration_time = node->get_parameter("algorithm.GazeAlgorithm.calibration.time").as_double();
     samples_needed = node->get_parameter("algorithm.GazeAlgorithm.calibration.sample_size").as_int();
-    gaze_angle_tolerance = node->get_parameter("algorithm.GazeAlgorithm.calibration.gaze_angle_tolerance").as_double();
+    gaze_angle_tolerance = node->get_parameter("algorithm.GazeAlgorithm.calibration.angle_tolerance").as_double();
     attention_threshold = node->get_parameter("algorithm.GazeAlgorithm.detection.attention_threshold").as_double();
     pitch_threshold = node->get_parameter("algorithm.GazeAlgorithm.detection.pitch_threshold").as_double();
     yaw_threshold = node->get_parameter("algorithm.GazeAlgorithm.detection.yaw_threshold").as_double();
     history_size = node->get_parameter("algorithm.GazeAlgorithm.detection.history_size").as_int();
     model_path = node->get_parameter("algorithm.GazeAlgorithm.detection.model_path").as_string();
-    attention_state = node->get_parameter("algorithm.GazeAlgorithm.detection.attention_state").as_bool();
     debug_mode = node->get_parameter("algorithm.GazeAlgorithm.detection.debug_mode").as_bool();
 
     // Initialize the base driver
@@ -107,15 +105,14 @@ public:
     event_->info("Assigned detection yaw threshold: " + std::to_string(yaw_threshold));
     event_->info("Assigned detection history size: " + std::to_string(history_size));
     event_->info("Assigned detection model path: " + model_path);
-    event_->info("Assigned detection attention state: " + std::to_string(attention_state));
     event_->info("Assigned detection debug mode: " + std::to_string(debug_mode));
 
     // Initialize the attention detector and calibrator
     calibrator_ = std::make_shared<AttentionCalibrator>(calibration_time, samples_needed, gaze_angle_tolerance);
     calib_detector_ = std::make_shared<CalibratedAttentionDetector>(
-        calibrator_, attention_threshold, pitch_threshold, yaw_threshold, history_size, model_path, attention_state);
+        calibrator_, attention_threshold, pitch_threshold, yaw_threshold, history_size, model_path);
     detector_ = std::make_shared<AttentionDetector>(attention_threshold, pitch_threshold, yaw_threshold, history_size,
-                                                    model_path, attention_state);
+                                                    model_path);
 
     is_in_attention_detection_mode_ = false;
   }
@@ -365,7 +362,6 @@ protected:
   double yaw_threshold;
   int history_size;
   std::string model_path;
-  bool attention_state;
   double gaze_score_;
   int robot_looks_;
   double gaze_entropy_;

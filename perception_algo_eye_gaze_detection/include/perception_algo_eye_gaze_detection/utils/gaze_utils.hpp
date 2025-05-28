@@ -5,7 +5,7 @@
 #include <cmath>
 #include <algorithm>
 #include <utility>
-#include <perception_detect_eye_gaze/utils/gaze_metrics.hpp>
+#include <perception_algo_eye_gaze_detection/utils/gaze_metrics.hpp>
 
 class GazeUtils
 {

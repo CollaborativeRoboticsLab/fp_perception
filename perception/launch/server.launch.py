@@ -20,7 +20,7 @@ def generate_launch_description():
     # load config file
     perception_config = os.path.join(get_package_share_directory('perception'), 'config', 'config.yaml')
 
-    eye_gaze_model_path = os.path.join(get_package_share_directory('perception_detect_eye_gaze'), 'models/face_mesh.pt')
+    eye_gaze_model_path = os.path.join(get_package_share_directory('perception_algo_eye_gaze_detection'), 'models/face_mesh.pt')
 
     # create perception node
     perception_server = Node(

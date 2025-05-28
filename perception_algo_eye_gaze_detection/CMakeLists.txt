@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.8)
-project(perception_detect_eye_gaze)
+project(perception_algo_eye_gaze_detection)
 
 # Default to C++17
 if(NOT CMAKE_CXX_STANDARD)

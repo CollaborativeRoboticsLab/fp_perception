@@ -1,8 +1,8 @@
 #ifndef CALIBRATED_ATTENTION_DETECTOR_HPP
 #define CALIBRATED_ATTENTION_DETECTOR_HPP
 
-#include <perception_detect_eye_gaze/attention_detector.hpp>
-#include <perception_detect_eye_gaze/attention_calibrator.hpp>
+#include <perception_algo_eye_gaze_detection/attention_detector.hpp>
+#include <perception_algo_eye_gaze_detection/attention_calibrator.hpp>
 
 /**
  * @brief CalibratedAttentionDetector class
@@ -36,8 +36,8 @@ public:
    */
   CalibratedAttentionDetector(std::shared_ptr<AttentionCalibrator> calibrator, double attention_threshold = 0.5,
                               double pitch_threshold = 15.0, double yaw_threshold = 20.0, size_t history_size = 10,
-                              const std::string& model_path = "face_landmark.tflite", bool attention_state = false)
-    : AttentionDetector(attention_threshold, pitch_threshold, yaw_threshold, history_size, model_path, attention_state)
+                              const std::string& model_path = "face_landmark.tflite")
+    : AttentionDetector(attention_threshold, pitch_threshold, yaw_threshold, history_size, model_path)
     , calibrator_(calibrator)
   {
     if (calibrator_->isCalibrated())

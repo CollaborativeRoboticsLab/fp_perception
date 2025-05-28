@@ -1,4 +1,4 @@
-<library path="perception_detect_eye_gaze">
+<library path="perception_algo_eye_gaze_detection">
     <class type="perception::GazeAlgorithm" base_class_type="perception::AlgorithmBase">
         <description>
             A plugin that provide eye gaze detection algorithm. This plugin is used to detect the eye gaze of a person.

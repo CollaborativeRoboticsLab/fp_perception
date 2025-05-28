@@ -18,11 +18,11 @@
 #include <perception_base/utils/exceptions.hpp>
 #include <perception_events/event_client.hpp>
 
-#include <perception_detect_eye_gaze/attention_calibrator.hpp>
-#include <perception_detect_eye_gaze/attention_detector.hpp>
-#include <perception_detect_eye_gaze/calibrated_attention_detector.hpp>
-#include <perception_detect_eye_gaze/utils/gaze_metrics.hpp>
-#include <perception_detect_eye_gaze/utils/gaze_utils.hpp>
+#include <perception_algo_eye_gaze_detection/attention_calibrator.hpp>
+#include <perception_algo_eye_gaze_detection/attention_detector.hpp>
+#include <perception_algo_eye_gaze_detection/calibrated_attention_detector.hpp>
+#include <perception_algo_eye_gaze_detection/utils/gaze_metrics.hpp>
+#include <perception_algo_eye_gaze_detection/utils/gaze_utils.hpp>
 
 namespace perception
 {

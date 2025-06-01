@@ -133,13 +133,13 @@ public:
    * @param input The latest audio data to the driver in the form of `const std::vector<int16_t>&`.
    * @throws perception_exception if not implemented in derived classes
    */
-  void setData(std::any& input) const override
+  void setData(const std::any& input) const override
   {
     try
     {
       const auto& new_samples = std::any_cast<const std::vector<int16_t>&>(input);
 
-      std::lock_guard<std::mutex> lock(buffer_mutex_);
+      std::lock_guard<std::mutex> lock(driver_mutex_);
       audio_queue_.insert(audio_queue_.end(), new_samples.begin(), new_samples.end());
     }
     catch (const std::bad_any_cast&)
@@ -155,14 +155,14 @@ public:
    * @param input The latest audio data to the driver in the form of `const std::vector<std::vector<int16_t>>&`.
    * @throws perception_exception if not implemented in derived classes
    */
-  void setDataStream(std::any& input) const override
+  void setDataStream(const std::any& input) const override
   {
     try
     {
       const auto& new_samples = std::any_cast<const std::vector<std::vector<int16_t>>&>(input);
 
       for (const auto& sample : new_samples)
-        setData(sample);  // Reuse setData for each sample
+        setData(sample);
     }
     catch (const perception_exception& error)
     {
@@ -198,7 +198,7 @@ protected:
     auto* self = static_cast<SpeakerAudioDriver*>(userData);
     auto* out = static_cast<int16_t*>(outputBuffer);
 
-    std::lock_guard<std::mutex> lock(self->buffer_mutex_);
+    std::lock_guard<std::mutex> lock(self->driver_mutex_);
 
     for (unsigned long i = 0; i < framesPerBuffer; ++i)
     {
@@ -218,7 +218,6 @@ protected:
 
   mutable PaStream* stream_;
   mutable std::deque<int16_t> audio_queue_;
-  mutable std::mutex buffer_mutex_;
   unsigned long chunk_size_;  // Default chunk size
   int sample_rate_;           // Default sample rate
   int channels_;              // Default number of channels

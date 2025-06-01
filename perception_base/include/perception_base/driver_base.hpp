@@ -64,7 +64,7 @@ namespace perception
      * @param  input The latest data from the driver.
      * @throws perception_exception if not implemented in derived classes
      */
-    virtual void setData(std::any &input) const
+    virtual void setData(const std::any &input) const
     {
       throw perception_exception("setData() not implemented for this driver.");
     }
@@ -90,7 +90,7 @@ namespace perception
      * @return std::any The latest data from the driver.
      * @throws perception_exception if not implemented in derived classes
      */
-    virtual void setDataStream(std::any &input) const
+    virtual void setDataStream(const std::any &input) const
     {
       throw perception_exception("setDataStream() not implemented for this driver.");
     }
@@ -165,7 +165,7 @@ namespace perception
      * @brief Mutex to protect access to the camera data
      *
      */
-    std::mutex driver_mutex_;
+    mutable std::mutex driver_mutex_;
 
     /**
      * @brief Thread for gathering data from the device for publishing

@@ -41,7 +41,7 @@ public:
     node->declare_parameter("driver.vision.OpenCVDriver.publish", false);
     node->declare_parameter("driver.vision.OpenCVDriver.topic", "camera/image_raw");
     node->declare_parameter("driver.vision.OpenCVDriver.frame_id", "camera_frame");
-    node->declare_parameter("driver.vision.OpenCVDriver.frequency", 30);
+    node->declare_parameter("driver.vision.OpenCVDriver.frequency", 30.0);
 
     // Load parameters from the node
     config_.name = node->get_parameter("driver.vision.OpenCVDriver.name").as_string();
@@ -49,7 +49,7 @@ public:
     config_.publish = node->get_parameter("driver.vision.OpenCVDriver.publish").as_bool();
     config_.topic = node->get_parameter("driver.vision.OpenCVDriver.topic").as_string();
     config_.frame_id = node->get_parameter("driver.vision.OpenCVDriver.frame_id").as_string();
-    config_.frequency = node->get_parameter("driver.vision.OpenCVDriver.frequency").as_int();
+    config_.frequency = node->get_parameter("driver.vision.OpenCVDriver.frequency").as_double();
 
     // Initialize the base driver
     initialize_base(node);

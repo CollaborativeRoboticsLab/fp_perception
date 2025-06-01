@@ -156,7 +156,7 @@ public:
    */
   std::any getData() const override
   {
-    std::lock_guard<std::mutex> lock(buffer_mutex_);
+    std::lock_guard<std::mutex> lock(driver_mutex_);
 
     // Check if the audio buffer is empty
     if (audio_buffer_.empty())
@@ -168,7 +168,7 @@ public:
 
     std::vector<int16_t> chunk;
 
-    lock_guard<std::mutex> publish_lock(buffer_mutex_);
+    std::lock_guard<std::mutex> publish_lock(driver_mutex_);
 
     // Pop the first chunk_size_ elements from the audio buffer
     for (size_t i = 0; i < chunk_size_; ++i)
@@ -221,7 +221,7 @@ public:
     {
       std::vector<std::vector<int16_t>> chunks;
 
-      lock_guard<std::mutex> publish_lock(publish_mutex_);
+      std::lock_guard<std::mutex> publish_lock(publish_mutex_);
 
       while (publish_buffer_.size() >= chunk_size_)
       {
@@ -273,7 +273,7 @@ protected:
 
     if (in)
     {
-      std::lock_guard<std::mutex> lock(self->buffer_mutex_);
+      std::lock_guard<std::mutex> lock(self->driver_mutex_);
       self->audio_buffer_.insert(self->audio_buffer_.end(), in, in + framesPerBuffer);
 
       if (self->config_.publish)
@@ -289,7 +289,6 @@ protected:
   PaStream* stream_;
   mutable std::deque<int16_t> audio_buffer_;
   mutable std::deque<int16_t> publish_buffer_;
-  mutable std::mutex buffer_mutex_;
   mutable std::mutex publish_mutex_;
   unsigned long chunk_size_;  // Default chunk size
   int sample_rate_;           // Default sample rate

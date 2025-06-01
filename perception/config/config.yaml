@@ -23,15 +23,32 @@
         OpenCVDriver:
           name: OpenCVDriver
           device_id: 0
-
+          publish: true
+          topic: /camera/image_raw
+          frame_id: camera_frame
+          frequency: 30.0
+          
       audio:
         MicrophoneAudioDriver:
           name: MicrophoneAudioDriver
           device_id: 0
+          publish: false
+          topic: /audio/microphone
+          frame_id: microphone_frame
+          chunk_size: 256
+          sample_rate: 44100
+          channels: 1
+          frequency: 30.0
 
         SpeakerAudioDriver:
           name: SpeakerAudioDriver
           device_id: 0
+          subscribe: false
+          topic: /audio/speaker
+          frame_id: speaker_frame
+          chunk_size: 256
+          sample_rate: 44100
+          channels: 1
 
     algorithm:
       GazeAlgorithm:

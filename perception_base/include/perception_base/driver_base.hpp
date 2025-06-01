@@ -2,6 +2,8 @@
 
 #include <string>
 #include <any>
+#include <mutex>
+#include <thread>
 
 #include <rclcpp/rclcpp.hpp>
 
@@ -104,8 +106,28 @@ namespace perception
     }
 
     /**
+     * @brief Driver thread function. need to be overridden in derived classesif used
+     */
+    virtual void driver_thread()
+    {
+      // This is a placeholder for the driver thread logic.
+      while (rclcpp::ok())
+      {
+        // Here you would typically gather data from the device and publish it.
+        std::lock_guard<std::mutex> lock(driver_mutex_);
+
+        // Simulate data gathering
+        // In a real implementation, you would gather data from the device here.
+        event_->info("Driver thread started for " + config_.name + " without implementation");
+
+        // If publishing is enabled, you would publish the data to a topic.
+        std::this_thread::sleep_for(std::chrono::milliseconds(int(1000 / config_.frequency)));
+      }
+    }
+
+    /**
      * @brief Test the driver
-     * 
+     *
      */
     virtual void test()
     {
@@ -138,5 +160,17 @@ namespace perception
      * @brief client for publishing events
      */
     std::shared_ptr<EventClient> event_;
+
+    /**
+     * @brief Mutex to protect access to the camera data
+     *
+     */
+    std::mutex driver_mutex_;
+
+    /**
+     * @brief Thread for gathering data from the device for publishing
+     *
+     */
+    std::thread driver_thread_; // Thread for capturing images
   };
 } // namespace perception

@@ -21,9 +21,10 @@ Install PortAudio on Ubuntu:
 
 ```bash
 sudo apt update
-sudo apt install libportaudio2 libportaudio-dev
+sudo apt install libportaudio2 libportaudio-dev python3-pyaudio
 ```
 
+To use `find_device.py` to identify availabe devices, install 
 ## Parameters
 
 ```yaml

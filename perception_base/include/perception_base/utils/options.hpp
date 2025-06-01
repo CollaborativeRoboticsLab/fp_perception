@@ -16,6 +16,10 @@ struct driver_options
   std::string name;
   std::string topic;
   int device_id;
+  std::string frame_id;
+  bool publish = false;  // whether to publish the data to a topic
+  bool subscribe = false;  // whether to subscribe to the data from a topic
+  double frequency;  // frequency of data capture in Hz
 };
 
 /**

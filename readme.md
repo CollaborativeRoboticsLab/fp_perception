@@ -89,6 +89,12 @@ colcon build
 
 ## Start the system
 
+If using microphone or speaker run the following code to find the required device id
+
+```sh
+python3 src/perception/perception_driver_audio/find_devices.py
+```
+
 ```sh
 source install/setup.bash
 ros2 launch perception server.launch.py

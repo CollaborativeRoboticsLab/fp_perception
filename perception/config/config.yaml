@@ -2,9 +2,9 @@
 # This file is used to configure the parameters for the perception drivers in the perception system.
 /**:
   ros__parameters:
-    use_vision_driver: true
-    use_microphone_driver: false
-    use_speaker_driver: false
+    use_vision_driver: false
+    use_microphone_driver: true
+    use_speaker_driver: true
     use_eye_gaze_algorithm: false
 
     # Uncomment the following lines to enable the respective drivers
@@ -31,24 +31,24 @@
       audio:
         MicrophoneAudioDriver:
           name: MicrophoneAudioDriver
-          device_id: 0
-          publish: false
+          device_id: 9
+          publish: true
           topic: /audio/microphone
           frame_id: microphone_frame
           chunk_size: 256
           sample_rate: 44100
-          channels: 1
+          channels: 32
           frequency: 30.0
 
         SpeakerAudioDriver:
           name: SpeakerAudioDriver
-          device_id: 0
-          subscribe: false
+          device_id: 9
+          subscribe: true
           topic: /audio/speaker
           frame_id: speaker_frame
           chunk_size: 256
           sample_rate: 44100
-          channels: 1
+          channels: 32
 
     algorithm:
       GazeAlgorithm:

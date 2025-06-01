@@ -246,6 +246,8 @@ public:
         msg.layout.dim[0].label = "samples";
         msg.layout.dim[0].size = chunks.size();
         msg.layout.dim[0].stride = chunk_size_ * chunks.size();
+        
+        msg.layout.dim.push_back(std_msgs::msg::MultiArrayDimension());
         msg.layout.dim[1].label = "chunk";
         msg.layout.dim[1].size = chunk_size_;
         msg.layout.dim[1].stride = chunk_size_;

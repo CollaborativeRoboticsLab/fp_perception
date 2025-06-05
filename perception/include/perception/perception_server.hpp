@@ -25,6 +25,8 @@ public:
     , vision_driver_loader_("perception", "perception::DriverBase")
     , listener_driver_loader_("perception", "perception::DriverBase")
     , speaker_driver_loader_("perception", "perception::DriverBase")
+    , transcription_driver_loader_("perception", "perception::DriverBase")
+    , sentiment_driver_loader_("perception", "perception::DriverBase")
     , eye_gaze_algorithm_loader_("perception", "perception::AlgorithmBase")
   {
     try
@@ -57,11 +59,15 @@ public:
     this->declare_parameter("use_microphone_driver", false);
     this->declare_parameter("use_speaker_driver", false);
     this->declare_parameter("use_eye_gaze_algorithm", false);
+    this->declare_parameter("use_transcription_driver", false);
+    this->declare_parameter("use_sentiment_driver", false);
 
     bool use_vision_driver = this->get_parameter("use_vision_driver").as_bool();
     bool use_microphone_driver = this->get_parameter("use_microphone_driver").as_bool();
     bool use_speaker_driver = this->get_parameter("use_speaker_driver").as_bool();
     bool use_eye_gaze_algorithm = this->get_parameter("use_eye_gaze_algorithm").as_bool();
+    bool use_transcription_driver = this->get_parameter("use_transcription_driver").as_bool();
+    bool use_sentiment_driver = this->get_parameter("use_sentiment_driver").as_bool();
 
     if (use_vision_driver) event_->info("Will use vision driver.");
     else event_->info("Will not use vision driver.");
@@ -74,6 +80,12 @@ public:
 
     if (use_eye_gaze_algorithm) event_->info("Will use eye gaze algorithm.");
     else event_->info("Will not use eye gaze algorithm.");
+
+    if (use_transcription_driver) event_->info("Will use transcription driver.");
+    else event_->info("Will not use transcription driver.");
+
+    if (use_sentiment_driver) event_->info("Will use sentiment driver.");
+    else event_->info("Will not use sentiment driver.");
 
     /*************************************************************************
      * vision driver plugin class loader and driver pointer
@@ -143,6 +155,48 @@ public:
     }
 
     /*************************************************************************
+     * transcription driver plugin class loader and driver pointer
+     ************************************************************************/
+    if (use_transcription_driver)
+    {
+      this->declare_parameter("transcription_driver", "perception::PromptToolsTranscribeDriver");
+      std::string transcription_driver_name = this->get_parameter("transcription_driver").as_string();
+
+      event_->info("Loading transcription driver plugin: " + transcription_driver_name);
+
+      transcription_driver_ = transcription_driver_loader_.createSharedInstance(transcription_driver_name);
+      transcription_driver_->initialize(shared_from_this());
+      transcription_driver_->start();
+
+      event_->info("Started transcription driver plugin: " + transcription_driver_name);
+    }
+    else
+    {
+      event_->info("Transcription driver plugin not loaded.");
+    }
+
+    /*************************************************************************
+     * sentiment driver plugin class loader and driver pointer
+     ************************************************************************/
+    if (use_sentiment_driver)
+    {
+      this->declare_parameter("sentiment_driver", "perception::PromptToolsSentimentDriver");
+      std::string sentiment_driver_name = this->get_parameter("sentiment_driver").as_string();
+
+      event_->info("Loading sentiment driver plugin: " + sentiment_driver_name);
+
+      sentiment_driver_ = sentiment_driver_loader_.createSharedInstance(sentiment_driver_name);
+      sentiment_driver_->initialize(shared_from_this());
+      sentiment_driver_->start();
+
+      event_->info("Started sentiment driver plugin: " + sentiment_driver_name);
+    }
+    else
+    {
+      event_->info("Sentiment driver plugin not loaded.");
+    }
+
+    /*************************************************************************
      * eye gaze algorithm plugin class loader and driver pointer
      ************************************************************************/
 
@@ -187,6 +241,18 @@ protected:
 
   /** shared pointer for audio speaker driver */
   std::shared_ptr<perception::DriverBase> speaker_driver_;
+
+  /** plugin loader for transcription driver */
+  pluginlib::ClassLoader<perception::DriverBase> transcription_driver_loader_;
+
+  /** shared pointer for transcription driver */
+  std::shared_ptr<perception::DriverBase> transcription_driver_;
+
+  /** plugin loader for sentiment driver */
+  pluginlib::ClassLoader<perception::DriverBase> sentiment_driver_loader_;
+
+  /** shared pointer for sentiment driver */
+  std::shared_ptr<perception::DriverBase> sentiment_driver_;
 
   /** plugin loader for eye gaze algorithm */
   pluginlib::ClassLoader<perception::AlgorithmBase> eye_gaze_algorithm_loader_;

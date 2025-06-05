@@ -5,6 +5,9 @@
     use_vision_driver: false
     use_microphone_driver: true
     use_speaker_driver: true
+    use_transcription_driver: false
+    use_sentiment_driver: false
+
     use_eye_gaze_algorithm: false
 
     # Uncomment the following lines to enable the respective drivers
@@ -12,6 +15,9 @@
     vision_driver: perception::OpenCVDriver             # OpenCV driver for vision
     microphone_driver: perception::MicrophoneAudioDriver  # Driver for microphone audio
     speaker_driver: perception::SpeakerAudioDriver        # Driver for speaker audio
+    transcription_driver: perception::PromptToolsTranscribeDriver  # Driver for audio transcription
+    sentiment_analysis_driver: perception::PromptToolsSentimentDriver  # Driver for sentiment analysis
+
     eye_gaze_algorithm: perception::GazeAlgorithm         # Algorithm for eye gaze detection
 
     driver:
@@ -49,6 +55,17 @@
           chunk_size: 256
           sample_rate: 44100
           channels: 32
+
+      sentiment:
+        PromptToolsSentimentDriver:
+          name: PromptToolsSentimentDriver
+      
+      transcription:
+        PromptToolsTranscribeDriver:
+          name: PromptToolsTranscribeDriver
+          model: gpt-4o-transcribe
+          prompt: "This audio contains human speech."
+
 
     algorithm:
       GazeAlgorithm:

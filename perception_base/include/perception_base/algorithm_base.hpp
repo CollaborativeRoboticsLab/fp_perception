@@ -70,6 +70,26 @@ namespace perception
       audio_input_driver_ = audio_driver;
     }
 
+    /**
+     * @brief Set the transcription driver shared pointer
+     * 
+     * @param transcription_driver 
+     */
+    void set_transcription_driver(const std::shared_ptr<perception::DriverBase> &transcription_driver)
+    {
+      transcription_driver_ = transcription_driver;
+    }
+
+    /**
+     * @brief Set the sentiment driver shared pointer
+     * 
+     * @param sentiment_driver 
+     */
+    void set_sentiment_driver(const std::shared_ptr<perception::DriverBase> &sentiment_driver)
+    {
+      sentiment_driver_ = sentiment_driver;
+    }
+
   protected:
     /**
      * @brief Initializer base driver in place of constructor due to plugin semantics
@@ -106,6 +126,16 @@ namespace perception
      * @brief driver for audio input
      */
     std::shared_ptr<perception::DriverBase> audio_input_driver_;
+
+    /**
+     * @brief driver for transcription
+     */
+    std::shared_ptr<perception::DriverBase> transcription_driver_;
+
+    /**
+     * @brief driver for sentiment analysis
+     */
+    std::shared_ptr<perception::DriverBase> sentiment_driver_;
   };
 
 } // namespace perception

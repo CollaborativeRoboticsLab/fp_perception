@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.8)
-project(perception_driver_transcribe)
+project(perception_driver_sentiment)
 
 # Default to C++17
 if(NOT CMAKE_CXX_STANDARD)
@@ -24,7 +24,7 @@ include_directories(
 )
 
 add_library(${PROJECT_NAME} SHARED
-  src/transcribe_drivers.cpp
+  src/sentiment_drivers.cpp
 )
 
 ament_target_dependencies(${PROJECT_NAME}

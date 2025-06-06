@@ -39,7 +39,6 @@ public:
     event_->info("Initialized");
   }
 
-protected:
   /**
    * @brief Start the driver streaming
    *
@@ -85,19 +84,16 @@ protected:
         throw perception_exception("Sentiment analysis service call is not valid.");
       }
 
-      auto response = future.get();
-      if (response->response.response)
-      {
-        event_->info("Analysis successful: " + response->response.response +
-                     " with confidence: " + std::to_string(response->response.confidence));
-      }
+      auto response = future_.get();
+      event_->info("Analysis successful: " + response->response.response +
+                   " with confidence: " + std::to_string(response->response.confidence));
+
+      return std::pair(response->response.response, response->response.confidence);
     }
     catch (const std::exception& e)
     {
       event_->error("Analysis service call failed: " + std::string(e.what()));
     }
-
-    return std::pair(response->response.response, response->response.confidence);
   }
   /**
    * @brief Set data to the driver
@@ -109,7 +105,7 @@ protected:
    */
   void setDataStream(const std::any& input) const override
   {
-    const auto& text = std::any_cast<const std::string>& > (input);
+    const auto& text = std::any_cast<const std::string>(input);
 
     // Implement the logic to set the transcription data
     PromptSrv::Request::SharedPtr request = std::make_shared<PromptSrv::Request>();
@@ -118,11 +114,12 @@ protected:
     request->prompt.contains_audio = false;
 
     // Call the transcription service
-    future_ = transcribe_client_->async_send_request(request);
+    future_ = sentiment_client_->async_send_request(request);
   }
 
+protected:
   rclcpp::Client<PromptSrv>::SharedPtr sentiment_client_;
-  rclcpp::Client<PromptSrv>::SharedFuture future_;
-}
+  mutable rclcpp::Client<PromptSrv>::SharedFuture future_;
+};
 
 }  // namespace perception

@@ -3,6 +3,7 @@
 #include <torch/script.h>
 #include <iostream>
 #include <string>
+#include <cmath>
 
 /**
  * @brief This class is responsible for detecting ambient context using a pre-trained PyTorch model.
@@ -44,8 +45,10 @@ public:
     // Get the maximum probability and its corresponding index
     auto max_result = softmaxed.max(1, true);
 
-    confidence = max_result.values.item<float>();
-    class_index = max_result.indices.item<int>();
+    auto confidence_tensor = std::get<0>(max_result);
+    auto index_tensor = std::get<1>(max_result);
+    confidence = confidence_tensor.item<float>();
+    class_index = index_tensor.item<int>();
   }
 
 private:

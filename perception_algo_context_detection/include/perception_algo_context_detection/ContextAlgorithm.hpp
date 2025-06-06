@@ -86,8 +86,8 @@ public:
 
     // Initialize the Naive Bayes classifier
     nbclassifier_ = std::make_shared<NaiveBayesClassifier>(
-        std::vector<float>{ 0.33, 0.33, 0.34 },
-        std::vector<std::vector<float>>{ { 1.0, 1.0, 1.0 }, { 1.0, 1.0, 1.0 }, { 1.0, 1.0, 1.0 } },
+        std::vector<double> {0.33, 0.33, 0.34 },
+        std::vector<std::vector<double>>{ { 1.0, 1.0, 1.0 }, { 1.0, 1.0, 1.0 }, { 1.0, 1.0, 1.0 } },
         std::vector<std::string>{ "Alarmed", "Social", "Disengaged" });
   }
 
@@ -157,7 +157,7 @@ private:
       }
       if (audio_flattened.empty())
       {
-        event_->warn("Received empty audio chunk.");
+        event_->error("Received empty audio chunk.");
         return;
       }
       event_->info("Received audio chunk of size: " + std::to_string(audio_flattened.size()));
@@ -166,7 +166,7 @@ private:
       auto mfcc_tensor = mfcc_->extract(audio_flattened);
       if (mfcc_tensor.numel() == 0)
       {
-        event_->warn("MFCC extraction returned an empty tensor.");
+        event_->error("MFCC extraction returned an empty tensor.");
         return;
       }
       event_->info("MFCC tensor shape: " + std::to_string(mfcc_tensor.sizes()[0]) + ", " +
@@ -179,7 +179,7 @@ private:
       
       if (ambient_class < 0 || ambient_class > 2)
       {
-        event_->warn("Invalid ambient class detected: " + std::to_string(ambient_class));
+        event_->error("Invalid ambient class detected: " + std::to_string(ambient_class));
         return;
       }
       event_->info("Ambient class: " + std::to_string(ambient_class) + ", confidence: " + std::to_string(ambient_conf));
@@ -192,7 +192,7 @@ private:
 
       if (text.empty())
       {
-        event_->warn("No transcription available for the audio chunk.");
+        event_->error("No transcription available for the audio chunk.");
         return;
       }
       event_->info("Transcribed text: " + text);
@@ -206,7 +206,7 @@ private:
 
       if (sentiment_label.empty() || sentiment_score < 0.0f || sentiment_score > 1.0f)
       {
-        event_->warn("Invalid sentiment analysis result: " + sentiment_label + ", score: " + std::to_string(sentiment_score));
+        event_->error("Invalid sentiment analysis result: " + sentiment_label + ", score: " + std::to_string(sentiment_score));
         return;
       }
       event_->info("Sentiment analysis result: " + sentiment_label + ", score: " + std::to_string(sentiment_score));
@@ -219,7 +219,7 @@ private:
 
       if (keyword_conf < 0.0f || keyword_conf > 1.0f || sentiment_conf < 0.0f || sentiment_conf > 1.0f)
       {
-        event_->warn("Invalid keyword or sentiment confidence: " + std::to_string(keyword_conf) + ", " +
+        event_->error("Invalid keyword or sentiment confidence: " + std::to_string(keyword_conf) + ", " +
                      std::to_string(sentiment_conf));
         return;
       }

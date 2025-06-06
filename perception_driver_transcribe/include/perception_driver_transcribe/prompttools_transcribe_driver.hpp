@@ -1,7 +1,10 @@
 #pragma once
 
-#include <prompt_msgs/srv/prompt.hpp>
 #include <rclcpp/rclcpp.hpp>
+
+#include <prompt_msgs/srv/prompt.hpp>
+#include <prompt_msgs/msg/model_option.hpp>
+#include <std_msgs/msg/int16_multi_array.hpp>
 #include <string>
 #include <vector>
 
@@ -43,7 +46,6 @@ public:
     event_->info("Initialized");
   }
 
-protected:
   /**
    * @brief Start the driver streaming
    *
@@ -88,19 +90,19 @@ protected:
         throw perception_exception("Transcription service call is not valid.");
       }
 
-      auto response = future.get();
-      if (response->response.response)
-      {
-        event_->info("Transcription successful: " + response->response.response);
-      }
+      auto response = future_.get();
+
+      event_->info("Transcription successful: " + response->response.response);
+      return response->response.response;
     }
     catch (const std::exception& e)
     {
       event_->error("Transcription service call failed: " + std::string(e.what()));
+      throw perception_exception("Transcription service call failed: " + std::string(e.what()));
     }
-
-    return response->response.response;
+   
   }
+
   /**
    * @brief Set data to the driver
    *
@@ -141,26 +143,34 @@ protected:
       request->prompt.file_type = "audio/wav";
       request->prompt.audio_buffer = msg;
 
-      request->prompt.options.push_back(
-          prompt::PromptOption{ "model", model_name_, prompt::PromptOptionType::STRING_TYPE });
-      request->prompt.options.push_back(
-          prompt::PromptOption{ "response_format", "json", prompt::PromptOptionType::STRING_TYPE });
+      prompt_msgs::msg::ModelOption model_option1;
+      model_option1.key = "model";
+      model_option1.value = model_name_;
+      model_option1.type = prompt_msgs::msg::ModelOption::STRING_TYPE;
+      request->prompt.options.push_back(model_option1);
+
+      prompt_msgs::msg::ModelOption model_option2;
+      model_option2.key = "response_format";
+      model_option2.value = "json";
+      model_option2.type = prompt_msgs::msg::ModelOption::STRING_TYPE;
+      request->prompt.options.push_back(model_option2);
 
       // Call the transcription service
       future_ = transcribe_client_->async_send_request(request);
     }
     else
     {
-      event_->warn("No audio data provided to transcribe.");
+      event_->error("No audio data provided to transcribe.");
       throw perception_exception("No audio data provided to transcribe.");
     }
   }
 
+protected:
   rclcpp::Client<PromptSrv>::SharedPtr transcribe_client_;
-  rclcpp::Client<PromptSrv>::SharedFuture future_;
+  mutable rclcpp::Client<PromptSrv>::SharedFuture future_;
 
   std::string model_name_;
   std::string prompt_text_ = "This audio contains human speech.";
-}
+};
 
 }  // namespace perception

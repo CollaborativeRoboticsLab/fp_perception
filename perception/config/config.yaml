@@ -9,16 +9,18 @@
     use_sentiment_driver: false
 
     use_eye_gaze_algorithm: false
+    use_context_identification_algorithm: false
 
     # Uncomment the following lines to enable the respective drivers
-    # vision_driver: perception::DefaultDriver              # Default ROS driver for vision
-    vision_driver: perception::OpenCVDriver             # OpenCV driver for vision
-    microphone_driver: perception::MicrophoneAudioDriver  # Driver for microphone audio
-    speaker_driver: perception::SpeakerAudioDriver        # Driver for speaker audio
-    transcription_driver: perception::PromptToolsTranscribeDriver  # Driver for audio transcription
-    sentiment_analysis_driver: perception::PromptToolsSentimentDriver  # Driver for sentiment analysis
+    # vision_driver: perception::DefaultDriver                          # Default ROS driver for vision
+    vision_driver: perception::OpenCVDriver                             # OpenCV driver for vision
+    microphone_driver: perception::MicrophoneAudioDriver                # Driver for microphone audio
+    speaker_driver: perception::SpeakerAudioDriver                      # Driver for speaker audio
+    transcription_driver: perception::PromptToolsTranscribeDriver       # Driver for audio transcription
+    sentiment_analysis_driver: perception::PromptToolsSentimentDriver   # Driver for sentiment analysis
 
-    eye_gaze_algorithm: perception::GazeAlgorithm         # Algorithm for eye gaze detection
+    eye_gaze_algorithm: perception::GazeAlgorithm                   # Algorithm for eye gaze detection
+    context_identification_algorithm: perception::ContextAlgorithm  # Algorithm for context identification
 
     driver:
       vision:
@@ -41,7 +43,7 @@
           publish: true
           topic: /audio/microphone
           frame_id: microphone_frame
-          chunk_size: 256
+          chunk_size: 1024
           sample_rate: 44100
           channels: 32
           frequency: 30.0
@@ -52,7 +54,7 @@
           subscribe: true
           topic: /audio/speaker
           frame_id: speaker_frame
-          chunk_size: 256
+          chunk_size: 1024
           sample_rate: 44100
           channels: 32
 
@@ -80,4 +82,21 @@
           yaw_threshold: 20.0
           history_size: 10
           # model_path: facial_landmarks.pth  # overridden via launch file
+          debug_mode: true
+
+      ContextAlgorithm:
+        name: ContextIdentification
+        MFCCExtractor:
+          sample_rate: 44100
+          n_mfcc: 40
+          fft_size: 2048
+          hop_length: 512
+          fixed_length: 200
+        # AmbientDetector:
+          # model_path: ambient_model.pth # overridden via launch file
+
+        model_path: context_model.pth
+        detection:
+          confidence_threshold: 0.7
+          history_size: 5
           debug_mode: true

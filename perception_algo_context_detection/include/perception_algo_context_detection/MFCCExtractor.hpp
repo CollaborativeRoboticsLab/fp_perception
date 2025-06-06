@@ -20,11 +20,11 @@ public:
    *
    * @param sample_rate Sample rate of the audio (default: 44100)
    * @param n_mfcc Number of MFCC coefficients to extract (default: 40)
-   * @param fft_size Size of the FFT window (default: 1024)
+   * @param fft_size Size of the FFT window (default: 2048)
    * @param hop_length Hop length for the STFT (default: 512)
    * @param fixed_length Fixed length of the output MFCC features (default: 200)
    */
-  MFCCExtractor(int sample_rate = 44100, int n_mfcc = 40, int fft_size = 1024, int hop_length = 512,
+  MFCCExtractor(int sample_rate = 44100, int n_mfcc = 40, int fft_size = 2048, int hop_length = 512,
                 int fixed_length = 200)
     : sample_rate_(sample_rate)
     , n_mfcc_(n_mfcc)

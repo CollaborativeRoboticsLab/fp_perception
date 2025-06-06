@@ -28,6 +28,7 @@ public:
     , transcription_driver_loader_("perception", "perception::DriverBase")
     , sentiment_driver_loader_("perception", "perception::DriverBase")
     , eye_gaze_algorithm_loader_("perception", "perception::AlgorithmBase")
+    , context_algorithm_loader_("perception", "perception::AlgorithmBase")
   {
     try
     {
@@ -55,37 +56,66 @@ public:
     /*************************************************************************
      * Identify what plugins to load
      ************************************************************************/
+    // drivers
     this->declare_parameter("use_vision_driver", false);
     this->declare_parameter("use_microphone_driver", false);
     this->declare_parameter("use_speaker_driver", false);
-    this->declare_parameter("use_eye_gaze_algorithm", false);
     this->declare_parameter("use_transcription_driver", false);
     this->declare_parameter("use_sentiment_driver", false);
 
+    // algorithms
+    this->declare_parameter("use_eye_gaze_algorithm", false);
+    this->declare_parameter("use_context_identification_algorithm", false);
+
+    // drivers
     bool use_vision_driver = this->get_parameter("use_vision_driver").as_bool();
     bool use_microphone_driver = this->get_parameter("use_microphone_driver").as_bool();
     bool use_speaker_driver = this->get_parameter("use_speaker_driver").as_bool();
-    bool use_eye_gaze_algorithm = this->get_parameter("use_eye_gaze_algorithm").as_bool();
     bool use_transcription_driver = this->get_parameter("use_transcription_driver").as_bool();
     bool use_sentiment_driver = this->get_parameter("use_sentiment_driver").as_bool();
 
-    if (use_vision_driver) event_->info("Will use vision driver.");
-    else event_->info("Will not use vision driver.");
+    // algorithms
+    bool use_eye_gaze_algorithm = this->get_parameter("use_eye_gaze_algorithm").as_bool();
+    bool use_context_identification_algorithm = this->get_parameter("use_context_identification_algorithm").as_bool();
 
-    if (use_microphone_driver) event_->info("Will use microphone driver.");
-    else event_->info("Will not use microphone driver.");
+    // Print out what plugins will be used
 
-    if (use_speaker_driver) event_->info("Will use speaker driver.");
-    else event_->info("Will not use speaker driver.");
+    // drivers
+    if (use_vision_driver)
+      event_->info("Will use vision driver.");
+    else
+      event_->info("Will not use vision driver.");
 
-    if (use_eye_gaze_algorithm) event_->info("Will use eye gaze algorithm.");
-    else event_->info("Will not use eye gaze algorithm.");
+    if (use_microphone_driver)
+      event_->info("Will use microphone driver.");
+    else
+      event_->info("Will not use microphone driver.");
 
-    if (use_transcription_driver) event_->info("Will use transcription driver.");
-    else event_->info("Will not use transcription driver.");
+    if (use_speaker_driver)
+      event_->info("Will use speaker driver.");
+    else
+      event_->info("Will not use speaker driver.");
 
-    if (use_sentiment_driver) event_->info("Will use sentiment driver.");
-    else event_->info("Will not use sentiment driver.");
+    if (use_transcription_driver)
+      event_->info("Will use transcription driver.");
+    else
+      event_->info("Will not use transcription driver.");
+
+    if (use_sentiment_driver)
+      event_->info("Will use sentiment driver.");
+    else
+      event_->info("Will not use sentiment driver.");
+
+    // algorithms
+    if (use_eye_gaze_algorithm)
+      event_->info("Will use eye gaze algorithm.");
+    else
+      event_->info("Will not use eye gaze algorithm.");
+
+    if (use_context_identification_algorithm)
+      event_->info("Will use context identification algorithm.");
+    else
+      event_->info("Will not use context identification algorithm.");
 
     /*************************************************************************
      * vision driver plugin class loader and driver pointer
@@ -218,6 +248,30 @@ public:
     {
       event_->info("Eye gaze algorithm plugin not loaded.");
     }
+
+    /*************************************************************************
+     * context identification algorithm plugin class loader and driver pointer
+     ************************************************************************/
+    if (use_context_identification_algorithm)
+    {
+      this->declare_parameter("context_identification_algorithm", "perception::ContextAlgorithm");
+      std::string context_algorithm_name = this->get_parameter("context_identification_algorithm").as_string();
+
+      event_->info("Loading context identification algorithm plugin: " + context_algorithm_name);
+
+      context_identification_algorithm_ = context_algorithm_loader_.createSharedInstance(context_algorithm_name);
+      context_identification_algorithm_->initialize(shared_from_this());
+      context_identification_algorithm_->set_audio_input_driver(microphone_driver_);
+      context_identification_algorithm_->set_transcription_driver(transcription_driver_);
+      context_identification_algorithm_->set_sentiment_driver(sentiment_driver_);
+      context_identification_algorithm_->start();
+
+      event_->info("Started context identification algorithm plugin: " + context_algorithm_name);
+    }
+    else
+    {
+      event_->info("Context identification algorithm plugin not loaded.");
+    }
   }
 
 protected:
@@ -259,6 +313,12 @@ protected:
 
   /** shared pointer for eye gaze algorithm */
   std::shared_ptr<perception::AlgorithmBase> eye_gaze_algorithm_;
+
+  /** plugin loader for context identification algorithm */
+  pluginlib::ClassLoader<perception::AlgorithmBase> context_algorithm_loader_;
+
+  /** shared pointer for context identification algorithm */
+  std::shared_ptr<perception::AlgorithmBase> context_identification_algorithm_;
 };
 
 }  // namespace perception

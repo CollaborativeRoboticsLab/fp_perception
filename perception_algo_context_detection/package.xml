@@ -9,6 +9,13 @@
 
   <buildtool_depend>ament_cmake</buildtool_depend>
 
+  <depend>rclcpp</depend>
+  <depend>pluginlib</depend>
+  <depend>perception_base</depend>
+  <depend>perception_events</depend>
+  <depend>perception_msgs</depend>
+  <depend>pytorch_vendor</depend>
+
   <test_depend>ament_lint_auto</test_depend>
   <test_depend>ament_lint_common</test_depend>
 

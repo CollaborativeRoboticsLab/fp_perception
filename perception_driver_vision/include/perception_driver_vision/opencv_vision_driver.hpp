@@ -19,7 +19,6 @@ class OpenCVDriver : public DriverBase
 public:
   OpenCVDriver()
   {
-
   }
   ~OpenCVDriver() override
   {
@@ -169,12 +168,20 @@ public:
 
   /**
    * @brief Test function to check the driver functionality by writing the image to a file
+   * This function creates a "test" directory if it doesn't exist and saves the captured image
    */
   void test() override
   {
     event_->info("OpenCVDriver test function called");
+
+    // Create the "test" directory if it doesn't exist
+    DriverBase::check_test_directory("test");
+    
+    // Save image to the "test" folder
     cv::Mat frame = std::any_cast<cv::Mat>(getData());
-    cv::imwrite("test_image.jpg", frame);
+    cv::imwrite("test/opencv_vision_image.jpg", frame);
+
+    event_->info("OpenCVDriver test image saved to 'test/opencv_vision_image.jpg'. Test completed.");
   }
 
 protected:

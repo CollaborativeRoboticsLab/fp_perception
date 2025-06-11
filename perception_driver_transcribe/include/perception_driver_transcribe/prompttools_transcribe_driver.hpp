@@ -1,12 +1,16 @@
 #pragma once
 
+#include <string>
+#include <vector>
+
 #include <rclcpp/rclcpp.hpp>
 
 #include <prompt_msgs/srv/prompt.hpp>
 #include <prompt_msgs/msg/model_option.hpp>
 #include <std_msgs/msg/int16_multi_array.hpp>
-#include <string>
-#include <vector>
+#include <perception_base/driver_base.hpp>
+#include <perception_base/utils/exceptions.hpp>
+#include <perception_base/utils/audio.hpp>
 
 namespace perception
 {
@@ -107,41 +111,27 @@ public:
    * @brief Set data to the driver
    *
    * This function sends the latest audio data to the transcription service. It expects the input to be a vector of
-   * audio chunks in the form of std::vector<std::vector<int16_t>>.
+   * audio chunks in the form of perception::audio_data.
    *
    * @param input The latest data from the driver.
    */
   void setDataStream(const std::any& input) const override
   {
-    const auto& new_audio = std::any_cast<const std::vector<std::vector<int16_t>>&>(input);
+    const auto& new_audio = std::any_cast<const perception::audio_data&>(input);
 
-    if (new_audio.size() > 0)
+    if (new_audio.samples.size() > 0)
     {
-      // If there are chunks to publish, create a message and publish it
-      std_msgs::msg::Int16MultiArray msg;
-
-      msg.layout.dim.push_back(std_msgs::msg::MultiArrayDimension());
-      msg.layout.dim[0].label = "samples";
-      msg.layout.dim[0].size = new_audio.size();
-      msg.layout.dim[0].stride = new_audio[1].size() * new_audio.size();
-
-      msg.layout.dim.push_back(std_msgs::msg::MultiArrayDimension());
-      msg.layout.dim[1].label = "chunk";
-      msg.layout.dim[1].size = new_audio[0].size();
-      msg.layout.dim[1].stride = new_audio[0].size();
-
-      for (const auto& chunk : new_audio)
-      {
-        msg.data.insert(msg.data.end(), chunk.begin(), chunk.end());
-      }
-
       // Implement the logic to set the transcription data
       PromptSrv::Request::SharedPtr request = std::make_shared<PromptSrv::Request>();
       request->prompt.prompt = prompt_text_;
       request->prompt.flush = true;
       request->prompt.contains_audio = true;
       request->prompt.file_type = "audio/wav";
-      request->prompt.audio_buffer = msg;
+      request->prompt.samples = new_audio.samples;
+      request->prompt.sample_rate = new_audio.sample_rate;
+      request->prompt.channels = new_audio.channels;
+      request->prompt.chunk_size = new_audio.chunk_size;
+      request->prompt.chunk_count = new_audio.chunk_count;
 
       prompt_msgs::msg::ModelOption model_option1;
       model_option1.key = "model";
@@ -163,6 +153,47 @@ public:
       event_->error("No audio data provided to transcribe.");
       throw perception_exception("No audio data provided to transcribe.");
     }
+  }
+  
+  /**
+   * @brief Test method for the driver
+   *
+   * This function can be overridden in derived classes to implement specific test logic.
+   */
+  void test() override
+  {
+    // Implement test logic if needed
+    event_->info("Testing with model: " + model_name_);
+
+    // reading test audio file
+    auto data = readWavFile("install/perception_driver_transcribe/share/perception_driver_transcribe/audio/test.wav");
+
+    if (data.samples.empty())
+    {
+      event_->error("Failed to read test audio file.");
+      throw perception_exception("Failed to read test audio file.");
+    }
+    event_->info("Test audio file read successfully, size: " + std::to_string(data.samples.size()));
+
+    // Convert the audio data to the expected format
+    setDataStream(data);
+
+    event_->info("Transcription service called with test audio data. waiting for response...");
+    event_->info("Expected transcription: 'Hello This is a test.'");
+    
+    auto result = getData();
+
+    if (result.has_value())
+    {
+      event_->info("Transcription result: " + std::any_cast<std::string>(result));
+    }
+    else
+    {
+      event_->error("No transcription result received.");
+      throw perception_exception("No transcription result received.");
+    }
+
+    event_->info("Test completed.");
   }
 
 protected:

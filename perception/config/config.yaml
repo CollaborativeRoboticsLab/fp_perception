@@ -2,9 +2,10 @@
 # This file is used to configure the parameters for the perception drivers in the perception system.
 /**:
   ros__parameters:
+    run_tests: true
     use_vision_driver: false
     use_microphone_driver: true
-    use_speaker_driver: true
+    use_speaker_driver: false
     use_transcription_driver: false
     use_sentiment_driver: false
 
@@ -39,7 +40,7 @@
       audio:
         MicrophoneAudioDriver:
           name: MicrophoneAudioDriver
-          device_id: 9
+          device_id: 8
           publish: true
           topic: /audio/microphone
           frame_id: microphone_frame
@@ -47,10 +48,11 @@
           sample_rate: 44100
           channels: 32
           frequency: 30.0
+          buffer_size: 5000
 
         SpeakerAudioDriver:
           name: SpeakerAudioDriver
-          device_id: 9
+          device_id: 8
           subscribe: true
           topic: /audio/speaker
           frame_id: speaker_frame

@@ -59,6 +59,10 @@ install(DIRECTORY include/
   DESTINATION include
 )
 
+install(DIRECTORY test/
+  DESTINATION share/${PROJECT_NAME}/audio
+)
+
 ament_export_include_directories(include)
 ament_export_libraries(${PROJECT_NAME})
 

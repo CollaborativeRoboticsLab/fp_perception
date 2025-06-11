@@ -4,7 +4,10 @@
 #include <vector>
 #include <deque>
 #include <mutex>
+#include <fstream>
 #include <perception_base/driver_base.hpp>
+#include <perception_base/utils/audio.hpp>
+#include <perception_msgs/msg/perception_audio.hpp>
 
 namespace perception
 {
@@ -74,7 +77,7 @@ public:
     // If subscribing to audio data, set up the subscriber
     if (config_.subscribe)
     {
-      audio_subscriber_ = node->create_subscription<std_msgs::msg::Int16MultiArray>(
+      audio_subscriber_ = node->create_subscription<perception_msgs::msg::PerceptionAudio>(
           config_.topic, 10, std::bind(&SpeakerAudioDriver::receiveData, this, std::placeholders::_1));
       event_->info("Audio subscriber created for topic: " + config_.topic);
     }
@@ -137,10 +140,10 @@ public:
   {
     try
     {
-      const auto& new_samples = std::any_cast<const std::vector<int16_t>&>(input);
+      const auto& data = std::any_cast<const perception::audio_data&>(input);
 
       std::lock_guard<std::mutex> lock(driver_mutex_);
-      audio_queue_.insert(audio_queue_.end(), new_samples.begin(), new_samples.end());
+      audio_queue_.insert(audio_queue_.end(), data.samples.begin(), data.samples.end());
     }
     catch (const std::bad_any_cast&)
     {
@@ -159,10 +162,10 @@ public:
   {
     try
     {
-      const auto& new_samples = std::any_cast<const std::vector<std::vector<int16_t>>&>(input);
+      const auto& data = std::any_cast<const perception::audio_data&>(input);
 
-      for (const auto& sample : new_samples)
-        setData(sample);
+      std::lock_guard<std::mutex> lock(driver_mutex_);
+      audio_queue_.insert(audio_queue_.end(), data.samples.begin(), data.samples.end());
     }
     catch (const perception_exception& error)
     {
@@ -174,24 +177,66 @@ public:
    * @brief Set the latest audio data to the driver from topic subscription.
    * This function is called when new audio data is received from the subscribed topic.
    *
-   * @return std::any The latest audio data from the driver.
+   * @param msg The audio data message received from the topic.
    * @throws perception_exception if the stream is not active
    */
-  void receiveData(const std_msgs::msg::Int16MultiArray& msg) const
+  void receiveData(const perception_msgs::msg::PerceptionAudio& msg) const
   {
-    int chunk_size = msg.layout.dim[1].size;
-    int chunk_count = msg.layout.dim[0].size;
-
-    for (int i = 0; i < chunk_count; ++i)
-    {
-      std::vector<int16_t> chunk(msg.data.begin() + i * chunk_size, msg.data.begin() + (i + 1) * chunk_size);
-      setData(chunk);
-    }
-
+    auto data = perception::msg_to_audio_data(msg);
+    setDataStream(data);
     event_->info("Received audio data from topic: " + config_.topic);
   }
 
+  /**
+   * @brief Read test/mic_test.wav and play it through the speaker.
+   */
+  void test() override
+  {
+    event_->info("Testing by playing test/mic_test.wav...");
+
+    const std::filesystem::path filepath("test/mic_test.wav");
+
+    if (!std::filesystem::exists(filepath))
+    {
+      throw perception_exception("Audio file not found: " + filepath.string());
+      event_->error("Audio file not found: " + filepath.string());
+      return;
+    }
+
+    try
+    {
+      auto audio_data = readWavFile(filepath.string());
+      setDataStream(audio_data);
+
+      // Wait long enough for audio to play
+      int duration_ms = static_cast<int>((audio_data.samples.size() * 1000.0) / (audio_data.sample_rate * audio_data.channels));
+
+      event_->info("Playing duration estimated: " + std::to_string(duration_ms) + " ms");
+      std::this_thread::sleep_for(std::chrono::milliseconds(duration_ms));
+    }
+    catch (const perception_exception& e)
+    {
+      event_->error("Error during test: " + std::string(e.what()));
+    }
+
+    event_->info("Test completed.");
+  }
+
 protected:
+  /**
+   * @brief PortAudio callback function for audio output.
+   *
+   * This function is called by PortAudio to fill the output buffer with audio data.
+   * It retrieves audio samples from the audio queue and writes them to the output buffer.
+   *
+   * @param inputBuffer Pointer to the input buffer (not used in this case).
+   * @param outputBuffer Pointer to the output buffer where audio samples will be written.
+   * @param framesPerBuffer Number of frames per buffer.
+   * @param timeInfo Pointer to time information (not used in this case).
+   * @param statusFlags Status flags (not used in this case).
+   * @param userData Pointer to user data (this instance of SpeakerAudioDriver).
+   * @return int Return value indicating whether to continue or stop the stream.
+   */
   static int paCallback(const void* inputBuffer, void* outputBuffer, unsigned long framesPerBuffer,
                         const PaStreamCallbackTimeInfo* timeInfo, PaStreamCallbackFlags statusFlags, void* userData)
   {
@@ -223,7 +268,7 @@ protected:
   int channels_;              // Default number of channels
 
   // Subscriber for audio data
-  rclcpp::Subscription<std_msgs::msg::Int16MultiArray>::SharedPtr audio_subscriber_;
+  rclcpp::Subscription<perception_msgs::msg::PerceptionAudio>::SharedPtr audio_subscriber_;
 };
 
 }  // namespace perception

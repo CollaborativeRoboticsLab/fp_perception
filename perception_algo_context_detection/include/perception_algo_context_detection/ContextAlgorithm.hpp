@@ -1,6 +1,7 @@
 #pragma once
 
 #include <perception_base/algorithm_base.hpp>
+#include <perception_base/utils/audio.hpp>
 #include <perception_algo_context_detection/MFCCExtractor.hpp>
 #include <perception_algo_context_detection/AmbientDetector.hpp>
 #include <perception_algo_context_detection/NaiveBayesClassifier.hpp>
@@ -147,23 +148,19 @@ private:
     try
     {
       // 1. Get audio data
-      auto audio_chunk = std::any_cast<std::vector<std::vector<int16_t>>>(audio_input_driver_->getDataStream());
+      auto audio = std::any_cast<perception::audio_data>(audio_input_driver_->getDataStream());
 
-      // flatten audio chunk
-      std::vector<int16_t> audio_flattened;
-      for (const auto& chunk : audio_chunk)
-      {
-        audio_flattened.insert(audio_flattened.end(), chunk.begin(), chunk.end());
-      }
-      if (audio_flattened.empty())
+      if (audio.samples.empty())
       {
         event_->error("Received empty audio chunk.");
         return;
       }
-      event_->info("Received audio chunk of size: " + std::to_string(audio_flattened.size()));
+      event_->info("Received audio of size: " + std::to_string(audio.chunk_count) + " chunks, " +
+                   std::to_string(audio.samples.size()) + " samples, " + std::to_string(audio.sample_rate) +
+                   " Hz, " + std::to_string(audio.channels) + " channels.");
 
       // 2. Extract MFCC features for each audio chunk
-      auto mfcc_tensor = mfcc_->extract(audio_flattened);
+      auto mfcc_tensor = mfcc_->extract(audio.samples);
       if (mfcc_tensor.numel() == 0)
       {
         event_->error("MFCC extraction returned an empty tensor.");
@@ -187,7 +184,7 @@ private:
       std::string label = (ambient_class == 0 ? "Alarmed" : ambient_class == 1 ? "Social" : "Disengaged");
 
       // 5. Transcribe audio to text
-      transcription_driver_->setDataStream(audio_chunk);
+      transcription_driver_->setDataStream(audio);
       std::string text = std::any_cast<std::string>(transcription_driver_->getDataStream());
 
       if (text.empty())

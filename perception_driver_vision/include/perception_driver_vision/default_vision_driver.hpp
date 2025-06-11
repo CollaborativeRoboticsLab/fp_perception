@@ -99,8 +99,14 @@ public:
   void test() override
   {
     event_->info("DefaultDriver test function called");
+
+    // Create the "test" directory if it doesn't exist
+    DriverBase::check_test_directory("test");
+
     cv::Mat frame = std::any_cast<cv::Mat>(getData());
-    cv::imwrite("test_image.jpg", frame);
+    cv::imwrite("test/default_vision_image.jpg", frame);
+
+    event_->info("Test image saved to test/default_vision_image.jpg. Test completed.");
   }
 
 protected:

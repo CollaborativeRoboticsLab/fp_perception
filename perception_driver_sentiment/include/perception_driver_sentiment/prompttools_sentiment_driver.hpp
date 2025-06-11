@@ -5,6 +5,9 @@
 #include <string>
 #include <utility>
 #include <vector>
+#include <any>
+#include <perception_base/driver_base.hpp>
+#include <perception_base/utils/audio_utils.hpp>
 
 namespace perception
 {
@@ -115,6 +118,32 @@ public:
 
     // Call the transcription service
     future_ = sentiment_client_->async_send_request(request);
+  }
+
+  /**
+   * @brief Test method for the driver
+   *
+   * This function can be overridden in derived classes to implement specific test logic.
+   */
+  void test() override
+  {
+    event_->info("Testing PromptToolsSentimentDriver with model: " + config_.name);
+
+    // Example test input
+    std::string test_text = "I love programming!";
+    setDataStream(test_text);
+
+    event_->info("Sentiment analysis service called with test text. waiting for response...");
+
+    auto result = getData();
+    if (result.has_value())
+    {
+      auto sentiment_result = std::any_cast<std::pair<std::string, double>>(result);
+      event_->info("Analysis results with sentiment: " + sentiment_result.first +
+                   " and confidence: " + std::to_string(sentiment_result.second));
+    }
+
+    event_->info("Test completed.");
   }
 
 protected:

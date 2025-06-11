@@ -4,6 +4,7 @@
 #include <any>
 #include <mutex>
 #include <thread>
+#include <filesystem>
 
 #include <rclcpp/rclcpp.hpp>
 
@@ -132,6 +133,24 @@ namespace perception
     virtual void test()
     {
       event_->info("Driver test function called");
+    }
+
+    /**
+     * @brief Check if the test directory exists, create it if not
+     *
+     * This function checks if a directory named "test" exists in the current working directory.
+     * If it does not exist, it creates the directory.
+     *
+     * @param folder_name The name of the folder to check or create.
+     */
+    void check_test_directory(std::string folder_name)
+    {
+      // Create "test" directory if it doesn't exist
+      const std::filesystem::path dir(folder_name);
+      if (!std::filesystem::exists(dir))
+      {
+        std::filesystem::create_directory(dir);
+      }
     }
 
   protected:

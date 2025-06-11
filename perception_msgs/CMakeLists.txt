@@ -17,6 +17,7 @@ find_package(std_msgs REQUIRED)
 
 set(msg_files
   "msg/PerceptionEvent.msg"
+  "msg/PerceptionAudio.msg"
 )
 
 rosidl_generate_interfaces(${PROJECT_NAME}

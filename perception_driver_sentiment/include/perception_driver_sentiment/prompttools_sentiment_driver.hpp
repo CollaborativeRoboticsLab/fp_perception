@@ -7,7 +7,6 @@
 #include <vector>
 #include <any>
 #include <perception_base/driver_base.hpp>
-#include <perception_base/utils/audio_utils.hpp>
 
 namespace perception
 {

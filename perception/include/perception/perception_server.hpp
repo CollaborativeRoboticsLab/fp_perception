@@ -71,15 +71,15 @@ public:
     this->declare_parameter("run_tests", false);
 
     // drivers
-    bool use_vision_driver_ = this->get_parameter("use_vision_driver").as_bool();
-    bool use_microphone_driver_ = this->get_parameter("use_microphone_driver").as_bool();
-    bool use_speaker_driver_ = this->get_parameter("use_speaker_driver").as_bool();
-    bool use_transcription_driver_ = this->get_parameter("use_transcription_driver").as_bool();
-    bool use_sentiment_driver_ = this->get_parameter("use_sentiment_driver").as_bool();
+    use_vision_driver_ = this->get_parameter("use_vision_driver").as_bool();
+    use_microphone_driver_ = this->get_parameter("use_microphone_driver").as_bool();
+    use_speaker_driver_ = this->get_parameter("use_speaker_driver").as_bool();
+    use_transcription_driver_ = this->get_parameter("use_transcription_driver").as_bool();
+    use_sentiment_driver_ = this->get_parameter("use_sentiment_driver").as_bool();
 
     // algorithms
-    bool use_eye_gaze_algorithm_ = this->get_parameter("use_eye_gaze_algorithm").as_bool();
-    bool use_context_identification_algorithm_ = this->get_parameter("use_context_identification_algorithm").as_bool();
+    use_eye_gaze_algorithm_ = this->get_parameter("use_eye_gaze_algorithm").as_bool();
+    use_context_identification_algorithm_ = this->get_parameter("use_context_identification_algorithm").as_bool();
 
     // run tests
     run_tests_ = this->get_parameter("run_tests").as_bool();

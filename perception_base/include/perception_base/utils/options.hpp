@@ -15,6 +15,7 @@ struct driver_options
 {
   std::string name;
   std::string topic;
+  std::string device_name;  // name of the device, used to find the device ID
   int device_id;
   std::string frame_id;
   bool publish = false;  // whether to publish the data to a topic

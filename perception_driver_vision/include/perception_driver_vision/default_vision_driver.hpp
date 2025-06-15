@@ -77,9 +77,9 @@ public:
    */
   std::any getData() const override
   {
-    std::unique_lock<std::mutex> lock(image_mutex_);
-
-    image_ready_cv_.wait(lock, [this] { return latest_image_ != nullptr; });
+    // Wait for the latest image to be available
+    std::unique_lock<std::mutex> lock(buffer_mutex_);
+    buffer_cv_.wait(lock, [this] { return latest_image_ != nullptr; });
 
     try
     {
@@ -112,21 +112,14 @@ public:
 protected:
   void imageCallback(const sensor_msgs::msg::Image::ConstSharedPtr& msg)
   {
-    event_->debug("Received image: width=" + std::to_string(msg->width) + ", height=" + std::to_string(msg->height));
-
-    std::lock_guard<std::mutex> lock(image_mutex_);
+    std::lock_guard<std::mutex> lock(buffer_mutex_);
     latest_image_ = msg;
 
-    image_ready_cv_.notify_all();
-
-    event_->debug("Image data updated.");
+    buffer_cv_.notify_all();
   }
 
   image_transport::Subscriber image_sub_;
   sensor_msgs::msg::Image::ConstSharedPtr latest_image_;
-
-  mutable std::mutex image_mutex_;
-  mutable std::condition_variable image_ready_cv_;
 };
 
 }  // namespace perception

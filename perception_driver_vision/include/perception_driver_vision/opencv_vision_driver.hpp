@@ -132,7 +132,7 @@ public:
 
     cv::Mat frame;
 
-    std::lock_guard<std::mutex> lock(driver_mutex_);
+    std::lock_guard<std::mutex> lock(buffer_mutex_);
     capture_device >> frame;
 
     if (frame.empty())

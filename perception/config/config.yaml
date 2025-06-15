@@ -40,25 +40,25 @@
       audio:
         MicrophoneAudioDriver:
           name: MicrophoneAudioDriver
-          device_id: 8
-          publish: true
+          device_name: ALC285 Analog
+          publish: false
           topic: /audio/microphone
           frame_id: microphone_frame
-          chunk_size: 1024
-          sample_rate: 44100
-          channels: 32
+          chunk_size: 1024             # number of frames per audio buffer processing cycle
+          sample_rate: 48000          # number of samples per second
+          channels: 2                 # number of audio channels    
           frequency: 30.0
-          buffer_size: 5000
+          buffer_size: 1000000         # size of the audio buffer in frames (sample_rate * seconds)
 
         SpeakerAudioDriver:
           name: SpeakerAudioDriver
-          device_id: 8
+          device_name: default
           subscribe: true
           topic: /audio/speaker
           frame_id: speaker_frame
           chunk_size: 1024
           sample_rate: 44100
-          channels: 32
+          channels: 1
 
       sentiment:
         PromptToolsSentimentDriver:

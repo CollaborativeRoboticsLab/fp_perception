@@ -8,6 +8,7 @@
 #include <perception_base/driver_base.hpp>
 #include <perception_base/utils/audio.hpp>
 #include <perception_msgs/msg/perception_audio.hpp>
+#include <perception_driver_audio/utils.hpp>
 
 namespace perception
 {
@@ -21,9 +22,20 @@ namespace perception
 class SpeakerAudioDriver : public DriverBase
 {
 public:
+  /**
+   * @brief Constructor for SpeakerAudioDriver
+   *
+   * Initializes the PortAudio library and prepares the audio stream.
+   */
   SpeakerAudioDriver() : stream_(nullptr)
   {
   }
+
+  /**
+   * @brief Destructor for SpeakerAudioDriver
+   *
+   * Stops the audio stream and terminates the PortAudio library.
+   */
   ~SpeakerAudioDriver() override
   {
     stop();
@@ -41,7 +53,7 @@ public:
   {
     // Configure parameters for the nodevision
     node->declare_parameter("driver.audio.SpeakerAudioDriver.name", "SpeakerAudioDriver");
-    node->declare_parameter("driver.audio.SpeakerAudioDriver.device_id", 0);
+    node->declare_parameter("driver.audio.SpeakerAudioDriver.device_name", "default");
     node->declare_parameter("driver.audio.SpeakerAudioDriver.subscribe", false);
     node->declare_parameter("driver.audio.SpeakerAudioDriver.topic", "audio/speaker");
     node->declare_parameter("driver.audio.SpeakerAudioDriver.frame_id", "speaker_frame");
@@ -51,7 +63,7 @@ public:
 
     // Load parameters from the node
     config_.name = node->get_parameter("driver.audio.SpeakerAudioDriver.name").as_string();
-    config_.device_id = node->get_parameter("driver.audio.SpeakerAudioDriver.device_id").as_int();
+    config_.device_name = node->get_parameter("driver.audio.SpeakerAudioDriver.device_name").as_string();
     config_.subscribe = node->get_parameter("driver.audio.SpeakerAudioDriver.subscribe").as_bool();
     config_.topic = node->get_parameter("driver.audio.SpeakerAudioDriver.topic").as_string();
     config_.frame_id = node->get_parameter("driver.audio.SpeakerAudioDriver.frame_id").as_string();
@@ -62,8 +74,29 @@ public:
     // Initialize the base driver
     initialize_base(node);
 
+    // Initialize PortAudio
+    err = Pa_Initialize();
+    if (err != paNoError)
+    {
+      event_->error("PortAudio initialization failed: " + std::string(Pa_GetErrorText(err)));
+      throw perception_exception("PortAudio initialization failed: " + std::string(Pa_GetErrorText(err)));
+    }
+
+    // get the device ID by name
+    try
+    {
+      config_.device_id = perception::getDeviceIdByName(config_.device_name);
+      event_->info("Device ID for name '" + config_.device_name + "' is " + std::to_string(config_.device_id));
+    }
+    catch (const std::exception& e)
+    {
+      event_->error("Failed to get device ID for name '" + config_.device_name + "': " + e.what());
+      throw perception_exception("Failed to get device ID for name '" + config_.device_name + "': " + e.what());
+    }
+
     // Publish about the assigned driver parameters
     event_->info("Assigned driver name: " + config_.name);
+    event_->info("Assigned driver device_name: " + config_.device_name);
     event_->info("Assigned driver device_id: " + std::to_string(config_.device_id));
     event_->info("Assigned driver subscribe: " + std::string(config_.subscribe ? "true" : "false"));
     event_->info("Assigned driver topic: " + config_.topic);
@@ -90,8 +123,7 @@ public:
    */
   void start() override
   {
-    event_->info("SpeakerAudioDriver starting on device " + std::to_string(config_.device_id));
-    Pa_Initialize();
+    event_->info("starting on device " + std::to_string(config_.device_id));
 
     PaStreamParameters outputParams;
     outputParams.device = config_.device_id;
@@ -100,18 +132,26 @@ public:
     outputParams.suggestedLatency = Pa_GetDeviceInfo(config_.device_id)->defaultLowOutputLatency;
     outputParams.hostApiSpecificStreamInfo = nullptr;
 
-    PaError err = Pa_OpenStream(&stream_, nullptr, &outputParams, sample_rate_, chunk_size_, paNoFlag,
-                                &SpeakerAudioDriver::paCallback, this);
-
+    err = Pa_OpenStream(&stream_, nullptr, &outputParams, sample_rate_, chunk_size_, paNoFlag, nullptr, nullptr);
     if (err != paNoError)
     {
       event_->error("Failed to open speaker stream: " + std::string(Pa_GetErrorText(err)));
       throw perception_exception("Failed to open speaker stream: " + std::string(Pa_GetErrorText(err)));
     }
 
-    Pa_StartStream(stream_);
+    err = Pa_StartStream(stream_);
+    if (err != paNoError)
+    {
+      event_->error("Failed to start speaker stream: " + std::string(Pa_GetErrorText(err)));
+      throw perception_exception("Failed to start speaker stream: " + std::string(Pa_GetErrorText(err)));
+    }
 
-    event_->info("SpeakerAudioDriver started (non-blocking).");
+    // Start the driver thread to capture audio data
+    event_->info("starting driver thread for audio capture...");
+    is_running_ = true;
+    driver_thread_ = std::thread(&SpeakerAudioDriver::driver_thread, this);
+
+    event_->info("started.");
   }
 
   /**
@@ -120,40 +160,25 @@ public:
    */
   void stop() override
   {
+    is_running_ = false;
+
+    if (driver_thread_.joinable())
+    {
+      driver_thread_.join();
+      event_->info("thread stopped.");
+    }
+
     if (stream_)
     {
       Pa_StopStream(stream_);
       Pa_CloseStream(stream_);
       stream_ = nullptr;
-      event_->info("SpeakerAudioDriver stopped.");
+      event_->info("stopped.");
     }
   }
 
   /**
-   * @brief Set the latest data to the driver.
-   * This function sends the latest audio data to the speaker driver.
-   *
-   * @param input The latest audio data to the driver in the form of `const std::vector<int16_t>&`.
-   * @throws perception_exception if not implemented in derived classes
-   */
-  void setData(const std::any& input) const override
-  {
-    try
-    {
-      const auto& data = std::any_cast<const perception::audio_data&>(input);
-
-      std::lock_guard<std::mutex> lock(driver_mutex_);
-      audio_queue_.insert(audio_queue_.end(), data.samples.begin(), data.samples.end());
-    }
-    catch (const std::bad_any_cast&)
-    {
-      throw perception_exception("Invalid audio data passed to SpeakerAudioDriver::setData");
-    }
-  }
-
-  /**
-   * @brief Set the latest audio data to the driver.
-   * This function sends the latest audio data to the speaker driver.
+   * @brief Set the latest audio data to the driver. This function sends the latest audio data to the speaker driver.
    *
    * @param input The latest audio data to the driver in the form of `const std::vector<std::vector<int16_t>>&`.
    * @throws perception_exception if not implemented in derived classes
@@ -162,14 +187,54 @@ public:
   {
     try
     {
+      // convert std::any to audio_data
       const auto& data = std::any_cast<const perception::audio_data&>(input);
 
-      std::lock_guard<std::mutex> lock(driver_mutex_);
+      if (data.samples.empty())
+      {
+        event_->error("Received empty audio data, nothing to set.");
+        throw perception_exception("Received empty audio data, nothing to set.");
+      }
+
+      // Lock the mutex to safely access the audio queue
+      if (data.sample_rate != sample_rate_ || data.channels != channels_)
+      {
+        event_->error("Sample rate or channels do not match the configured values.");
+        throw perception_exception("Sample rate or channels do not match the configured values.");
+      }
+
+      if (data.chunk_size != chunk_size_)
+      {
+        event_->error("Chunk size does not match the configured value.");
+        throw perception_exception("Chunk size does not match the configured value.");
+      }
+
+      if (data.chunk_count == 0)
+      {
+        event_->error("Chunk count is zero, cannot set data.");
+        throw perception_exception("Chunk count is zero, cannot set data.");
+      }
+
+      if (data.samples.size() < data.chunk_size)
+      {
+        event_->error("Samples size is less than chunk size.");
+        throw perception_exception("Samples size is less than chunk size.");
+      }
+
+      if (data.samples.size() % data.chunk_size != 0)
+      {
+        event_->error("Samples size is not a multiple of chunk size.");
+        throw perception_exception("Samples size is not a multiple of chunk size.");
+      }
+
+      // lock the mutex and insert the audio samples into the queue
+      std::lock_guard<std::mutex> lock(buffer_mutex_);
       audio_queue_.insert(audio_queue_.end(), data.samples.begin(), data.samples.end());
+      buffer_cv_.notify_one();
     }
     catch (const perception_exception& error)
     {
-      throw error;
+      throw perception_exception("Invalid audio data passed to SpeakerAudioDriver::setData");
     }
   }
 
@@ -184,7 +249,6 @@ public:
   {
     auto data = perception::msg_to_audio_data(msg);
     setDataStream(data);
-    event_->info("Received audio data from topic: " + config_.topic);
   }
 
   /**
@@ -207,12 +271,6 @@ public:
     {
       auto audio_data = readWavFile(filepath.string());
       setDataStream(audio_data);
-
-      // Wait long enough for audio to play
-      int duration_ms = static_cast<int>((audio_data.samples.size() * 1000.0) / (audio_data.sample_rate * audio_data.channels));
-
-      event_->info("Playing duration estimated: " + std::to_string(duration_ms) + " ms");
-      std::this_thread::sleep_for(std::chrono::milliseconds(duration_ms));
     }
     catch (const perception_exception& e)
     {
@@ -224,45 +282,45 @@ public:
 
 protected:
   /**
-   * @brief PortAudio callback function for audio output.
+   * @brief Thread function for setting audio data for the speaker.
    *
-   * This function is called by PortAudio to fill the output buffer with audio data.
-   * It retrieves audio samples from the audio queue and writes them to the output buffer.
-   *
-   * @param inputBuffer Pointer to the input buffer (not used in this case).
-   * @param outputBuffer Pointer to the output buffer where audio samples will be written.
-   * @param framesPerBuffer Number of frames per buffer.
-   * @param timeInfo Pointer to time information (not used in this case).
-   * @param statusFlags Status flags (not used in this case).
-   * @param userData Pointer to user data (this instance of SpeakerAudioDriver).
-   * @return int Return value indicating whether to continue or stop the stream.
+   * This function runs in a separate thread and continuously sets audio data to the speaker.
+   * It fills the audio queue with captured samples.
    */
-  static int paCallback(const void* inputBuffer, void* outputBuffer, unsigned long framesPerBuffer,
-                        const PaStreamCallbackTimeInfo* timeInfo, PaStreamCallbackFlags statusFlags, void* userData)
+  void driver_thread() override
   {
-    auto* self = static_cast<SpeakerAudioDriver*>(userData);
-    auto* out = static_cast<int16_t*>(outputBuffer);
-
-    std::lock_guard<std::mutex> lock(self->driver_mutex_);
-
-    for (unsigned long i = 0; i < framesPerBuffer; ++i)
+    while (rclcpp::ok() && is_running_)
     {
-      if (!self->audio_queue_.empty())
+      // Ensure the audio queue is not empty before writing to the stream
+      if (audio_queue_.empty())
       {
-        out[i] = self->audio_queue_.front();
-        self->audio_queue_.pop_front();
+        std::this_thread::sleep_for(std::chrono::milliseconds(100));  // Sleep to avoid busy waiting
+        continue;
       }
-      else
+
+      // Lock the mutex to safely access the audio queue
+      std::unique_lock<std::mutex> lock(buffer_mutex_);
+      buffer_cv_.wait(lock, [this] { return audio_queue_.size() >= chunk_size_; });
+
+      // extract the chunk size from the audio queue and write it to the PortAudio stream
+      while (audio_queue_.size() >= chunk_size_)
       {
-        out[i] = 0;  // output silence if buffer is empty
+        std::vector<int16_t> chunk(audio_queue_.begin(), audio_queue_.begin() + chunk_size_);
+        audio_queue_.erase(audio_queue_.begin(), audio_queue_.begin() + chunk_size_);
+
+        err = Pa_WriteStream(stream_, chunk.data(), chunk_size_);
+        if (err != paNoError)
+        {
+          event_->error("Error writing to audio stream: " + std::string(Pa_GetErrorText(err)));
+          continue;
+        }
       }
     }
-
-    return paContinue;
   }
 
   mutable PaStream* stream_;
-  mutable std::deque<int16_t> audio_queue_;
+  PaError err = paNoError;
+  mutable std::vector<int16_t> audio_queue_;
   unsigned long chunk_size_;  // Default chunk size
   int sample_rate_;           // Default sample rate
   int channels_;              // Default number of channels

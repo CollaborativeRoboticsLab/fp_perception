@@ -64,6 +64,7 @@ audio_data msg_to_audio_data(const perception_msgs::msg::PerceptionAudio& msg)
   return data;
 }
 
+
 /**
  * @brief Write audio data to a WAV file.
  *

@@ -175,7 +175,7 @@ public:
     event_->info("OpenCVDriver test function called");
 
     // Create the "test" directory if it doesn't exist
-    DriverBase::check_test_directory("test");
+    DriverBase::check_directory("test");
     
     // Save image to the "test" folder
     cv::Mat frame = std::any_cast<cv::Mat>(getData());

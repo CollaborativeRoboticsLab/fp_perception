@@ -101,7 +101,7 @@ public:
     event_->info("DefaultDriver test function called");
 
     // Create the "test" directory if it doesn't exist
-    DriverBase::check_test_directory("test");
+    DriverBase::check_directory("test");
 
     cv::Mat frame = std::any_cast<cv::Mat>(getData());
     cv::imwrite("test/default_vision_image.jpg", frame);

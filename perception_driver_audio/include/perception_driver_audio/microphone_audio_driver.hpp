@@ -7,7 +7,8 @@
 #include <rclcpp/rclcpp.hpp>
 #include <std_msgs/msg/int16_multi_array.hpp>
 #include <perception_base/driver_base.hpp>
-#include <perception_base/utils/audio.hpp>
+#include <perception_base/utils/audio/structs.hpp>
+#include <perception_base/utils/audio/wav.hpp>
 #include <perception_msgs/msg/perception_audio.hpp>
 #include <perception_driver_audio/utils.hpp>
 
@@ -274,7 +275,7 @@ public:
     }
 
     // Create the "test" directory if it doesn't exist
-    check_test_directory("test");
+    check_directory("test");
 
     // Write the data to a file for further analysis
     writeWavFile("test/mic_test.wav", accumilated_samples);

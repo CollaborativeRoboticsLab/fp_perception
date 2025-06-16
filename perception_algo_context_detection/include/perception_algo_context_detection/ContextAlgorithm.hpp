@@ -1,7 +1,7 @@
 #pragma once
 
 #include <perception_base/algorithm_base.hpp>
-#include <perception_base/utils/audio.hpp>
+#include <perception_base/utils/audio/structs.hpp>
 #include <perception_algo_context_detection/MFCCExtractor.hpp>
 #include <perception_algo_context_detection/AmbientDetector.hpp>
 #include <perception_algo_context_detection/NaiveBayesClassifier.hpp>

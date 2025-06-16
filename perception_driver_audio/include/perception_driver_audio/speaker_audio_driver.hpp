@@ -7,7 +7,8 @@
 #include <map>
 #include <fstream>
 #include <perception_base/driver_base.hpp>
-#include <perception_base/utils/audio.hpp>
+#include <perception_base/utils/audio/structs.hpp>
+#include <perception_base/utils/audio/wav.hpp>
 #include <perception_msgs/msg/perception_audio.hpp>
 #include <perception_driver_audio/utils.hpp>
 
@@ -60,6 +61,7 @@ public:
     node->declare_parameter("driver.audio.SpeakerAudioDriver.frame_id", "speaker_frame");
     node->declare_parameter("driver.audio.SpeakerAudioDriver.sample_rate", 44100);  // default sample rate
     node->declare_parameter("driver.audio.SpeakerAudioDriver.channels", 1);         // default number of channels
+    node->declare_parameter("driver.audio.SpeakerAudioDriver.test_file_path", "test/mic_test.wav");       // default device ID
 
     // Load parameters from the node
     config_.name = node->get_parameter("driver.audio.SpeakerAudioDriver.name").as_string();
@@ -69,6 +71,7 @@ public:
     config_.frame_id = node->get_parameter("driver.audio.SpeakerAudioDriver.frame_id").as_string();
     sample_rate_ = node->get_parameter("driver.audio.SpeakerAudioDriver.sample_rate").as_int();
     channels_ = node->get_parameter("driver.audio.SpeakerAudioDriver.channels").as_int();
+    test_file_path_ = node->get_parameter("driver.audio.SpeakerAudioDriver.test_file_path").as_string();
 
     // Initialize the base driver
     initialize_base(node);
@@ -159,17 +162,8 @@ public:
    */
   void setDataStream(const std::any& input) override
   {
-    audio_data data;
-
-    try
-    {
-      // convert std::any to audio_data
-      data = std::any_cast<const perception::audio_data&>(input);
-    }
-    catch (const perception_exception& error)
-    {
-      throw perception_exception("Invalid audio data passed to SpeakerAudioDriver::setDataStream");
-    }
+    // convert std::any to audio_data
+    const auto data = std::any_cast<const perception::audio_data&>(input);
 
     if (data.samples.empty())
     {
@@ -188,11 +182,11 @@ public:
       outputParameters.sampleFormat = paInt16;
       outputParameters.suggestedLatency = Pa_GetDeviceInfo(config_.device_id)->defaultLowOutputLatency;
       outputParameters.hostApiSpecificStreamInfo = nullptr;
-      
+
       // Open a new stream for this format
       PaStream* stream = nullptr;
-      err = Pa_OpenStream(&stream, nullptr, &outputParameters, data.sample_rate,
-                          paFramesPerBufferUnspecified, paClipOff, nullptr, nullptr);
+      err = Pa_OpenStream(&stream, nullptr, &outputParameters, data.sample_rate, paFramesPerBufferUnspecified,
+                          paClipOff, nullptr, nullptr);
 
       if (err != paNoError)
       {
@@ -249,16 +243,9 @@ public:
    */
   void test() override
   {
-    event_->info("Testing by playing test/mic_test.wav...");
+    event_->info("Testing by playing :" + test_file_path_);
 
-    const std::filesystem::path filepath("test/mic_test.wav");
-
-    if (!std::filesystem::exists(filepath))
-    {
-      throw perception_exception("Audio file not found: " + filepath.string());
-      event_->error("Audio file not found: " + filepath.string());
-      return;
-    }
+    auto filepath = check_file(test_file_path_);
 
     try
     {
@@ -329,8 +316,9 @@ protected:
 
   PaError err = paNoError;
   std::vector<int16_t> audio_queue_;
-  int sample_rate_;           // Default sample rate
-  int channels_;              // Default number of channels
+  int sample_rate_;  // Default sample rate
+  int channels_;     // Default number of channels
+  std::string test_file_path_;
 
   // Subscriber for audio data
   rclcpp::Subscription<perception_msgs::msg::PerceptionAudio>::SharedPtr audio_subscriber_;

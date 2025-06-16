@@ -13,6 +13,9 @@ namespace perception
 /**
  * @brief PromptToolsSentimentDriver class for handling prompt_tools based sentument analysis.
  *
+ *  This class is responsible for managing the sentiment analysis using the prompt_tools service.
+ *  It provides methods to initialize the driver, start and stop the service, and retrieve sentiment analysis data.
+ *  It uses the prompt_msgs::srv::Prompt service to send text for sentiment analysis and receive the response.
  *
  */
 using PromptSrv = prompt_msgs::srv::Prompt;
@@ -20,8 +23,23 @@ using PromptSrv = prompt_msgs::srv::Prompt;
 class PromptToolsSentimentDriver : public DriverBase
 {
 public:
-  PromptToolsSentimentDriver() = default;
-  ~PromptToolsSentimentDriver() override = default;
+  /**
+   * @brief Constructor for PromptToolsSentimentDriver
+   *
+   * Initializes the sentiment analysis service client.
+   */
+  PromptToolsSentimentDriver()
+  {
+  }
+
+  /**
+   * @brief Destructor for PromptToolsSentimentDriver
+   *
+   * Cleans up the sentiment analysis service client.
+   */
+  ~PromptToolsSentimentDriver() override
+  {
+  }
 
   /**
    * @brief Initialize the driver
@@ -34,8 +52,17 @@ public:
   {
     // Confirm parameters for the node
     node->declare_parameter("driver.sentiment.PromptToolsSentimentDriver.name", "PromptToolsSentimentDriver");
+    node->declare_parameter("driver.sentiment.PromptToolsSentimentDriver.service_name", "prompt_bridge/sentiment");
 
     config_.name = node->get_parameter("driver.sentiment.PromptToolsSentimentDriver.name").as_string();
+    service_name_ = node->get_parameter("driver.sentiment.PromptToolsSentimentDriver.service_name").as_string();
+
+    // Initialize the base driver
+    initialize_base(node);
+
+    // Log the parameters
+    event_->info("Assigned driver Name: " + config_.name);
+    event_->info("Assigned driver Service Name: " + service_name_);
 
     // Log that the driver has been initialized
     event_->info("Initialized");
@@ -49,7 +76,15 @@ public:
   void start() override
   {
     // Create a client for the transcription service
-    sentiment_client_ = node_->create_client<PromptSrv>("prompt_bridge/sentiment");
+    sentiment_client_ = node_->create_client<PromptSrv>(service_name_);
+
+    // Wait for the service to be available
+    if (!sentiment_client_->wait_for_service(std::chrono::seconds(10)))
+    {
+      event_->error("Sentiment Analysis service not available.");
+      throw perception_exception("Sentiment Analysis service not available.");
+    }
+    
     event_->info("Sentiment Analysis service client created");
   }
 
@@ -146,6 +181,8 @@ public:
   }
 
 protected:
+  std::string service_name_;
+
   rclcpp::Client<PromptSrv>::SharedPtr sentiment_client_;
   rclcpp::Client<PromptSrv>::SharedFuture future_;
 };

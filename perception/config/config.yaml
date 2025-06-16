@@ -5,9 +5,9 @@
     run_tests: true
     use_vision_driver: false
     use_microphone_driver: false
-    use_speaker_driver: true
+    use_speaker_driver: false
     use_transcription_driver: false
-    use_sentiment_driver: false
+    use_sentiment_driver: true
 
     use_eye_gaze_algorithm: false
     use_context_identification_algorithm: false
@@ -40,7 +40,7 @@
       audio:
         MicrophoneAudioDriver:
           name: MicrophoneAudioDriver
-          device_name: ALC285 Analog
+          device_name: default
           publish: true
           topic: /audio/microphone
           frame_id: microphone_frame
@@ -51,22 +51,29 @@
 
         SpeakerAudioDriver:
           name: SpeakerAudioDriver
-          device_name: ALC285 Analog
+          device_name: default # use default audio output device
           subscribe: true
           topic: /audio/speaker
           frame_id: speaker_frame
           sample_rate: 48000
           channels: 2
-
-      sentiment:
-        PromptToolsSentimentDriver:
-          name: PromptToolsSentimentDriver
+          test_file_path: test/mic_test.wav
+          # test_file_path: install/perception_driver_audio/share/perception_driver_audio/audio/hello-1.wav
+          # test_file_path: install/perception_driver_audio/share/perception_driver_audio/audio/hello-2.wav
 
       transcription:
         PromptToolsTranscribeDriver:
           name: PromptToolsTranscribeDriver
           model: gpt-4o-transcribe
           prompt: "This audio contains human speech."
+          test_file_path: test/mic_test.wav
+          # test_file_path: install/perception_driver_audio/share/perception_driver_audio/audio/hello-1.wav
+          # test_file_path: install/perception_driver_audio/share/perception_driver_audio/audio/hello-2.wav
+
+
+      sentiment:
+        PromptToolsSentimentDriver:
+          name: PromptToolsSentimentDriver
 
     algorithm:
       GazeAlgorithm:

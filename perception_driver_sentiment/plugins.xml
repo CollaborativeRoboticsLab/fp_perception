@@ -1,4 +1,4 @@
-<library path="perception_driver_transcribe">
+<library path="perception_driver_sentiment">
     <class type="perception::PromptToolsSentimentDriver" base_class_type="perception::DriverBase">
         <description>
             A plugin that provide sentiment analysis service through prompt tools.

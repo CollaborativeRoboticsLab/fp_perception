@@ -144,7 +144,7 @@ public:
    *
    * @param folder_name The name of the folder to check or create.
    */
-  void check_test_directory(std::string folder_name)
+  void check_directory(std::string folder_name)
   {
     // Create "test" directory if it doesn't exist
     const std::filesystem::path dir(folder_name);
@@ -152,6 +152,17 @@ public:
     {
       std::filesystem::create_directory(dir);
     }
+  }
+
+  const std::filesystem::path check_file(const std::string& file_name)
+  {
+    // Check if the file exists
+    const std::filesystem::path file_path(file_name);
+    if (!std::filesystem::exists(file_path))
+    {
+      throw perception_exception("File does not exist: " + file_name);
+    }
+    return file_path;
   }
 
 protected:

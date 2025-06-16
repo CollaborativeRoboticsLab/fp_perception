@@ -1,29 +1,44 @@
 #pragma once
 
-#include <perception_base/driver_base.hpp>
-#include <perception_base/utils/audio.hpp>
-#include <perception_base/utils/exceptions.hpp>
-#include <prompt_msgs/msg/model_option.hpp>
-#include <prompt_msgs/srv/prompt.hpp>
-#include <rclcpp/rclcpp.hpp>
-#include <std_msgs/msg/int16_multi_array.hpp>
 #include <string>
 #include <vector>
+#include <rclcpp/rclcpp.hpp>
+#include <prompt_msgs/msg/model_option.hpp>
+#include <prompt_msgs/srv/prompt.hpp>
+#include <perception_base/driver_base.hpp>
+#include <perception_base/utils/audio/structs.hpp>
+#include <perception_base/utils/audio/wav.hpp>
+#include <perception_base/utils/exceptions.hpp>
 
 namespace perception
 {
 /**
  * @brief PromptToolsTranscribeDriver class for handling prompt_tools based transcriptions.
  *
- *
+ *  This class is responsible for managing the transcription of audio data using the PromptTools service.
+ *  It provides methods to initialize the driver, start and stop the transcription service, and retrieve the latest
+ *  transcription data.
  */
 using PromptSrv = prompt_msgs::srv::Prompt;
 
 class PromptToolsTranscribeDriver : public DriverBase
 {
 public:
-  PromptToolsTranscribeDriver() = default;
-  ~PromptToolsTranscribeDriver() override = default;
+  /**
+   * @brief Construct a new Prompt Tools Transcribe Driver object
+   *
+   */
+  PromptToolsTranscribeDriver()
+  {
+  }
+
+  /**
+   * @brief Destroy the Prompt Tools Transcribe Driver object
+   *
+   */
+  ~PromptToolsTranscribeDriver() override
+  {
+  }
 
   /**
    * @brief Initialize the driver
@@ -39,10 +54,25 @@ public:
     node->declare_parameter("driver.transcription.PromptToolsTranscribeDriver.model", "whisper-1");
     node->declare_parameter("driver.transcription.PromptToolsTranscribeDriver.prompt", "This audio contains human "
                                                                                        "speech.");
-
+    node->declare_parameter("driver.transcription.PromptToolsTranscribeDriver.service_name", "prompt_bridge/transcribe");
+    node->declare_parameter("driver.transcription.PromptToolsTranscribeDriver.test_file_path", "test/mic.wav");
+                                                                                       
+    // Get parameters from the node
     config_.name = node->get_parameter("driver.transcription.PromptToolsTranscribeDriver.name").as_string();
     model_name_ = node->get_parameter("driver.transcription.PromptToolsTranscribeDriver.model").as_string();
     prompt_text_ = node->get_parameter("driver.transcription.PromptToolsTranscribeDriver.prompt").as_string();
+    service_name_ = node->get_parameter("driver.transcription.PromptToolsTranscribeDriver.service_name").as_string();
+    test_file_path_ = node->get_parameter("driver.transcription.PromptToolsTranscribeDriver.test_file_path").as_string();
+
+    // Initialize the base driver
+    initialize_base(node);
+
+    // Log the parameters
+    event_->info("Assigned driver Name: " + config_.name);
+    event_->info("Assigned driver Model: " + model_name_);
+    event_->info("Assigned driver Service Name: " + service_name_);
+    event_->info("Assigned driver Prompt: " + prompt_text_);
+    event_->info("Assigned driver Test Audio Path: " + test_file_path_);
 
     // Log that the driver has been initialized
     event_->info("Initialized");
@@ -56,8 +86,17 @@ public:
   void start() override
   {
     // Create a client for the transcription service
-    transcribe_client_ = node_->create_client<PromptSrv>("prompt_bridge/transcribe");
-    event_->info("Transcribe service client created");
+    transcribe_client_ = node_->create_client<PromptSrv>(service_name_);
+
+    // Wait for the service to be available
+    if(!transcribe_client_->wait_for_service(std::chrono::seconds(10)))
+    {
+      event_->error("Transcribe service not available. Please check if the service is running.");
+      throw perception_exception("Transcribe service not available.");
+    }
+
+    // Log that the client has been created
+    event_->info("Transcribe service client created and connected.");
   }
 
   /**
@@ -161,9 +200,13 @@ public:
   {
     // Implement test logic if needed
     event_->info("Testing with model: " + model_name_);
+    event_->info("Testing by transcribing : " + test_file_path_);
+
+    // Check if the test audio file exists
+    auto filepath = check_file(test_file_path_);
 
     // reading test audio file
-    auto data = readWavFile("install/perception_driver_transcribe/share/perception_driver_transcribe/audio/test.wav");
+    auto data = readWavFile(filepath);
 
     if (data.samples.empty())
     {
@@ -176,7 +219,6 @@ public:
     setDataStream(data);
 
     event_->info("Transcription service called with test audio data. waiting for response...");
-    event_->info("Expected transcription: 'Hello This is a test.'");
 
     auto result = getData();
 
@@ -198,7 +240,9 @@ protected:
   rclcpp::Client<PromptSrv>::SharedFuture future_;
 
   std::string model_name_;
-  std::string prompt_text_ = "This audio contains human speech.";
+  std::string prompt_text_;
+  std::string service_name_;
+  std::string test_file_path_;
 };
 
 }  // namespace perception

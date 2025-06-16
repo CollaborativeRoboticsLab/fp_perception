@@ -53,7 +53,7 @@ public:
    * @return std::any The latest data from the driver.
    * @throws perception_exception if not implemented in derived classes
    */
-  virtual std::any getData() const
+  virtual std::any getData()
   {
     throw perception_exception("getData() not implemented for this driver.");
   }
@@ -66,7 +66,7 @@ public:
    * @param  input The latest data from the driver.
    * @throws perception_exception if not implemented in derived classes
    */
-  virtual void setData(const std::any& input) const
+  virtual void setData(const std::any& input)
   {
     throw perception_exception("setData() not implemented for this driver.");
   }
@@ -79,7 +79,7 @@ public:
    * @return std::any The latest data from the driver.
    * @throws perception_exception if not implemented in derived classes
    */
-  virtual std::any getDataStream() const
+  virtual std::any getDataStream()
   {
     throw perception_exception("getDataStream() not implemented for this driver.");
   }
@@ -92,7 +92,7 @@ public:
    * @return std::any The latest data from the driver.
    * @throws perception_exception if not implemented in derived classes
    */
-  virtual void setDataStream(const std::any& input) const
+  virtual void setDataStream(const std::any& input)
   {
     throw perception_exception("setDataStream() not implemented for this driver.");
   }
@@ -185,13 +185,13 @@ protected:
    * @brief Mutex to protect access to the camera data
    *
    */
-  mutable std::mutex buffer_mutex_;
+  std::mutex buffer_mutex_;
 
   /**
    * @brief Condition variable to notify when new data is available
    *
    */
-  mutable std::condition_variable buffer_cv_;
+  std::condition_variable buffer_cv_;
 
   /**
    * @brief Thread for gathering data from the device for publishing

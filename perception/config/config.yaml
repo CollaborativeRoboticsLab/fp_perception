@@ -4,8 +4,8 @@
   ros__parameters:
     run_tests: true
     use_vision_driver: false
-    use_microphone_driver: true
-    use_speaker_driver: false
+    use_microphone_driver: false
+    use_speaker_driver: true
     use_transcription_driver: false
     use_sentiment_driver: false
 
@@ -14,14 +14,14 @@
 
     # Uncomment the following lines to enable the respective drivers
     # vision_driver: perception::DefaultDriver                          # Default ROS driver for vision
-    vision_driver: perception::OpenCVDriver                             # OpenCV driver for vision
-    microphone_driver: perception::MicrophoneAudioDriver                # Driver for microphone audio
-    speaker_driver: perception::SpeakerAudioDriver                      # Driver for speaker audio
-    transcription_driver: perception::PromptToolsTranscribeDriver       # Driver for audio transcription
-    sentiment_analysis_driver: perception::PromptToolsSentimentDriver   # Driver for sentiment analysis
+    vision_driver: perception::OpenCVDriver # OpenCV driver for vision
+    microphone_driver: perception::MicrophoneAudioDriver # Driver for microphone audio
+    speaker_driver: perception::SpeakerAudioDriver # Driver for speaker audio
+    transcription_driver: perception::PromptToolsTranscribeDriver # Driver for audio transcription
+    sentiment_analysis_driver: perception::PromptToolsSentimentDriver # Driver for sentiment analysis
 
-    eye_gaze_algorithm: perception::GazeAlgorithm                   # Algorithm for eye gaze detection
-    context_identification_algorithm: perception::ContextAlgorithm  # Algorithm for context identification
+    eye_gaze_algorithm: perception::GazeAlgorithm # Algorithm for eye gaze detection
+    context_identification_algorithm: perception::ContextAlgorithm # Algorithm for context identification
 
     driver:
       vision:
@@ -36,40 +36,37 @@
           topic: /camera/image_raw
           frame_id: camera_frame
           frequency: 30.0
-          
+
       audio:
         MicrophoneAudioDriver:
           name: MicrophoneAudioDriver
           device_name: ALC285 Analog
-          publish: false
+          publish: true
           topic: /audio/microphone
           frame_id: microphone_frame
-          chunk_size: 1024             # number of frames per audio buffer processing cycle
-          sample_rate: 48000          # number of samples per second
-          channels: 2                 # number of audio channels    
-          frequency: 30.0
-          buffer_size: 1000000         # size of the audio buffer in frames (sample_rate * seconds)
+          chunk_size: 48000 # number of frames per audio buffer processing cycle.will give inputoverflowed error if too small
+          sample_rate: 48000 # number of samples per second
+          channels: 2 # number of audio channels
+          buffer_time: 10 # buffering time in seconds
 
         SpeakerAudioDriver:
           name: SpeakerAudioDriver
-          device_name: default
+          device_name: ALC285 Analog
           subscribe: true
           topic: /audio/speaker
           frame_id: speaker_frame
-          chunk_size: 1024
-          sample_rate: 44100
-          channels: 1
+          sample_rate: 48000
+          channels: 2
 
       sentiment:
         PromptToolsSentimentDriver:
           name: PromptToolsSentimentDriver
-      
+
       transcription:
         PromptToolsTranscribeDriver:
           name: PromptToolsTranscribeDriver
           model: gpt-4o-transcribe
           prompt: "This audio contains human speech."
-
 
     algorithm:
       GazeAlgorithm:
@@ -95,7 +92,7 @@
           hop_length: 512
           fixed_length: 200
         # AmbientDetector:
-          # model_path: ambient_model.pth # overridden via launch file
+        # model_path: ambient_model.pth # overridden via launch file
 
         model_path: context_model.pth
         detection:

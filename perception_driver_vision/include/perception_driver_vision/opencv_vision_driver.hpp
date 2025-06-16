@@ -125,7 +125,7 @@ public:
    * @return std::any The latest data from the driver of type cv::Mat
    * @throws perception_exception if not implemented in derived classes
    */
-  std::any getData() const override
+  std::any getData()  override
   {
     if (!capture_device.isOpened())
       throw perception_exception("Camera device is not opened");
@@ -185,7 +185,7 @@ public:
   }
 
 protected:
-  mutable cv::VideoCapture capture_device;
+  cv::VideoCapture capture_device;
 
   rclcpp::Publisher<sensor_msgs::msg::Image>::SharedPtr image_publisher_;
 };

@@ -1,12 +1,12 @@
 #pragma once
 
+#include <any>
+#include <perception_base/driver_base.hpp>
 #include <prompt_msgs/srv/prompt.hpp>
 #include <rclcpp/rclcpp.hpp>
 #include <string>
 #include <utility>
 #include <vector>
-#include <any>
-#include <perception_base/driver_base.hpp>
 
 namespace perception
 {
@@ -72,7 +72,7 @@ public:
    * @return std::any containing the latest sentiment analysis data, which is a std::pair<std::string, double>
    * @throws perception_exception if not implemented in derived classes
    */
-  std::any getData() const override
+  std::any getData() override
   {
     // wait until the future is ready
     future_.wait();
@@ -105,7 +105,7 @@ public:
    *
    * @param input The latest data from the driver.
    */
-  void setDataStream(const std::any& input) const override
+  void setDataStream(const std::any& input) override
   {
     const auto& text = std::any_cast<const std::string>(input);
 
@@ -147,7 +147,7 @@ public:
 
 protected:
   rclcpp::Client<PromptSrv>::SharedPtr sentiment_client_;
-  mutable rclcpp::Client<PromptSrv>::SharedFuture future_;
+  rclcpp::Client<PromptSrv>::SharedFuture future_;
 };
 
 }  // namespace perception

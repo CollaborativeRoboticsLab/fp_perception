@@ -61,6 +61,7 @@ public:
     node->declare_parameter("driver.audio.MicrophoneAudioDriver.chunk_size", 256);     // default chunk size
     node->declare_parameter("driver.audio.MicrophoneAudioDriver.sample_rate", 44100);  // default sample rate
     node->declare_parameter("driver.audio.MicrophoneAudioDriver.channels", 1);         // default number of channels
+    node->declare_parameter("driver.audio.MicrophoneAudioDriver.buffer_time", 10);     // default device ID
 
     // Load parameters from the node
     config_.name = node->get_parameter("driver.audio.MicrophoneAudioDriver.name").as_string();
@@ -71,6 +72,9 @@ public:
     chunk_size_ = node->get_parameter("driver.audio.MicrophoneAudioDriver.chunk_size").as_int();
     sample_rate_ = node->get_parameter("driver.audio.MicrophoneAudioDriver.sample_rate").as_int();
     channels_ = node->get_parameter("driver.audio.MicrophoneAudioDriver.channels").as_int();
+    buffer_time_ = node->get_parameter("driver.audio.MicrophoneAudioDriver.buffer_time").as_int();
+
+    buffer_size_ = sample_rate_ * channels_ * buffer_time_;
 
     // Initialize the base driver
     initialize_base(node);
@@ -105,6 +109,8 @@ public:
     event_->info("Assigned driver chunk_size: " + std::to_string(chunk_size_));
     event_->info("Assigned driver sample_rate: " + std::to_string(sample_rate_));
     event_->info("Assigned driver channels: " + std::to_string(channels_));
+    event_->info("Assigned driver buffer_time: " + std::to_string(buffer_time_));
+    event_->info("Assigned driver buffer size: " + std::to_string(buffer_size_));
 
     // Log that the driver has been initialized
     event_->info("Initialized");
@@ -193,7 +199,7 @@ public:
    * @return std::any The latest audio data from the driver as type `perception::audio_data`
    * @throws perception_exception if the stream is not active
    */
-  std::any getDataStream() const override
+  std::any getDataStream()  override
   {
     // Check if the audio buffer is empty and proceed only if it has enough data
     std::unique_lock<std::mutex> lock(buffer_mutex_);
@@ -236,7 +242,7 @@ public:
     event_->info("Testing started. Please speak into the microphone. waiting 5 seconds...");
 
     // amount of frames required for 5 seconds of audio
-    unsigned long frames_to_capture = sample_rate_ * 5;  // 5 seconds of audio
+    unsigned long frames_to_capture = sample_rate_ * channels_ * 5;  // 5 seconds of audio
     unsigned long frames_captured = 0;
 
     audio_data accumilated_samples;
@@ -284,7 +290,7 @@ protected:
     while (rclcpp::ok() && is_running_)
     {
       // Read audio data from the PortAudio stream
-      std::vector<int16_t> buffer(chunk_size_);
+      std::vector<int16_t> buffer(chunk_size_ * channels_);
 
       err = Pa_ReadStream(stream_, buffer.data(), chunk_size_);
 
@@ -301,22 +307,28 @@ protected:
       // Add the read samples to the audio buffer
       audio_buffer_.insert(audio_buffer_.end(), buffer.begin(), buffer.end());
 
+      if (audio_buffer_.size() > buffer_size_)
+      {
+        // If the buffer exceeds the maximum size, remove the 2s oldest samples
+        audio_buffer_.erase(audio_buffer_.begin(), audio_buffer_.begin() + chunk_size_);
+      }
+
       buffer_cv_.notify_one();
 
       // If publishing is enabled, publish the audio data
-      // if (config_.publish)
-      // {
-      //   perception_msgs::msg::PerceptionAudio msg;
-      //   msg.header.stamp = rclcpp::Clock().now();
-      //   msg.header.frame_id = config_.frame_id;
-      //   msg.sample_rate = sample_rate_;
-      //   msg.channels = channels_;
-      //   msg.chunk_size = chunk_size_;
-      //   msg.chunk_count = 1;
-      //   msg.samples = buffer;
+      if (config_.publish)
+      {
+        perception_msgs::msg::PerceptionAudio msg;
+        msg.header.stamp = rclcpp::Clock().now();
+        msg.header.frame_id = config_.frame_id;
+        msg.sample_rate = sample_rate_;
+        msg.channels = channels_;
+        msg.chunk_size = chunk_size_;
+        msg.chunk_count = 1;
+        msg.samples = buffer;
 
-      //   audio_publisher_->publish(msg);
-      // }
+        audio_publisher_->publish(msg);
+      }
     }
 
     event_->info("driver thread stopped.");
@@ -324,11 +336,13 @@ protected:
 
   PaStream* stream_;
   PaError err = paNoError;
-  mutable std::deque<int16_t> audio_buffer_;
-  mutable std::mutex publish_mutex_;
+  std::deque<int16_t> audio_buffer_;
+  std::mutex publish_mutex_;
   unsigned long chunk_size_;  // Default chunk size
   int sample_rate_;           // Default sample rate
   int channels_;              // Default number of channels
+  int buffer_time_;           // Buffer time in seconds
+  int buffer_size_;           // Buffer size in samples
 
   // Publisher for audio data
   rclcpp::Publisher<perception_msgs::msg::PerceptionAudio>::SharedPtr audio_publisher_;

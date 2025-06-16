@@ -22,6 +22,7 @@ struct audio_data
   int channels = 1;              ///< Number of audio channels
   int chunk_size = 256;          ///< Size of each audio chunk in samples
   int chunk_count = 0;           ///< Number of chunks in the audio data
+  bool override = false;         ///< if the system sample_rate, channels, and chunk_size should be overridden by message data
 };
 
 /**
@@ -41,6 +42,7 @@ perception_msgs::msg::PerceptionAudio audio_data_to_msg(const audio_data& data)
   msg.chunk_size = data.chunk_size;
   msg.chunk_count = data.chunk_count;
   msg.samples = data.samples;
+  msg.override = data.override;
 
   return msg;
 }
@@ -60,10 +62,10 @@ audio_data msg_to_audio_data(const perception_msgs::msg::PerceptionAudio& msg)
   data.channels = msg.channels;
   data.chunk_size = msg.chunk_size;
   data.chunk_count = msg.chunk_count;
+  data.override = msg.override;
 
   return data;
 }
-
 
 /**
  * @brief Write audio data to a WAV file.
@@ -169,6 +171,7 @@ audio_data readWavFile(const std::string& filepath)
   audio.sample_rate = static_cast<int>(sample_rate);
   audio.channels = static_cast<int>(channels);
   audio.chunk_size = 256;  // default
+  audio.override = true;
 
   return audio;
 }

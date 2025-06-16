@@ -75,7 +75,7 @@ public:
    * @return std::any The latest data from the driver of type cv::Mat
    * @throws perception_exception if not implemented in derived classes
    */
-  std::any getData() const override
+  std::any getData() override
   {
     // Wait for the latest image to be available
     std::unique_lock<std::mutex> lock(buffer_mutex_);

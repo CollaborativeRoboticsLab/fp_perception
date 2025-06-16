@@ -1,16 +1,14 @@
 #pragma once
 
+#include <perception_base/driver_base.hpp>
+#include <perception_base/utils/audio.hpp>
+#include <perception_base/utils/exceptions.hpp>
+#include <prompt_msgs/msg/model_option.hpp>
+#include <prompt_msgs/srv/prompt.hpp>
+#include <rclcpp/rclcpp.hpp>
+#include <std_msgs/msg/int16_multi_array.hpp>
 #include <string>
 #include <vector>
-
-#include <rclcpp/rclcpp.hpp>
-
-#include <prompt_msgs/srv/prompt.hpp>
-#include <prompt_msgs/msg/model_option.hpp>
-#include <std_msgs/msg/int16_multi_array.hpp>
-#include <perception_base/driver_base.hpp>
-#include <perception_base/utils/exceptions.hpp>
-#include <perception_base/utils/audio.hpp>
 
 namespace perception
 {
@@ -80,7 +78,7 @@ public:
    * @return std::any The latest transcription data in the form of std::string
    * @throws perception_exception if not implemented in derived classes
    */
-  std::any getData() const override
+  std::any getData() override
   {
     // wait until the future is ready
     future_.wait();
@@ -104,7 +102,6 @@ public:
       event_->error("Transcription service call failed: " + std::string(e.what()));
       throw perception_exception("Transcription service call failed: " + std::string(e.what()));
     }
-   
   }
 
   /**
@@ -115,7 +112,7 @@ public:
    *
    * @param input The latest data from the driver.
    */
-  void setDataStream(const std::any& input) const override
+  void setDataStream(const std::any& input) override
   {
     const auto& new_audio = std::any_cast<const perception::audio_data&>(input);
 
@@ -154,7 +151,7 @@ public:
       throw perception_exception("No audio data provided to transcribe.");
     }
   }
-  
+
   /**
    * @brief Test method for the driver
    *
@@ -180,7 +177,7 @@ public:
 
     event_->info("Transcription service called with test audio data. waiting for response...");
     event_->info("Expected transcription: 'Hello This is a test.'");
-    
+
     auto result = getData();
 
     if (result.has_value())
@@ -198,7 +195,7 @@ public:
 
 protected:
   rclcpp::Client<PromptSrv>::SharedPtr transcribe_client_;
-  mutable rclcpp::Client<PromptSrv>::SharedFuture future_;
+  rclcpp::Client<PromptSrv>::SharedFuture future_;
 
   std::string model_name_;
   std::string prompt_text_ = "This audio contains human speech.";

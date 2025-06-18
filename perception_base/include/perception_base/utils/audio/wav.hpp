@@ -13,16 +13,16 @@ namespace perception
 {
 
 /**
- * @brief Write audio data to a WAV file.
+ * @brief Write audio data to a WAV file using an output stream.
  *
- * @param filename The name of the file to write.
+ * @param out The output stream to write the WAV data to.
  * @param data The audio data to write.
+ * @throws perception_exception if the output stream is not valid or if there are issues writing the data.
  */
-void writeWavFile(const std::string& filename, const audio_data& data)
+void writeWavStream(std::ostream& out, const audio_data& data)
 {
-  std::ofstream out(filename, std::ios::binary);
   if (!out)
-    throw perception_exception("Failed to open file for writing: " + filename);
+    throw perception_exception("Output stream is not valid");
 
   uint32_t data_size = data.samples.size() * sizeof(int16_t);
   uint32_t fmt_chunk_size = 16;
@@ -51,7 +51,19 @@ void writeWavFile(const std::string& filename, const audio_data& data)
   out.write("data", 4);
   out.write(reinterpret_cast<const char*>(&data_size), 4);
   out.write(reinterpret_cast<const char*>(data.samples.data()), data_size);
+}
 
+/**
+ * @brief Write audio data to a WAV file.
+ *
+ * @param filename The name of the file to write.
+ * @param data The audio data to write.
+ *  @throws perception_exception if the file cannot be opened or if there are issues writing the data.
+ */
+void writeWavFile(const std::string& filename, const audio_data& data)
+{
+  std::ofstream out(filename, std::ios::binary);
+  writeWavStream(out, data);
   out.close();
 }
 
@@ -119,6 +131,21 @@ audio_data readWavFile(const std::string& filepath)
   audio.override = true;
 
   return audio;
+}
+
+/**
+ * @brief Encode audio data to a WAV file and return as a byte vector.
+ *
+ * @param data The audio data to encode.
+ * @return std::vector<char> Byte vector containing the WAV file data.
+ * @throws perception_exception if there are issues writing the data.
+ */
+std::vector<char> encodeWavToBytes(const perception::audio_data& data)
+{
+  std::ostringstream oss(std::ios::binary);
+  writeWavStream(oss, data);
+  std::string str = oss.str();
+  return std::vector<char>(str.begin(), str.end());
 }
 
 }  // namespace perception

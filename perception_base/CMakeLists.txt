@@ -16,9 +16,12 @@ find_package(pluginlib REQUIRED)
 find_package(perception_msgs REQUIRED)
 find_package(perception_events REQUIRED)
 find_package(backward_ros REQUIRED)
+find_package(CURL REQUIRED)
+find_package(nlohmann_json REQUIRED)
 
 include_directories(
   include
+  ${CURL_INCLUDE_DIRS}
 )
 
 install(DIRECTORY include/

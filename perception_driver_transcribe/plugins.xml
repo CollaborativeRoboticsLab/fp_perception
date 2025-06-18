@@ -1,5 +1,5 @@
 <library path="perception_driver_transcribe">
-    <class type="perception::PromptToolsTranscribeDriver" base_class_type="perception::DriverBase">
+    <class type="perception::OpenAIDriver" base_class_type="perception::DriverBase">
         <description>
             A plugin that provide transciption service through prompt tools.
             It uses the prompt tools library to transcribe audio input into text.

@@ -6,8 +6,8 @@
     use_vision_driver: false
     use_microphone_driver: false
     use_speaker_driver: false
-    use_transcription_driver: false
-    use_sentiment_driver: true
+    use_transcription_driver: true
+    use_sentiment_driver: false
 
     use_eye_gaze_algorithm: false
     use_context_identification_algorithm: false
@@ -17,7 +17,7 @@
     vision_driver: perception::OpenCVDriver # OpenCV driver for vision
     microphone_driver: perception::MicrophoneAudioDriver # Driver for microphone audio
     speaker_driver: perception::SpeakerAudioDriver # Driver for speaker audio
-    transcription_driver: perception::PromptToolsTranscribeDriver # Driver for audio transcription
+    transcription_driver: perception::OpenAIDriver # Driver for audio transcription
     sentiment_analysis_driver: perception::PromptToolsSentimentDriver # Driver for sentiment analysis
 
     eye_gaze_algorithm: perception::GazeAlgorithm # Algorithm for eye gaze detection
@@ -62,14 +62,18 @@
           # test_file_path: install/perception_driver_audio/share/perception_driver_audio/audio/hello-2.wav
 
       transcription:
-        PromptToolsTranscribeDriver:
-          name: PromptToolsTranscribeDriver
-          model: gpt-4o-transcribe
-          prompt: "This audio contains human speech."
-          test_file_path: test/mic_test.wav
-          # test_file_path: install/perception_driver_audio/share/perception_driver_audio/audio/hello-1.wav
+        OpenAIDriver:
+          name: OpenAIDriver
+          # model: gpt-4o-transcribe
+          model: whisper-1
+          # test_file_path: test/mic_test.wav
+          test_file_path: install/perception_driver_audio/share/perception_driver_audio/audio/hello-1.wav
           # test_file_path: install/perception_driver_audio/share/perception_driver_audio/audio/hello-2.wav
-
+          rest:
+            uri: https://api.openai.com/v1/audio/transcriptions
+            method: POST
+            auth_type: Bearer
+            ssl_verify: true
 
       sentiment:
         PromptToolsSentimentDriver:

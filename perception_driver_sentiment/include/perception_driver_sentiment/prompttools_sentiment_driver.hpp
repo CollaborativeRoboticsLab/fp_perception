@@ -148,7 +148,6 @@ public:
     PromptSrv::Request::SharedPtr request = std::make_shared<PromptSrv::Request>();
     request->prompt.prompt = text;
     request->prompt.flush = true;
-    request->prompt.contains_audio = false;
 
     // Call the transcription service
     future_ = sentiment_client_->async_send_request(request);

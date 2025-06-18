@@ -17,7 +17,8 @@ find_package(pluginlib REQUIRED)
 find_package(perception_base REQUIRED)
 find_package(perception_events REQUIRED)
 find_package(perception_msgs REQUIRED)
-find_package(prompt_msgs REQUIRED)
+find_package(CURL REQUIRED)
+find_package(nlohmann_json REQUIRED)
 
 include_directories(
   include
@@ -27,6 +28,10 @@ add_library(${PROJECT_NAME} SHARED
   src/transcribe_drivers.cpp
 )
 
+target_link_libraries(${PROJECT_NAME}
+  CURL::libcurl
+)
+
 ament_target_dependencies(${PROJECT_NAME}
   rclcpp
   rclcpp_components
@@ -34,7 +39,7 @@ ament_target_dependencies(${PROJECT_NAME}
   perception_base
   perception_events
   perception_msgs
-  prompt_msgs
+  nlohmann_json
 )
 
 pluginlib_export_plugin_description_file(perception plugins.xml)

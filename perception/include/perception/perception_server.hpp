@@ -158,7 +158,7 @@ public:
      ************************************************************************/
     if (use_transcription_driver_)
     {
-      this->declare_parameter("transcription_driver", "perception::PromptToolsTranscribeDriver");
+      this->declare_parameter("transcription_driver", "perception::OpenAIDriver");
       std::string transcription_driver_name = this->get_parameter("transcription_driver").as_string();
 
       event_->info("Loading transcription driver plugin: " + transcription_driver_name);
@@ -179,7 +179,7 @@ public:
      ************************************************************************/
     if (use_sentiment_driver_)
     {
-      this->declare_parameter("sentiment_driver", "perception::PromptToolsSentimentDriver");
+      this->declare_parameter("sentiment_driver", "perception::SentimentDriver");
       std::string sentiment_driver_name = this->get_parameter("sentiment_driver").as_string();
 
       event_->info("Loading sentiment driver plugin: " + sentiment_driver_name);
@@ -302,38 +302,38 @@ protected:
   void print_usage()
   {  // drivers
     if (use_vision_driver_)
-      event_->info("Will use vision driver.");
+      event_->info("Using vision driver.");
     else
       event_->info("Will not use vision driver.");
 
     if (use_microphone_driver_)
-      event_->info("Will use microphone driver.");
+      event_->info("Using microphone driver.");
     else
       event_->info("Will not use microphone driver.");
 
     if (use_speaker_driver_)
-      event_->info("Will use speaker driver.");
+      event_->info("Using speaker driver.");
     else
       event_->info("Will not use speaker driver.");
 
     if (use_transcription_driver_)
-      event_->info("Will use transcription driver.");
+      event_->info("Using transcription driver.");
     else
       event_->info("Will not use transcription driver.");
 
     if (use_sentiment_driver_)
-      event_->info("Will use sentiment driver.");
+      event_->info("Using sentiment driver.");
     else
       event_->info("Will not use sentiment driver.");
 
     // algorithms
     if (use_eye_gaze_algorithm_)
-      event_->info("Will use eye gaze algorithm.");
+      event_->info("Using eye gaze algorithm.");
     else
       event_->info("Will not use eye gaze algorithm.");
 
     if (use_context_identification_algorithm_)
-      event_->info("Will use context identification algorithm.");
+      event_->info("Using context identification algorithm.");
     else
       event_->info("Will not use context identification algorithm.");
   }

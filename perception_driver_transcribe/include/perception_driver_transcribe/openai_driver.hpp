@@ -125,7 +125,7 @@ public:
     model_option2.type = perception::RESTOptionType::STRING;
     request.options.push_back(model_option2);
 
-    response_ = request_audio(request);
+    response_ = call_audio(request);
   }
 
   /**

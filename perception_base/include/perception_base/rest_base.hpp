@@ -108,7 +108,7 @@ public:
    * @return A RESTResponse containing the response data.
    * @throws perception_exception if there is an error during the request.
    */
-  virtual perception::RESTResponse request(const perception::RESTRequest& req)
+  virtual perception::RESTResponse call(const perception::RESTRequest& req)
   {
     // Build JSON body from RESTRequest
     nlohmann::json body_json = toJson(req);  // <- Custom method returning nlohmann::json
@@ -188,7 +188,7 @@ public:
    * @return A RESTResponse containing the response data.
    * @throws perception_exception if there is an error during the request.
    */
-  virtual perception::RESTResponse request_audio(const perception::RESTRequest& req)
+  virtual perception::RESTResponse call_audio(const perception::RESTRequest& req)
   {
     CURL* curl = curl_easy_init();
     if (!curl)

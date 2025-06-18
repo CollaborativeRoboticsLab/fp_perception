@@ -6,8 +6,8 @@
     use_vision_driver: false
     use_microphone_driver: false
     use_speaker_driver: false
-    use_transcription_driver: true
-    use_sentiment_driver: false
+    use_transcription_driver: false
+    use_sentiment_driver: true
 
     use_eye_gaze_algorithm: false
     use_context_identification_algorithm: false
@@ -18,7 +18,7 @@
     microphone_driver: perception::MicrophoneAudioDriver # Driver for microphone audio
     speaker_driver: perception::SpeakerAudioDriver # Driver for speaker audio
     transcription_driver: perception::OpenAIDriver # Driver for audio transcription
-    sentiment_analysis_driver: perception::PromptToolsSentimentDriver # Driver for sentiment analysis
+    sentiment_analysis_driver: perception::SentimentDriver # Driver for sentiment analysis
 
     eye_gaze_algorithm: perception::GazeAlgorithm # Algorithm for eye gaze detection
     context_identification_algorithm: perception::ContextAlgorithm # Algorithm for context identification
@@ -76,8 +76,13 @@
             ssl_verify: true
 
       sentiment:
-        PromptToolsSentimentDriver:
-          name: PromptToolsSentimentDriver
+        SentimentDriver:
+          name: SentimentDriver      
+          rest:
+            uri: https://router.huggingface.co/hf-inference/models/distilbert/distilbert-base-uncased-finetuned-sst-2-english
+            method: POST
+            auth_type: Bearer
+            ssl_verify: true
 
     algorithm:
       GazeAlgorithm:

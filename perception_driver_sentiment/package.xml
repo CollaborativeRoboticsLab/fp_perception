@@ -14,7 +14,6 @@
   <depend>perception_base</depend>
   <depend>perception_events</depend>
   <depend>perception_msgs</depend>
-  <depend>prompt_msgs</depend>
   
   <test_depend>ament_lint_auto</test_depend>
   <test_depend>ament_lint_common</test_depend>

@@ -1,8 +1,7 @@
 #pragma once
 
 #include <any>
-#include <perception_base/driver_base.hpp>
-#include <prompt_msgs/srv/prompt.hpp>
+#include <perception_base/rest_base.hpp>
 #include <rclcpp/rclcpp.hpp>
 #include <string>
 #include <utility>
@@ -11,33 +10,31 @@
 namespace perception
 {
 /**
- * @brief PromptToolsSentimentDriver class for handling prompt_tools based sentument analysis.
+ * @brief SentimentDriver class for handling prompt_tools based sentument analysis.
  *
  *  This class is responsible for managing the sentiment analysis using the prompt_tools service.
  *  It provides methods to initialize the driver, start and stop the service, and retrieve sentiment analysis data.
  *  It uses the prompt_msgs::srv::Prompt service to send text for sentiment analysis and receive the response.
  *
  */
-using PromptSrv = prompt_msgs::srv::Prompt;
-
-class PromptToolsSentimentDriver : public DriverBase
+class SentimentDriver : public RestBase
 {
 public:
   /**
-   * @brief Constructor for PromptToolsSentimentDriver
+   * @brief Constructor for SentimentDriver
    *
    * Initializes the sentiment analysis service client.
    */
-  PromptToolsSentimentDriver()
+  SentimentDriver()
   {
   }
 
   /**
-   * @brief Destructor for PromptToolsSentimentDriver
+   * @brief Destructor for SentimentDriver
    *
    * Cleans up the sentiment analysis service client.
    */
-  ~PromptToolsSentimentDriver() override
+  ~SentimentDriver() override
   {
   }
 
@@ -51,18 +48,15 @@ public:
   void initialize(const rclcpp::Node::SharedPtr& node) override
   {
     // Confirm parameters for the node
-    node->declare_parameter("driver.sentiment.PromptToolsSentimentDriver.name", "PromptToolsSentimentDriver");
-    node->declare_parameter("driver.sentiment.PromptToolsSentimentDriver.service_name", "prompt_bridge/sentiment");
+    node->declare_parameter("driver.sentiment.SentimentDriver.name", "SentimentDriver");
 
-    config_.name = node->get_parameter("driver.sentiment.PromptToolsSentimentDriver.name").as_string();
-    service_name_ = node->get_parameter("driver.sentiment.PromptToolsSentimentDriver.service_name").as_string();
+    config_.name = node->get_parameter("driver.sentiment.SentimentDriver.name").as_string();
 
     // Initialize the base driver
-    initialize_base(node);
+    initialize_rest_base(node, "driver.sentiment.SentimentDriver", "HUGGINGFACE_API_KEY");
 
     // Log the parameters
     event_->info("Assigned driver Name: " + config_.name);
-    event_->info("Assigned driver Service Name: " + service_name_);
 
     // Log that the driver has been initialized
     event_->info("Initialized");
@@ -75,17 +69,7 @@ public:
    */
   void start() override
   {
-    // Create a client for the transcription service
-    sentiment_client_ = node_->create_client<PromptSrv>(service_name_);
-
-    // Wait for the service to be available
-    if (!sentiment_client_->wait_for_service(std::chrono::seconds(10)))
-    {
-      event_->error("Sentiment Analysis service not available.");
-      throw perception_exception("Sentiment Analysis service not available.");
-    }
-    
-    event_->info("Sentiment Analysis service client created");
+    event_->info("Started");
   }
 
   /**
@@ -109,28 +93,19 @@ public:
    */
   std::any getData() override
   {
-    // wait until the future is ready
-    future_.wait();
+    std::pair<std::string, double> sentiment_result;
 
-    // Implement the logic to get the latest sentiment analysis data
-    try
+    if (response_.response.empty())
     {
-      if (!future_.valid())
-      {
-        event_->error("Sent service call is not valid.");
-        throw perception_exception("Sentiment analysis service call is not valid.");
-      }
-
-      auto response = future_.get();
-      event_->info("Analysis successful: " + response->response.response +
-                   " with confidence: " + std::to_string(response->response.confidence));
-
-      return std::pair(response->response.response, response->response.confidence);
+      throw perception_exception("No response received from sentiment analysis service");
     }
-    catch (const std::exception& e)
+    else
     {
-      event_->error("Analysis service call failed: " + std::string(e.what()));
+      sentiment_result.first = response_.response;     // The sentiment label
+      sentiment_result.second = response_.confidence;  // The confidence score
     }
+
+    return sentiment_result;
   }
   /**
    * @brief Set data to the driver
@@ -144,13 +119,10 @@ public:
   {
     const auto& text = std::any_cast<const std::string>(input);
 
-    // Implement the logic to set the transcription data
-    PromptSrv::Request::SharedPtr request = std::make_shared<PromptSrv::Request>();
-    request->prompt.prompt = text;
-    request->prompt.flush = true;
+    perception::RESTRequest request;
+    request.prompt = text;
 
-    // Call the transcription service
-    future_ = sentiment_client_->async_send_request(request);
+    response_ = call(request);
   }
 
   /**
@@ -160,18 +132,22 @@ public:
    */
   void test() override
   {
-    event_->info("Testing PromptToolsSentimentDriver with model: " + config_.name);
+    event_->info("Testing SentimentDriver with model: " + uri_);
 
     // Example test input
     std::string test_text = "I love programming!";
+
+    // Wait for the service to process the request
+    event_->info("Initiated Sentiment analysis for text: " + test_text);
+    
     setDataStream(test_text);
 
-    event_->info("Sentiment analysis service called with test text. waiting for response...");
-
     auto result = getData();
+
     if (result.has_value())
     {
       auto sentiment_result = std::any_cast<std::pair<std::string, double>>(result);
+
       event_->info("Analysis results with sentiment: " + sentiment_result.first +
                    " and confidence: " + std::to_string(sentiment_result.second));
     }
@@ -180,10 +156,61 @@ public:
   }
 
 protected:
-  std::string service_name_;
+  /**
+   * @brief Convert a prompt request to a JSON object
+   *
+   * This method converts the sentiment request to a JSON object that can be sent to the sentiment analysis service.
+   * It includes the prompt text and options for the JSON object.
+   *
+   * @param prompt The sentiment request to convert
+   * @return A JSON object representing the prompt request
+   */
+  nlohmann::json toJson(const perception::RESTRequest& prompt) override
+  {
+    nlohmann::json result;
 
-  rclcpp::Client<PromptSrv>::SharedPtr sentiment_client_;
-  rclcpp::Client<PromptSrv>::SharedFuture future_;
+    // Add options
+    for (const auto& option : prompt.options)
+    {
+      result[option.key] = option.value;
+    }
+
+    // Add prompt
+    result["inputs"] = prompt.prompt;
+
+    return result;
+  }
+
+  /**
+   * @brief Convert a JSON object to a RESTResponse
+   *
+   * This method converts the JSON response from the sentiment analysis service to a RESTResponse object.
+   *
+   * @param object The JSON object to convert
+   * @return A RESTResponse object representing the sentiment analysis response
+   */
+  perception::RESTResponse fromJson(const nlohmann::json& object) override
+  {
+    perception::RESTResponse res;
+
+    // Hugging Face returns a double-nested array: [[{label, score}, {label, score}]]
+    if (object.is_array() && !object.empty() && object[0].is_array() && !object[0].empty())
+    {
+      const auto& firstResult = object[0][0];
+      if (firstResult.contains("label") && firstResult.contains("score"))
+      {
+        res.response = firstResult["label"].get<std::string>();
+        res.confidence = firstResult["score"].get<double>();
+      }
+    }
+    else
+      throw perception_exception("Unexpected sentiment JSON structure received");
+
+    return res;
+  }
+
+  std::string service_name_;
+  perception::RESTResponse response_;
 };
 
 }  // namespace perception

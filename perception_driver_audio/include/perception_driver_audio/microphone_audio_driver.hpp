@@ -67,8 +67,8 @@ public:
     // Load parameters from the node
     config_.name = node->get_parameter("driver.audio.MicrophoneAudioDriver.name").as_string();
     config_.device_name = node->get_parameter("driver.audio.MicrophoneAudioDriver.device_name").as_string();
-    config_.publish = node->get_parameter("driver.audio.MicrophoneAudioDriver.publish").as_bool();
-    config_.topic = node->get_parameter("driver.audio.MicrophoneAudioDriver.topic").as_string();
+    config_.interface_enabled = node->get_parameter("driver.audio.MicrophoneAudioDriver.publish").as_bool();
+    config_.interface_name = node->get_parameter("driver.audio.MicrophoneAudioDriver.topic").as_string();
     config_.frame_id = node->get_parameter("driver.audio.MicrophoneAudioDriver.frame_id").as_string();
     chunk_size_ = node->get_parameter("driver.audio.MicrophoneAudioDriver.chunk_size").as_int();
     sample_rate_ = node->get_parameter("driver.audio.MicrophoneAudioDriver.sample_rate").as_int();
@@ -104,8 +104,8 @@ public:
     event_->info("Assigned driver name: " + config_.name);
     event_->info("Assigned driver device_name: " + config_.device_name);
     event_->info("Assigned driver device_id: " + std::to_string(config_.device_id));
-    event_->info("Assigned driver publish: " + std::string(config_.publish ? "true" : "false"));
-    event_->info("Assigned driver topic: " + config_.topic);
+    event_->info("Assigned driver publish: " + std::string(config_.interface_enabled ? "true" : "false"));
+    event_->info("Assigned driver topic: " + config_.interface_name);
     event_->info("Assigned driver frame_id: " + config_.frame_id);
     event_->info("Assigned driver chunk_size: " + std::to_string(chunk_size_));
     event_->info("Assigned driver sample_rate: " + std::to_string(sample_rate_));
@@ -117,10 +117,10 @@ public:
     event_->info("Initialized");
 
     // If publishing is enabled, create a publisher for the audio topic
-    if (config_.publish)
+    if (config_.interface_enabled)
     {
-      audio_publisher_ = node->create_publisher<perception_msgs::msg::PerceptionAudio>(config_.topic, 10);
-      event_->info("Publisher created for topic: " + config_.topic);
+      audio_publisher_ = node->create_publisher<perception_msgs::msg::PerceptionAudio>(config_.interface_name, 10);
+      event_->info("Publisher created for topic: " + config_.interface_name);
     }
   }
 
@@ -200,7 +200,7 @@ public:
    * @return std::any The latest audio data from the driver as type `perception::audio_data`
    * @throws perception_exception if the stream is not active
    */
-  std::any getDataStream()  override
+  std::any getDataStream() override
   {
     // Check if the audio buffer is empty and proceed only if it has enough data
     std::unique_lock<std::mutex> lock(buffer_mutex_);
@@ -317,7 +317,7 @@ protected:
       buffer_cv_.notify_one();
 
       // If publishing is enabled, publish the audio data
-      if (config_.publish)
+      if (config_.interface_enabled)
       {
         perception_msgs::msg::PerceptionAudio msg;
         msg.header.stamp = rclcpp::Clock().now();

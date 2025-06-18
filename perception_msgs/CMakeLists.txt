@@ -20,8 +20,14 @@ set(msg_files
   "msg/PerceptionAudio.msg"
 )
 
+set(srv_files
+  "srv/PerceptionSentiment.srv"
+  "srv/PerceptionTranscribe.srv"
+)
+
 rosidl_generate_interfaces(${PROJECT_NAME}
   ${msg_files}
+  ${srv_files}
   DEPENDENCIES builtin_interfaces std_msgs
 )
 

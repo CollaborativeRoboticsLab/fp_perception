@@ -66,8 +66,8 @@ public:
     // Load parameters from the node
     config_.name = node->get_parameter("driver.audio.SpeakerAudioDriver.name").as_string();
     config_.device_name = node->get_parameter("driver.audio.SpeakerAudioDriver.device_name").as_string();
-    config_.subscribe = node->get_parameter("driver.audio.SpeakerAudioDriver.subscribe").as_bool();
-    config_.topic = node->get_parameter("driver.audio.SpeakerAudioDriver.topic").as_string();
+    config_.interface_enabled = node->get_parameter("driver.audio.SpeakerAudioDriver.subscribe").as_bool();
+    config_.interface_name = node->get_parameter("driver.audio.SpeakerAudioDriver.topic").as_string();
     config_.frame_id = node->get_parameter("driver.audio.SpeakerAudioDriver.frame_id").as_string();
     sample_rate_ = node->get_parameter("driver.audio.SpeakerAudioDriver.sample_rate").as_int();
     channels_ = node->get_parameter("driver.audio.SpeakerAudioDriver.channels").as_int();
@@ -100,8 +100,8 @@ public:
     event_->info("Assigned driver name: " + config_.name);
     event_->info("Assigned driver device_name: " + config_.device_name);
     event_->info("Assigned driver device_id: " + std::to_string(config_.device_id));
-    event_->info("Assigned driver subscribe: " + std::string(config_.subscribe ? "true" : "false"));
-    event_->info("Assigned driver topic: " + config_.topic);
+    event_->info("Assigned driver subscribe: " + std::string(config_.interface_enabled ? "true" : "false"));
+    event_->info("Assigned driver topic: " + config_.interface_name);
     event_->info("Assigned driver frame_id: " + config_.frame_id);
     event_->info("Assigned driver sample_rate: " + std::to_string(sample_rate_));
     event_->info("Assigned driver channels: " + std::to_string(channels_));
@@ -109,11 +109,11 @@ public:
     event_->info("Initialized");
 
     // If subscribing to audio data, set up the subscriber
-    if (config_.subscribe)
+    if (config_.interface_enabled)
     {
       audio_subscriber_ = node->create_subscription<perception_msgs::msg::PerceptionAudio>(
-          config_.topic, 10, std::bind(&SpeakerAudioDriver::receiveData, this, std::placeholders::_1));
-      event_->info("Audio subscriber created for topic: " + config_.topic);
+          config_.interface_name, 10, std::bind(&SpeakerAudioDriver::receiveData, this, std::placeholders::_1));
+      event_->info("Audio subscriber created for topic: " + config_.interface_name);
     }
   }
 

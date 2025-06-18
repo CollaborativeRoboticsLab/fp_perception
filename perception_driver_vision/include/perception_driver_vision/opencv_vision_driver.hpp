@@ -45,8 +45,8 @@ public:
     // Load parameters from the node
     config_.name = node->get_parameter("driver.vision.OpenCVDriver.name").as_string();
     config_.device_id = node->get_parameter("driver.vision.OpenCVDriver.device_id").as_int();
-    config_.publish = node->get_parameter("driver.vision.OpenCVDriver.publish").as_bool();
-    config_.topic = node->get_parameter("driver.vision.OpenCVDriver.topic").as_string();
+    config_.interface_enabled = node->get_parameter("driver.vision.OpenCVDriver.publish").as_bool();
+    config_.interface_name = node->get_parameter("driver.vision.OpenCVDriver.topic").as_string();
     config_.frame_id = node->get_parameter("driver.vision.OpenCVDriver.frame_id").as_string();
     config_.frequency = node->get_parameter("driver.vision.OpenCVDriver.frequency").as_double();
 
@@ -56,8 +56,8 @@ public:
     // Publish about the assigned driver parameterse
     event_->info("Assigned driver name: " + config_.name);
     event_->info("Assigned driver device_id: " + std::to_string(config_.device_id));
-    event_->info("Assigned driver publish: " + std::string(config_.publish ? "true" : "false"));
-    event_->info("Assigned driver topic: " + config_.topic);
+    event_->info("Assigned driver publish: " + std::string(config_.interface_enabled ? "true" : "false"));
+    event_->info("Assigned driver topic: " + config_.interface_name);
     event_->info("Assigned driver frame_id: " + config_.frame_id);
     event_->info("Assigned driver frequency: " + std::to_string(config_.frequency));
 
@@ -65,10 +65,10 @@ public:
     event_->info("Initialized");
 
     // If publishing is enabled, create a publisher for the image topic
-    if (config_.publish)
+    if (config_.interface_enabled)
     {
-      image_publisher_ = node->create_publisher<sensor_msgs::msg::Image>(config_.topic, 10);
-      event_->info("Publisher created for topic: " + config_.topic);
+      image_publisher_ = node->create_publisher<sensor_msgs::msg::Image>(config_.interface_name, 10);
+      event_->info("Publisher created for topic: " + config_.interface_name);
     }
   }
 
@@ -93,7 +93,7 @@ public:
 
     // Start the driver thread to capture and publish images
 
-    if (config_.publish)
+    if (config_.interface_enabled)
     {
       event_->info("Starting OpenCVDriver thread for publishing images.");
       driver_thread_ = std::thread(&OpenCVDriver::driver_thread, this);

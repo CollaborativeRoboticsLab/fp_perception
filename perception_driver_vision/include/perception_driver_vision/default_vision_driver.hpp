@@ -32,14 +32,14 @@ public:
 
     // Load parameters from the node
     config_.name = node->get_parameter("driver.vision.DefaultDriver.name").as_string();
-    config_.topic = node->get_parameter("driver.vision.DefaultDriver.topic").as_string();
+    config_.interface_name = node->get_parameter("driver.vision.DefaultDriver.topic").as_string();
 
     // Initialize the base driver
     initialize_base(node);
 
     // Publish about the assigned driver parameters
     event_->info("Assigned driver name: " + config_.name);
-    event_->info("Assigned driver topic: " + config_.topic);
+    event_->info("Assigned driver topic: " + config_.interface_name);
 
     event_->info("Initialized");
   }
@@ -50,13 +50,13 @@ public:
    */
   void start() override
   {
-    event_->info("DefaultDriver starting on topic " + config_.topic);
+    event_->info("DefaultDriver starting on topic " + config_.interface_name);
     image_transport::ImageTransport transport(node_);
 
     image_sub_ =
-        transport.subscribe(config_.topic, 1, std::bind(&DefaultDriver::imageCallback, this, std::placeholders::_1));
+        transport.subscribe(config_.interface_name, 1, std::bind(&DefaultDriver::imageCallback, this, std::placeholders::_1));
 
-    event_->info("Started. Subscribed to image topic: " + config_.topic);
+    event_->info("Started. Subscribed to image topic: " + config_.interface_name);
   }
 
   /**

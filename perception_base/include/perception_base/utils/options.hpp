@@ -7,26 +7,25 @@ namespace perception
 /**
  * @brief driver options
  *
- * Contains the options required to start and maintain a consistent driver. 
+ * Contains the options required to start and maintain a consistent driver.
  * normally loaded from the yaml file
  *
  */
 struct driver_options
 {
   std::string name;
-  std::string topic;
+  std::string interface_name;
   std::string device_name;  // name of the device, used to find the device ID
   int device_id;
   std::string frame_id;
-  bool publish = false;  // whether to publish the data to a topic
-  bool subscribe = false;  // whether to subscribe to the data from a topic
-  double frequency;  // frequency of data capture in Hz
+  bool interface_enabled;  // whether the interface is enabled or not
+  double frequency;        // frequency of data capture in Hz
 };
 
 /**
  * @brief algorithm options
  *
- * Contains the options required to start and maintain a consistent algorithm. 
+ * Contains the options required to start and maintain a consistent algorithm.
  *
  */
 struct algorithm_options

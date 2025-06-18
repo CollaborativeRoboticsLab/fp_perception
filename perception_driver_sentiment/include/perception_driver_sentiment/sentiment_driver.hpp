@@ -2,6 +2,7 @@
 
 #include <any>
 #include <perception_base/rest_base.hpp>
+#include <perception_msgs/srv/perception_sentiment.hpp>
 #include <rclcpp/rclcpp.hpp>
 #include <string>
 #include <utility>
@@ -20,6 +21,7 @@ namespace perception
 class SentimentDriver : public RestBase
 {
 public:
+  using Sentiment = perception_msgs::srv::PerceptionSentiment;
   /**
    * @brief Constructor for SentimentDriver
    *
@@ -49,14 +51,34 @@ public:
   {
     // Confirm parameters for the node
     node->declare_parameter("driver.sentiment.SentimentDriver.name", "SentimentDriver");
+    node->declare_parameter("driver.sentiment.SentimentDriver.service_name", "perception/sentiment_analysis");
+    node->declare_parameter("driver.sentiment.SentimentDriver.provide_service", false);
 
     config_.name = node->get_parameter("driver.sentiment.SentimentDriver.name").as_string();
+    config_.interface_name = node->get_parameter("driver.sentiment.SentimentDriver.service_name").as_string();
+    config_.interface_enabled = node->get_parameter("driver.sentiment.SentimentDriver.provide_service").as_bool();
 
     // Initialize the base driver
     initialize_rest_base(node, "driver.sentiment.SentimentDriver", "HUGGINGFACE_API_KEY");
 
     // Log the parameters
     event_->info("Assigned driver Name: " + config_.name);
+    event_->info("Assigned driver Service Name: " + config_.interface_name);
+    event_->info("Assigned driver Provide Service: " + std::string(config_.interface_enabled ? "true" : "false"));
+
+    // If the service is enabled, create the service
+    if (config_.interface_enabled)
+    {
+      sentiment_service_ = node->create_service<Sentiment>(
+          config_.interface_name,
+          std::bind(&SentimentDriver::service_cb, this, std::placeholders::_1, std::placeholders::_2));
+
+      event_->info("Sentiment service created: " + config_.interface_name);
+    }
+    else
+    {
+      event_->info("Sentiment service not enabled.");
+    }
 
     // Log that the driver has been initialized
     event_->info("Initialized");
@@ -139,7 +161,7 @@ public:
 
     // Wait for the service to process the request
     event_->info("Initiated Sentiment analysis for text: " + test_text);
-    
+
     setDataStream(test_text);
 
     auto result = getData();
@@ -209,8 +231,41 @@ protected:
     return res;
   }
 
-  std::string service_name_;
+  /**
+   * @brief Callback function for the sentiment analysis service
+   *
+   * This function is called when a request is received by the sentiment analysis service.
+   * It processes the request and sends back a response with the sentiment analysis results.
+   *
+   * @param request The request received from the client
+   * @param response The response to be sent back to the client
+   */
+  void service_cb(const std::shared_ptr<Sentiment::Request> request, std::shared_ptr<Sentiment::Response> response)
+  {
+    event_->info("Received sentiment analysis request");
+
+    setDataStream(request->text);
+
+    auto result = getData();
+
+    if (result.has_value())
+    {
+      auto sentiment_result = std::any_cast<std::pair<std::string, double>>(result);
+
+      // Set the response data
+      response->label = sentiment_result.first;      // Example response
+      response->score = sentiment_result.second;   // Example confidence score
+    }
+    else
+    {
+      event_->error("No sentiment analysis result available");
+      response->label = "Error: No sentiment analysis result available";
+      response->score = 0.0;
+    }
+  }
+
   perception::RESTResponse response_;
+  rclcpp::Service<Sentiment>::SharedPtr sentiment_service_;
 };
 
 }  // namespace perception

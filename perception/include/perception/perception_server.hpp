@@ -26,6 +26,7 @@ public:
     , listener_driver_loader_("perception", "perception::DriverBase")
     , speaker_driver_loader_("perception", "perception::DriverBase")
     , transcription_driver_loader_("perception", "perception::DriverBase")
+    , speech_driver_loader_("perception", "perception::DriverBase")
     , sentiment_driver_loader_("perception", "perception::DriverBase")
     , eye_gaze_algorithm_loader_("perception", "perception::AlgorithmBase")
     , context_algorithm_loader_("perception", "perception::AlgorithmBase")
@@ -62,6 +63,7 @@ public:
     this->declare_parameter("use_speaker_driver", false);
     this->declare_parameter("use_transcription_driver", false);
     this->declare_parameter("use_sentiment_driver", false);
+    this->declare_parameter("use_speech_driver", false);
 
     // algorithms
     this->declare_parameter("use_eye_gaze_algorithm", false);
@@ -76,6 +78,7 @@ public:
     use_speaker_driver_ = this->get_parameter("use_speaker_driver").as_bool();
     use_transcription_driver_ = this->get_parameter("use_transcription_driver").as_bool();
     use_sentiment_driver_ = this->get_parameter("use_sentiment_driver").as_bool();
+    use_speech_driver_ = this->get_parameter("use_speech_driver").as_bool();
 
     // algorithms
     use_eye_gaze_algorithm_ = this->get_parameter("use_eye_gaze_algorithm").as_bool();
@@ -175,6 +178,27 @@ public:
     }
 
     /*************************************************************************
+     * speech synthesis driver plugin class loader and driver pointer
+     ************************************************************************/
+    if (use_speech_driver_)
+    {
+      this->declare_parameter("speech_synthesis_driver", "perception::OpenAISpeechDriver");
+      std::string speech_driver_name = this->get_parameter("speech_synthesis_driver").as_string();
+
+      event_->info("Loading speech synthesis driver plugin: " + speech_driver_name);
+
+      speech_driver_ = speech_driver_loader_.createSharedInstance(speech_driver_name);
+      speech_driver_->initialize(shared_from_this());
+      speech_driver_->start();
+
+      event_->info("Started speech synthesis driver plugin: " + speech_driver_name);
+    }
+    else
+    {
+      event_->info("Speech synthesis driver plugin not loaded.");
+    }
+
+    /*************************************************************************
      * sentiment driver plugin class loader and driver pointer
      ************************************************************************/
     if (use_sentiment_driver_)
@@ -258,7 +282,7 @@ protected:
   {
     event_->info("Running tests for loaded plugins...");
 
-    if (vision_driver_)
+    if (use_vision_driver_)
     {
       event_->info("Testing vision driver...");
       vision_driver_->test();
@@ -266,7 +290,7 @@ protected:
     else
       event_->info("Vision driver not loaded, skipping test.");
 
-    if (microphone_driver_)
+    if (use_microphone_driver_)
     {
       event_->info("Testing microphone driver...");
       microphone_driver_->test();
@@ -274,7 +298,7 @@ protected:
     else
       event_->info("Microphone driver not loaded, skipping test.");
 
-    if (speaker_driver_)
+    if (use_speaker_driver_)
     {
       event_->info("Testing speaker driver...");
       speaker_driver_->test();
@@ -282,7 +306,7 @@ protected:
     else
       event_->info("Speaker driver not loaded, skipping test.");
 
-    if (transcription_driver_)
+    if (use_transcription_driver_)
     {
       event_->info("Testing transcription driver...");
       transcription_driver_->test();
@@ -290,7 +314,15 @@ protected:
     else
       event_->info("Transcription driver not loaded, skipping test.");
 
-    if (sentiment_driver_)
+    if (use_speech_driver_)
+    {
+      event_->info("Testing speech synthesis driver...");
+      speech_driver_->test();
+    }
+    else
+      event_->info("Speech synthesis driver not loaded, skipping test.");
+
+    if (use_sentiment_driver_)
     {
       event_->info("Testing sentiment driver...");
       sentiment_driver_->test();
@@ -321,6 +353,11 @@ protected:
     else
       event_->info("Will not use transcription driver.");
 
+    if (use_speech_driver_)
+      event_->info("Using speech synthesis driver.");
+    else
+      event_->info("Will not use speech synthesis driver.");
+
     if (use_sentiment_driver_)
       event_->info("Using sentiment driver.");
     else
@@ -346,6 +383,7 @@ protected:
   bool use_speaker_driver_;
   bool use_transcription_driver_;
   bool use_sentiment_driver_;
+  bool use_speech_driver_;
   bool use_eye_gaze_algorithm_;
   bool use_context_identification_algorithm_;
 
@@ -381,6 +419,12 @@ protected:
 
   /** shared pointer for sentiment driver */
   std::shared_ptr<perception::DriverBase> sentiment_driver_;
+
+  /** plugin loader for speech synthesis driver */
+  pluginlib::ClassLoader<perception::DriverBase> speech_driver_loader_;
+
+  /** shared pointer for speech synthesis driver */
+  std::shared_ptr<perception::DriverBase> speech_driver_;
 
   /** plugin loader for eye gaze algorithm */
   pluginlib::ClassLoader<perception::AlgorithmBase> eye_gaze_algorithm_loader_;

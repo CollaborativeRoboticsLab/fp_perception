@@ -35,6 +35,7 @@ struct RESTResponse
 {
   std::string response;
   std::vector<RESTOption> options;
+  std::vector<int16_t> audio_stream;  // For audio responses
   bool success{ false };
   double accuracy{ 0.0 };
   double confidence{ 0.0 };

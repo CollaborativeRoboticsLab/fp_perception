@@ -270,6 +270,83 @@ public:
     }
   }
 
+  virtual perception::RESTResponse call_tts(const perception::RESTRequest& req)
+  {
+    CURL* curl = curl_easy_init();
+    if (!curl)
+      throw perception_exception("Failed to initialize libcurl");
+
+    // Prepare the JSON body
+    nlohmann::json json_body;
+    for (const auto& opt : req.options)
+    {
+      json_body[opt.key] = opt.value;
+    }
+    json_body["input"] = req.prompt;  // Set input text explicitly
+
+    std::string body = json_body.dump();
+    std::vector<uint8_t> audio_binary;
+
+    // Set headers
+    struct curl_slist* headers = nullptr;
+    headers = curl_slist_append(headers, "Content-Type: application/json");
+    if (auth_type_ == "Bearer")
+    {
+      std::string auth_header = "Authorization: Bearer " + api_key_;
+      headers = curl_slist_append(headers, auth_header.c_str());
+    }
+    else
+    {
+      curl_easy_cleanup(curl);
+      curl_slist_free_all(headers);
+      throw perception_exception("Unsupported auth type: " + auth_type_);
+    }
+
+    curl_easy_setopt(curl, CURLOPT_URL, uri_.c_str());
+    curl_easy_setopt(curl, CURLOPT_HTTPHEADER, headers);
+    curl_easy_setopt(curl, CURLOPT_POSTFIELDS, body.c_str());
+    curl_easy_setopt(curl, CURLOPT_POSTFIELDSIZE, body.size());
+
+    // Write binary audio data to vector
+    curl_easy_setopt(
+        curl, CURLOPT_WRITEFUNCTION, +[](void* ptr, size_t size, size_t nmemb, void* userdata) -> size_t {
+          auto* vec = reinterpret_cast<std::vector<uint8_t>*>(userdata);
+          size_t total_size = size * nmemb;
+          vec->insert(vec->end(), (uint8_t*)ptr, (uint8_t*)ptr + total_size);
+          return total_size;
+        });
+    curl_easy_setopt(curl, CURLOPT_WRITEDATA, &audio_binary);
+
+    if (!ssl_verify_)
+    {
+      curl_easy_setopt(curl, CURLOPT_SSL_VERIFYPEER, 0L);
+      curl_easy_setopt(curl, CURLOPT_SSL_VERIFYHOST, 0L);
+    }
+
+    // Perform request
+    CURLcode res = curl_easy_perform(curl);
+    long http_code = 0;
+    curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, &http_code);
+
+    curl_slist_free_all(headers);
+    curl_easy_cleanup(curl);
+
+    if (res != CURLE_OK)
+      throw perception_exception("cURL error: " + std::string(curl_easy_strerror(res)));
+
+    if (http_code != 200)
+      throw perception_exception("HTTP error: " + std::to_string(http_code));
+
+    // Convert raw PCM to int16_t
+    std::vector<int16_t> samples(audio_binary.size() / 2);
+    std::memcpy(samples.data(), audio_binary.data(), audio_binary.size());
+
+    perception::RESTResponse response;
+    response.audio_stream = samples;  // Assuming audio_stream is a vector<int16_t>
+
+    return response;
+  }
+
 protected:
   static size_t write_callback(void* contents, size_t size, size_t nmemb, std::string* userp)
   {

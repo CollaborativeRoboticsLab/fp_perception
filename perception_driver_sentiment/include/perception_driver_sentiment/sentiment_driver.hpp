@@ -187,18 +187,18 @@ protected:
    * @param prompt The sentiment request to convert
    * @return A JSON object representing the prompt request
    */
-  nlohmann::json toJson(const perception::RESTRequest& prompt) override
+  nlohmann::json toJson(const perception::RESTRequest& request) override
   {
     nlohmann::json result;
 
     // Add options
-    for (const auto& option : prompt.options)
+    for (const auto& option : request.options)
     {
       result[option.key] = option.value;
     }
 
     // Add prompt
-    result["inputs"] = prompt.prompt;
+    result["inputs"] = request.prompt;
 
     return result;
   }
@@ -253,8 +253,8 @@ protected:
       auto sentiment_result = std::any_cast<std::pair<std::string, double>>(result);
 
       // Set the response data
-      response->label = sentiment_result.first;      // Example response
-      response->score = sentiment_result.second;   // Example confidence score
+      response->label = sentiment_result.first;   // Example response
+      response->score = sentiment_result.second;  // Example confidence score
     }
     else
     {

@@ -4,6 +4,7 @@
 #include <string>
 #include <rclcpp/rclcpp.hpp>
 #include <perception_msgs/msg/perception_audio.hpp>
+#include <perception_msgs/msg/perception_text.hpp>
 
 namespace perception
 {
@@ -19,6 +20,13 @@ struct audio_data
   int chunk_size = 256;          ///< Size of each audio chunk in samples
   int chunk_count = 0;           ///< Number of chunks in the audio data
   bool override = false;  ///< if the system sample_rate, channels, and chunk_size should be overridden by message data
+};
+
+struct text_data
+{
+  std::string text;          ///< Text data to be processed
+  std::string voice;         ///< Options for processing the text
+  std::string instructions;  ///< Model to be used for processing
 };
 
 /**
@@ -59,6 +67,30 @@ audio_data msg_to_audio_data(const perception_msgs::msg::PerceptionAudio& msg)
   data.chunk_size = msg.chunk_size;
   data.chunk_count = msg.chunk_count;
   data.override = msg.override;
+
+  return data;
+}
+
+perception_msgs::msg::PerceptionText text_data_to_msg(const text_data& data)
+{
+  perception_msgs::msg::PerceptionText msg;
+
+  msg.header.stamp = rclcpp::Clock().now();
+  msg.header.frame_id = "text_frame";  // Default frame ID, can be changed as needed
+  msg.text = data.text;
+  msg.voice = data.voice;
+  msg.instructions = data.instructions;
+
+  return msg;
+}
+
+text_data msg_to_text_data(const perception_msgs::msg::PerceptionText& msg)
+{
+  text_data data;
+
+  data.text = msg.text;
+  data.voice = msg.voice;
+  data.instructions = msg.instructions;
 
   return data;
 }

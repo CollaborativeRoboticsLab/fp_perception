@@ -18,11 +18,13 @@ find_package(std_msgs REQUIRED)
 set(msg_files
   "msg/PerceptionEvent.msg"
   "msg/PerceptionAudio.msg"
+  "msg/PerceptionText.msg"
 )
 
 set(srv_files
   "srv/PerceptionSentiment.srv"
   "srv/PerceptionTranscribe.srv"
+  "srv/PerceptionSpeech.srv"
 )
 
 rosidl_generate_interfaces(${PROJECT_NAME}

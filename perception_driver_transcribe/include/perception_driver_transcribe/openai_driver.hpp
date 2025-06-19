@@ -1,13 +1,13 @@
 #pragma once
 
+#include <string>
+#include <vector>
+#include <rclcpp/rclcpp.hpp>
 #include <perception_base/rest_base.hpp>
 #include <perception_base/utils/audio/structs.hpp>
 #include <perception_base/utils/audio/wav.hpp>
 #include <perception_base/utils/exceptions.hpp>
 #include <perception_msgs/srv/perception_transcribe.hpp>
-#include <rclcpp/rclcpp.hpp>
-#include <string>
-#include <vector>
 
 namespace perception
 {

@@ -7,7 +7,8 @@
     use_microphone_driver: false
     use_speaker_driver: false
     use_transcription_driver: false
-    use_sentiment_driver: true
+    use_sentiment_driver: false
+    use_speech_driver: true
 
     use_eye_gaze_algorithm: false
     use_context_identification_algorithm: false
@@ -19,6 +20,7 @@
     speaker_driver: perception::SpeakerAudioDriver # Driver for speaker audio
     transcription_driver: perception::OpenAIDriver # Driver for audio transcription
     sentiment_analysis_driver: perception::SentimentDriver # Driver for sentiment analysis
+    speech_synthesis_driver: perception::OpenAISpeechDriver # Driver for speech synthesis
 
     eye_gaze_algorithm: perception::GazeAlgorithm # Algorithm for eye gaze detection
     context_identification_algorithm: perception::ContextAlgorithm # Algorithm for context identification
@@ -82,6 +84,22 @@
           provide_service: true  
           rest:
             uri: https://router.huggingface.co/hf-inference/models/distilbert/distilbert-base-uncased-finetuned-sst-2-english
+            method: POST
+            auth_type: Bearer
+            ssl_verify: true
+
+      speech:
+        OpenAISpeechDriver:
+          name: OpenAISpeechDriver
+          model: gpt-4o-mini-tts
+          test_text: "Hello, this is a test of the OpenAI speech synthesis driver."
+          test_file_path: test/speech_test.wav
+          voice: sage
+          instructions: "Speak clearly and at a moderate pace."
+          provide_service: true
+          service_name: perception/speech
+          rest:
+            uri: https://api.openai.com/v1/audio/speech
             method: POST
             auth_type: Bearer
             ssl_verify: true

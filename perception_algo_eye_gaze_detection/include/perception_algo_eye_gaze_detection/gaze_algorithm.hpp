@@ -16,7 +16,7 @@
 
 #include <perception_base/utils/options.hpp>
 #include <perception_base/utils/exceptions.hpp>
-#include <perception_events/event_client.hpp>
+#include <event_logger/event_client.hpp>
 
 #include <perception_algo_eye_gaze_detection/attention_calibrator.hpp>
 #include <perception_algo_eye_gaze_detection/attention_detector.hpp>

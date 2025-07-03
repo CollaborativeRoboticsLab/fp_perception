@@ -9,7 +9,7 @@
 
 #include <rclcpp/rclcpp.hpp>
 
-#include <perception_events/event_client.hpp>
+#include <event_logger/event_client.hpp>
 #include <perception_base/utils/options.hpp>
 #include <perception_base/utils/exceptions.hpp>
 

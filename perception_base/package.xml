@@ -11,7 +11,8 @@
 
   <depend>rclcpp</depend>
   <depend>pluginlib</depend>
-  <depend>perception_events</depend>
+  <depend>event_logger</depend>
+  <depend>event_logger_msgs</depend>
   <depend>perception_msgs</depend>
 
   <test_depend>ament_lint_auto</test_depend>

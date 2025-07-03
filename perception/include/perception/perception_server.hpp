@@ -7,7 +7,7 @@
 #include <pluginlib/class_loader.hpp>
 #include <perception_base/driver_base.hpp>
 #include <perception_base/algorithm_base.hpp>
-#include <perception_events/event_client.hpp>
+#include <event_logger/event_client.hpp>
 
 namespace perception
 {

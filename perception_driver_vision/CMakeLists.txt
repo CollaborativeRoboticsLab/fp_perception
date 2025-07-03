@@ -19,7 +19,8 @@ find_package(OpenCV REQUIRED)
 find_package(cv_bridge REQUIRED)
 find_package(sensor_msgs REQUIRED)
 find_package(perception_base REQUIRED)
-find_package(perception_events REQUIRED)
+find_package(event_logger REQUIRED)
+find_package(event_logger_msgs REQUIRED)
 find_package(perception_msgs REQUIRED)
 
 include_directories(
@@ -44,7 +45,8 @@ ament_target_dependencies(${PROJECT_NAME}
   image_transport
   sensor_msgs
   perception_base
-  perception_events
+  event_logger
+  event_logger_msgs
   perception_msgs
 )
 

@@ -15,7 +15,8 @@ find_package(rclcpp REQUIRED)
 find_package(rclcpp_components REQUIRED)
 find_package(pluginlib REQUIRED)
 find_package(perception_base REQUIRED)
-find_package(perception_events REQUIRED)
+find_package(event_logger REQUIRED)
+find_package(event_logger_msgs REQUIRED)
 find_package(perception_msgs REQUIRED)
 
 # PortAudio
@@ -41,7 +42,8 @@ ament_target_dependencies(${PROJECT_NAME}
   rclcpp_components
   pluginlib
   perception_base
-  perception_events
+  event_logger
+  event_logger_msgs
   perception_msgs
   PORTAUDIO
 )

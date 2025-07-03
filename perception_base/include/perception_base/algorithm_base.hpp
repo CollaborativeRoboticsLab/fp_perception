@@ -5,7 +5,7 @@
 #include <perception_base/utils/options.hpp>
 #include <perception_base/utils/exceptions.hpp>
 #include <perception_base/driver_base.hpp>
-#include <perception_events/event_client.hpp>
+#include <event_logger/event_client.hpp>
 
 namespace perception
 {

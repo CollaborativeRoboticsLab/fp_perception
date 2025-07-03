@@ -4,7 +4,7 @@
 #include <curl/curl.h>
 #include <nlohmann/json.hpp>
 #include <rclcpp/rclcpp.hpp>
-#include <perception_events/event_client.hpp>
+#include <event_logger/event_client.hpp>
 #include <perception_base/driver_base.hpp>
 #include <perception_base/utils/exceptions.hpp>
 #include <perception_base/utils/rest/structs.hpp>

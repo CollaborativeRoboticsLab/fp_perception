@@ -16,7 +16,6 @@ find_package(builtin_interfaces REQUIRED)
 find_package(std_msgs REQUIRED)
 
 set(msg_files
-  "msg/PerceptionEvent.msg"
   "msg/PerceptionAudio.msg"
   "msg/PerceptionText.msg"
 )

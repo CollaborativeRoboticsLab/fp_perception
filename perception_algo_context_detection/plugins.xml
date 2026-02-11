@@ -1,8 +1,0 @@
-<library path="perception_algo_context_detection">
-    <class type="perception::ContextAlgorithm" base_class_type="perception::AlgorithmBase">
-        <description>
-            A plugin that provide audio based context identification algorithm. This plugin is 
-            used to detect context of the situation.
-        </description>
-    </class>
-</library>

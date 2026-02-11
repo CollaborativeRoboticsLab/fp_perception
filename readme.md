@@ -51,7 +51,7 @@ Install dependencies
 ```sh
 cd ..
 sudo apt update
-sudo apt install libportaudio2 libportaudio-dev ros-humble-vision-opencv 
+sudo apt install libportaudio2 portaudio19-dev ros-humble-vision-opencv 
 ```
 
 for any missing dependencies

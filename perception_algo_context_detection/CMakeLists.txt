@@ -10,7 +10,7 @@ if(CMAKE_COMPILER_IS_GNUCXX OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
   add_compile_options(-Wall -Wextra -Wpedantic)
 endif()
 
-set(Torch_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../pytorch_vendor/external/libtorch/share/cmake/Torch")
+set(Torch_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../../pytorch_vendor/external/libtorch/share/cmake/Torch")
 
 find_package(ament_cmake REQUIRED)
 find_package(rclcpp REQUIRED)

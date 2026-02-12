@@ -1,13 +1,13 @@
 #pragma once
 
-#include <string>
-#include <vector>
-#include <rclcpp/rclcpp.hpp>
 #include <perception_base/rest_base.hpp>
 #include <perception_base/utils/audio/structs.hpp>
 #include <perception_base/utils/audio/wav.hpp>
 #include <perception_base/utils/exceptions.hpp>
 #include <perception_msgs/srv/perception_transcribe.hpp>
+#include <rclcpp/rclcpp.hpp>
+#include <string>
+#include <vector>
 
 namespace perception
 {
@@ -59,9 +59,11 @@ public:
     initialize_rest_base(node, "driver.transcription.OpenAIDriver", "OPENAI_API_KEY");
 
     // Log the parameters
-    event_->info("Assigned driver Name: " + config_.name);
-    event_->info("Assigned driver Model: " + model_name_);
-    event_->info("Assigned driver Test Audio Path: " + test_file_path_);
+    RCLCPP_INFO(node_->get_logger(), "Assigned driver Name: %s", config_.name.c_str());
+    RCLCPP_INFO(node_->get_logger(), "Assigned driver Model: %s", model_name_.c_str());
+    RCLCPP_INFO(node_->get_logger(), "Assigned driver Test Audio Path: %s", test_file_path_.c_str());
+    RCLCPP_INFO(node_->get_logger(), "Assigned driver Service Name: %s", config_.interface_name.c_str());
+    RCLCPP_INFO(node_->get_logger(), "Assigned driver Provide Service: %s", config_.interface_enabled ? "true" : "false");
 
     // Initialize service if enabled
     if (config_.interface_enabled)
@@ -70,15 +72,16 @@ public:
           config_.interface_name,
           std::bind(&OpenAIDriver::service_cb, this, std::placeholders::_1, std::placeholders::_2));
 
-      event_->info("Service " + config_.interface_name + " created for transcription.");
+      RCLCPP_INFO(node_->get_logger(), "Service %s created for transcription.", config_.interface_name.c_str());
+      
     }
     else
     {
-      event_->info("Transcription service not enabled.");
+      RCLCPP_INFO(node_->get_logger(), "Transcription service not enabled.");
     }
 
     // Log that the driver has been initialized
-    event_->info("Initialized");
+    RCLCPP_INFO(node_->get_logger(), "Initialized");
   }
 
   /**
@@ -89,7 +92,7 @@ public:
   void start() override
   {
     // Log that the client has been created
-    event_->info("Started");
+    RCLCPP_INFO(node_->get_logger(), "Started");
   }
 
   /**
@@ -156,8 +159,7 @@ public:
   void test() override
   {
     // Implement test logic if needed
-    event_->info("Testing with model: " + model_name_);
-    event_->info("Testing by transcribing : " + test_file_path_);
+    RCLCPP_INFO(node_->get_logger(), "Testing with model: %s by transcribing: %s", model_name_.c_str(), test_file_path_.c_str());
 
     // Check if the test audio file exists
     auto filepath = check_file(test_file_path_);
@@ -167,29 +169,29 @@ public:
 
     if (data.samples.empty())
     {
-      event_->error("Failed to read test audio file.");
+      RCLCPP_ERROR(node_->get_logger(), "Failed to read test audio file.");
       throw perception_exception("Failed to read test audio file.");
     }
-    event_->info("Test audio file read successfully, size: " + std::to_string(data.samples.size()));
+    RCLCPP_INFO(node_->get_logger(), "Test audio file read successfully, size: %d", data.samples.size());
 
     // Convert the audio data to the expected format
     setDataStream(data);
 
-    event_->info("Transcription service called with test audio data. waiting for response...");
+    RCLCPP_INFO(node_->get_logger(), "Transcription service called with test audio data. waiting for response...");
 
     auto result = getData();
 
     if (result.has_value())
     {
-      event_->info("Transcription result: " + std::any_cast<std::string>(result));
+      RCLCPP_INFO(node_->get_logger(), "Transcription result: %s", std::any_cast<std::string>(result).c_str());
     }
     else
     {
-      event_->error("No transcription result received.");
+      RCLCPP_ERROR(node_->get_logger(), "No transcription result received.");
       throw perception_exception("No transcription result received.");
     }
 
-    event_->info("Test completed.");
+    RCLCPP_INFO(node_->get_logger(), "Test completed.");
   }
 
 protected:
@@ -239,7 +241,8 @@ protected:
    */
   void service_cb(const std::shared_ptr<Transcribe::Request> request, std::shared_ptr<Transcribe::Response> response)
   {
-    event_->info("Received transcription request.");
+    RCLCPP_INFO(node_->get_logger(), "Received transcription request.");
+    
     const auto& audio_data = perception::msg_to_audio_data(request->audio);
 
     setDataStream(audio_data);
@@ -249,13 +252,13 @@ protected:
     {
       response->transcription = std::any_cast<std::string>(result);
       response->success = true;
-      event_->info("Transcription service processed request successfully.");
+      RCLCPP_INFO(node_->get_logger(), "Transcription service processed request successfully.");
     }
     else
     {
       response->success = false;
       response->transcription = "No transcription result received.";
-      event_->error("Transcription service failed to process request.");
+      RCLCPP_ERROR(node_->get_logger(), "Transcription service failed to process request.");
     }
   }
 

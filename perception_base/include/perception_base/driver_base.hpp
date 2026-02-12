@@ -8,8 +8,6 @@
 #include <atomic>
 
 #include <rclcpp/rclcpp.hpp>
-
-#include <event_logger/event_client.hpp>
 #include <perception_base/utils/options.hpp>
 #include <perception_base/utils/exceptions.hpp>
 
@@ -120,7 +118,8 @@ public:
 
       // Simulate data gathering
       // In a real implementation, you would gather data from the device here.
-      event_->info("Driver thread started for " + config_.name + " without implementation");
+      RCLCPP_INFO(node_->get_logger(), "Driver thread started for %s without implementation", config_.name.c_str());
+      
 
       // If publishing is enabled, you would publish the data to a topic.
       std::this_thread::sleep_for(std::chrono::milliseconds(int(1000 / config_.frequency)));
@@ -133,7 +132,7 @@ public:
    */
   virtual void test()
   {
-    event_->info("Driver test function called");
+    RCLCPP_INFO(node_->get_logger(), "Driver test function called for driver: %s", config_.name.c_str());
   }
 
   /**
@@ -174,7 +173,6 @@ protected:
   void initialize_base(const rclcpp::Node::SharedPtr& node)
   {
     node_ = node;
-    event_ = std::make_shared<EventClient>(node_, config_.name, "/events");
   }
 
   /**
@@ -186,11 +184,6 @@ protected:
    * @brief driver options
    */
   driver_options config_;
-
-  /**
-   * @brief client for publishing events
-   */
-  std::shared_ptr<EventClient> event_;
 
   /**
    * @brief Mutex to protect access to the camera data

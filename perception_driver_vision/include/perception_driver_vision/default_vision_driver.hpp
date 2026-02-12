@@ -38,10 +38,11 @@ public:
     initialize_base(node);
 
     // Publish about the assigned driver parameters
-    event_->info("Assigned driver name: " + config_.name);
-    event_->info("Assigned driver topic: " + config_.interface_name);
+    RCLCPP_INFO(node_->get_logger(), "Assigned driver name: %s", config_.name.c_str());
+    RCLCPP_INFO(node_->get_logger(), "Assigned driver topic: %s", config_.interface_name.c_str());
+    
 
-    event_->info("Initialized");
+    RCLCPP_INFO(node_->get_logger(), "Initialized");
   }
 
   /**
@@ -50,13 +51,13 @@ public:
    */
   void start() override
   {
-    event_->info("DefaultDriver starting on topic " + config_.interface_name);
+    RCLCPP_INFO(node_->get_logger(), "DefaultDriver starting on topic %s", config_.interface_name.c_str());
     image_transport::ImageTransport transport(node_);
 
     image_sub_ =
         transport.subscribe(config_.interface_name, 1, std::bind(&DefaultDriver::imageCallback, this, std::placeholders::_1));
 
-    event_->info("Started. Subscribed to image topic: " + config_.interface_name);
+    RCLCPP_INFO(node_->get_logger(), "Started. Subscribed to image topic: %s", config_.interface_name.c_str());
   }
 
   /**
@@ -66,7 +67,7 @@ public:
   void stop() override
   {
     image_sub_.shutdown();
-    event_->info("Driver stopped.");
+    RCLCPP_INFO(node_->get_logger(), "Driver stopped.");
   }
 
   /**
@@ -98,7 +99,7 @@ public:
    */
   void test() override
   {
-    event_->info("DefaultDriver test function called");
+    RCLCPP_INFO(node_->get_logger(), "DefaultDriver test function called");
 
     // Create the "test" directory if it doesn't exist
     DriverBase::check_directory("test");
@@ -106,7 +107,7 @@ public:
     cv::Mat frame = std::any_cast<cv::Mat>(getData());
     cv::imwrite("test/default_vision_image.jpg", frame);
 
-    event_->info("Test image saved to test/default_vision_image.jpg. Test completed.");
+    RCLCPP_INFO(node_->get_logger(), "Test image saved to test/default_vision_image.jpg. Test completed.");
   }
 
 protected:

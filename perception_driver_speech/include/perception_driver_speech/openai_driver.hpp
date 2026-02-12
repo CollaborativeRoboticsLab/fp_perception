@@ -63,11 +63,12 @@ public:
     initialize_rest_base(node, "driver.speech.OpenAISpeechDriver", "OPENAI_API_KEY");
 
     // log the parameters
-    event_->info("Assigned driver name: " + config_.name);
-    event_->info("Assigned driver model: " + model_name_);
-    event_->info("Assigned driver test text: " + test_text_);
-    event_->info("Assigned driver service name: " + config_.interface_name);
-    event_->info("Assigned driver service enabled: " + std::string(config_.interface_enabled ? "true" : "false"));
+    RCLCPP_INFO(node_->get_logger(), "Assigned driver name: %s", config_.name.c_str());
+    RCLCPP_INFO(node_->get_logger(), "Assigned driver model: %s", model_name_.c_str());
+    RCLCPP_INFO(node_->get_logger(), "Assigned driver test text: %s", test_text_.c_str());
+    RCLCPP_INFO(node_->get_logger(), "Assigned driver service name: %s", config_.interface_name.c_str());
+    RCLCPP_INFO(node_->get_logger(), "Assigned driver service enabled: %s",
+                config_.interface_enabled ? "true" : "false");
 
     // Create service if enabled
     if (config_.interface_enabled)
@@ -75,15 +76,16 @@ public:
       service_ =
           node->create_service<Speech>(config_.interface_name, std::bind(&OpenAISpeechDriver::service_cb, this,
                                                                          std::placeholders::_1, std::placeholders::_2));
-      event_->info("Speech service created with name: " + config_.interface_name);
+
+      RCLCPP_INFO(node_->get_logger(), "Speech service created with name: %s", config_.interface_name.c_str());
     }
     else
     {
-      event_->info("Speech service is disabled, not creating service.");
+      RCLCPP_INFO(node_->get_logger(), "Speech service is disabled, not creating service.");
     }
 
     // Log the driver initialization
-    event_->info("Initialized");
+    RCLCPP_INFO(node_->get_logger(), "Initialized");
   }
 
   /**
@@ -94,7 +96,8 @@ public:
   void start() override
   {
     // Log that the client has been created
-    event_->info("Started");
+    RCLCPP_INFO(node_->get_logger(), "Started");
+    
   }
 
   /**
@@ -122,7 +125,7 @@ public:
     {
       data.samples = std::any_cast<std::vector<int16_t>>(response_.audio_stream);
       data.sample_rate = 24000;  // Assuming a sample rate of 24kHz
-      data.channels = 1;     // Assuming mono audio
+      data.channels = 1;         // Assuming mono audio
     }
 
     return data;
@@ -153,12 +156,12 @@ public:
     model_option3.key = "voice";
     if (new_text.voice.empty())
     {
-      event_->error("Voice is empty, using default voice.");
+      RCLCPP_ERROR(node_->get_logger(), "Voice is empty, using default voice.");
       model_option3.value = voice_;
     }
     else
     {
-      event_->info("Using voice: " + new_text.voice);
+      RCLCPP_INFO(node_->get_logger(), "Using voice: %s", new_text.voice.c_str());
       model_option3.value = new_text.voice;
     }
     model_option3.type = perception::RESTOptionType::STRING;
@@ -168,12 +171,12 @@ public:
     model_option4.key = "instructions";
     if (new_text.instructions.empty())
     {
-      event_->error("Instructions are empty, using default instructions.");
+      RCLCPP_ERROR(node_->get_logger(), "Instructions are empty, using default instructions.");
       model_option4.value = instructions_;
     }
     else
     {
-      event_->info("Using instructions: " + new_text.instructions);
+      RCLCPP_INFO(node_->get_logger(), "Using instructions: %s", new_text.instructions.c_str());
       model_option4.value = new_text.instructions;
     }
     model_option4.type = perception::RESTOptionType::STRING;
@@ -190,8 +193,8 @@ public:
   void test() override
   {
     // Implement test logic if needed
-    event_->info("Testing with model: " + model_name_);
-    event_->info("Testing by speeching : " + test_text_);
+    RCLCPP_INFO(node_->get_logger(), "Testing with model: %s", model_name_.c_str());
+    RCLCPP_INFO(node_->get_logger(), "Testing by speeching : %s", test_text_.c_str());
 
     perception::text_data new_text;
     new_text.text = test_text_;
@@ -201,7 +204,7 @@ public:
     // Convert the audio data to the expected format
     setDataStream(new_text);
 
-    event_->info("Speech service called with test text data. waiting for response...");
+    RCLCPP_INFO(node_->get_logger(), "Speech service called with test text data. waiting for response...");
 
     auto result = getData();
 
@@ -209,15 +212,15 @@ public:
     {
       audio_data data = std::any_cast<audio_data>(result);
       writeWavFile(test_file_path_, data);
-			event_->info("Speech synthesis result received and saved to " + test_file_path_);
+      RCLCPP_INFO(node_->get_logger(), "Speech synthesis result received and saved to %s", test_file_path_.c_str()  );
     }
     else
     {
-			event_->error("No speech synthesis result received.");
-			throw perception_exception("No speech synthesis result received.");
+      RCLCPP_ERROR(node_->get_logger(), "No speech synthesis result received.");
+      throw perception_exception("No speech synthesis result received.");
     }
 
-    event_->info("Test completed.");
+    RCLCPP_INFO(node_->get_logger(), "Test completed.");
   }
 
 protected:
@@ -270,7 +273,7 @@ protected:
    */
   void service_cb(const std::shared_ptr<Speech::Request> request, std::shared_ptr<Speech::Response> response)
   {
-    event_->info("Received speech request.");
+    RCLCPP_INFO(node_->get_logger(), "Received speech request with text: %s", request->input.text.c_str());
     const auto& text_data = perception::msg_to_text_data(request->input);
 
     setDataStream(text_data);
@@ -283,7 +286,7 @@ protected:
     }
     else
     {
-      event_->error("No transcription result received.");
+      RCLCPP_ERROR(node_->get_logger(), "No transcription result received.");
     }
   }
 

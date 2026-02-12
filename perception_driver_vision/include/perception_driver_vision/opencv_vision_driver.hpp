@@ -54,21 +54,22 @@ public:
     initialize_base(node);
 
     // Publish about the assigned driver parameterse
-    event_->info("Assigned driver name: " + config_.name);
-    event_->info("Assigned driver device_id: " + std::to_string(config_.device_id));
-    event_->info("Assigned driver publish: " + std::string(config_.interface_enabled ? "true" : "false"));
-    event_->info("Assigned driver topic: " + config_.interface_name);
-    event_->info("Assigned driver frame_id: " + config_.frame_id);
-    event_->info("Assigned driver frequency: " + std::to_string(config_.frequency));
+    RCLCPP_INFO(node_->get_logger(), "Assigned driver name: %s", config_.name.c_str());
+    RCLCPP_INFO(node_->get_logger(), "Assigned driver device_id: %d", config_.device_id);
+    RCLCPP_INFO(node_->get_logger(), "Assigned driver publish: %s", config_.interface_enabled ? "true" : "false");
+    RCLCPP_INFO(node_->get_logger(), "Assigned driver topic: %s", config_.interface_name.c_str());
+    RCLCPP_INFO(node_->get_logger(), "Assigned driver frame_id: %s", config_.frame_id.c_str());
+    RCLCPP_INFO(node_->get_logger(), "Assigned driver frequency: %f", config_.frequency);
 
     // Log that the driver has been initialized
-    event_->info("Initialized");
+    RCLCPP_INFO(node_->get_logger(), "Initialized");
+    
 
     // If publishing is enabled, create a publisher for the image topic
     if (config_.interface_enabled)
     {
       image_publisher_ = node->create_publisher<sensor_msgs::msg::Image>(config_.interface_name, 10);
-      event_->info("Publisher created for topic: " + config_.interface_name);
+      RCLCPP_INFO(node_->get_logger(), "Publisher created for topic: %s", config_.interface_name.c_str());
     }
   }
 
@@ -77,25 +78,25 @@ public:
    */
   void start() override
   {
-    event_->info("OpenCVDriver starting on video device " + std::to_string(config_.device_id));
-
+    RCLCPP_INFO(node_->get_logger(), "OpenCVDriver starting on video device %d", config_.device_id);
+    
     // open the camera device
     capture_device.open(config_.device_id);
 
     // check if the camera opened successfully
     if (!capture_device.isOpened())
     {
-      event_->error("OpenCVDriver failed to open video device ID: " + std::to_string(config_.device_id));
+      RCLCPP_ERROR(node_->get_logger(), "OpenCVDriver failed to open video device ID: %d", config_.device_id);
       throw perception_exception("OpenCVDriver failed to open video device ID: " + std::to_string(config_.device_id));
     }
 
-    event_->info("OpenCVDriver started on video device " + std::to_string(config_.device_id));
+    RCLCPP_INFO(node_->get_logger(), "OpenCVDriver started on video device %d", config_.device_id);
 
     // Start the driver thread to capture and publish images
 
     if (config_.interface_enabled)
     {
-      event_->info("Starting OpenCVDriver thread for publishing images.");
+      RCLCPP_INFO(node_->get_logger(), "Starting OpenCVDriver thread for publishing images.");
       driver_thread_ = std::thread(&OpenCVDriver::driver_thread, this);
     }
   }
@@ -109,13 +110,14 @@ public:
     if (capture_device.isOpened())
     {
       capture_device.release();
-      event_->info("OpenCVDriver stopped.");
+      RCLCPP_INFO(node_->get_logger(), "OpenCVDriver stopped.");
+      
     }
 
     if (driver_thread_.joinable())
     {
       driver_thread_.join();
-      event_->info("OpenCVDriver thread stopped.");
+      RCLCPP_INFO(node_->get_logger(), "OpenCVDriver thread stopped.");
     }
   }
 
@@ -146,7 +148,7 @@ public:
    */
   void driver_thread() override
   {
-    event_->info("OpenCVDriver thread started for device ID: " + std::to_string(config_.device_id));
+    RCLCPP_INFO(node_->get_logger(), "OpenCVDriver thread started for device ID: %d", config_.device_id);
 
     sensor_msgs::msg::Image::SharedPtr msg;
 
@@ -172,7 +174,7 @@ public:
    */
   void test() override
   {
-    event_->info("OpenCVDriver test function called");
+    RCLCPP_INFO(node_->get_logger(), "OpenCVDriver test function called");
 
     // Create the "test" directory if it doesn't exist
     DriverBase::check_directory("test");
@@ -181,7 +183,7 @@ public:
     cv::Mat frame = std::any_cast<cv::Mat>(getData());
     cv::imwrite("test/opencv_vision_image.jpg", frame);
 
-    event_->info("OpenCVDriver test image saved to 'test/opencv_vision_image.jpg'. Test completed.");
+    RCLCPP_INFO(node_->get_logger(), "OpenCVDriver test image saved to 'test/opencv_vision_image.jpg'. Test completed.");
   }
 
 protected:

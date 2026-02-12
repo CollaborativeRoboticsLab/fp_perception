@@ -14,8 +14,6 @@
   <depend>image_transport</depend>
   <depend>sensor_msgs</depend>
   <depend>perception_base</depend>
-  <depend>event_logger</depend>
-  <depend>event_logger_msgs</depend>
   <depend>perception_msgs</depend>
   <depend>cv_bridge</depend>
 

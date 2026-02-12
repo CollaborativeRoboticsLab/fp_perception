@@ -62,9 +62,10 @@ public:
     initialize_rest_base(node, "driver.sentiment.SentimentDriver", "HUGGINGFACE_API_KEY");
 
     // Log the parameters
-    event_->info("Assigned driver Name: " + config_.name);
-    event_->info("Assigned driver Service Name: " + config_.interface_name);
-    event_->info("Assigned driver Provide Service: " + std::string(config_.interface_enabled ? "true" : "false"));
+    RCLCPP_INFO(node_->get_logger(), "Assigned driver Name: %s", config_.name.c_str());
+    RCLCPP_INFO(node_->get_logger(), "Assigned driver Service Name: %s", config_.interface_name.c_str());
+    RCLCPP_INFO(node_->get_logger(), "Assigned driver Provide Service: %s",
+                config_.interface_enabled ? "true" : "false");
 
     // If the service is enabled, create the service
     if (config_.interface_enabled)
@@ -73,15 +74,15 @@ public:
           config_.interface_name,
           std::bind(&SentimentDriver::service_cb, this, std::placeholders::_1, std::placeholders::_2));
 
-      event_->info("Sentiment service created: " + config_.interface_name);
+      RCLCPP_INFO(node_->get_logger(), "Sentiment service created: %s", config_.interface_name.c_str());
     }
     else
     {
-      event_->info("Sentiment service not enabled.");
+      RCLCPP_INFO(node_->get_logger(), "Sentiment service not enabled.");
     }
 
     // Log that the driver has been initialized
-    event_->info("Initialized");
+    RCLCPP_INFO(node_->get_logger(), "Initialized");
   }
 
   /**
@@ -91,7 +92,7 @@ public:
    */
   void start() override
   {
-    event_->info("Started");
+    RCLCPP_INFO(node_->get_logger(), "Started");
   }
 
   /**
@@ -154,13 +155,13 @@ public:
    */
   void test() override
   {
-    event_->info("Testing SentimentDriver with model: " + uri_);
+    RCLCPP_INFO(node_->get_logger(), "Testing SentimentDriver with model: %s", uri_.c_str());
 
     // Example test input
     std::string test_text = "I love programming!";
 
     // Wait for the service to process the request
-    event_->info("Initiated Sentiment analysis for text: " + test_text);
+    RCLCPP_INFO(node_->get_logger(), "Initiated Sentiment analysis for text: %s", test_text.c_str());
 
     setDataStream(test_text);
 
@@ -170,11 +171,12 @@ public:
     {
       auto sentiment_result = std::any_cast<std::pair<std::string, double>>(result);
 
-      event_->info("Analysis results with sentiment: " + sentiment_result.first +
-                   " and confidence: " + std::to_string(sentiment_result.second));
+      RCLCPP_INFO(node_->get_logger(), "Analysis results with sentiment: %s and confidence: %f",
+                  sentiment_result.first.c_str(), sentiment_result.second);
     }
 
-    event_->info("Test completed.");
+    RCLCPP_INFO(node_->get_logger(), "Test completed.");
+    
   }
 
 protected:
@@ -242,7 +244,7 @@ protected:
    */
   void service_cb(const std::shared_ptr<Sentiment::Request> request, std::shared_ptr<Sentiment::Response> response)
   {
-    event_->info("Received sentiment analysis request");
+    RCLCPP_INFO(node_->get_logger(), "Received sentiment analysis request with text: %s", request->text.c_str());
 
     setDataStream(request->text);
 
@@ -258,7 +260,7 @@ protected:
     }
     else
     {
-      event_->error("No sentiment analysis result available");
+      RCLCPP_ERROR(node_->get_logger(), "No sentiment analysis result available");
       response->label = "Error: No sentiment analysis result available";
       response->score = 0.0;
     }

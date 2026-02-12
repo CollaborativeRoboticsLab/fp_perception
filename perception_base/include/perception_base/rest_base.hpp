@@ -4,7 +4,6 @@
 #include <curl/curl.h>
 #include <nlohmann/json.hpp>
 #include <rclcpp/rclcpp.hpp>
-#include <event_logger/event_client.hpp>
 #include <perception_base/driver_base.hpp>
 #include <perception_base/utils/exceptions.hpp>
 #include <perception_base/utils/rest/structs.hpp>
@@ -71,10 +70,10 @@ public:
     auth_type_ = node_->get_parameter(plugin_name_ + ".rest.auth_type").as_string();
 
     // Log the parameters
-    event_->info("Assigned driver URI: " + uri_);
-    event_->info("Assigned driver Method: " + method_);
-    event_->info("Assigned driver SSL Verify: " + std::string(ssl_verify_ ? "true" : "false"));
-    event_->info("Assigned driver Auth Type: " + auth_type_);
+    RCLCPP_INFO(node_->get_logger(), "Assigned driver URI: %s", uri_.c_str());
+    RCLCPP_INFO(node_->get_logger(), "Assigned driver Method: %s", method_.c_str());
+    RCLCPP_INFO(node_->get_logger(), "Assigned driver SSL Verify: %s", ssl_verify_ ? "true" : "false");
+    RCLCPP_INFO(node_->get_logger(), "Assigned driver Auth Type: %s", auth_type_.c_str());
 
     // Load api key from environment
     if (!api_key_name.empty())
@@ -83,18 +82,18 @@ public:
       if (api_key_env)
       {
         api_key_ = api_key_env;
-        event_->info("API key loaded from environment variables: " + api_key_name);
+        RCLCPP_INFO(node_->get_logger(), "API key loaded from environment variables: %s", api_key_name.c_str());
       }
       else
       {
-        event_->error("missing env variable: " + api_key_name);
+        RCLCPP_ERROR(node_->get_logger(), "missing env variable: %s", api_key_name.c_str());
         throw perception::perception_exception("missing env variable: " + api_key_name);
         api_key_ = "";
       }
     }
     else
     {
-      event_->info("An API key is not used for this plugin, using empty string");
+      RCLCPP_INFO(node_->get_logger(), "An API key is not used for this plugin, using empty string");
       api_key_ = "";
     }
   }

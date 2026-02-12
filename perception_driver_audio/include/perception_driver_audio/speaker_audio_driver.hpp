@@ -80,7 +80,7 @@ public:
     err = Pa_Initialize();
     if (err != paNoError)
     {
-      event_->error("PortAudio initialization failed: " + std::string(Pa_GetErrorText(err)));
+      RCLCPP_ERROR(node_->get_logger(), "PortAudio initialization failed: %s", Pa_GetErrorText(err));
       throw perception_exception("PortAudio initialization failed: " + std::string(Pa_GetErrorText(err)));
     }
 
@@ -88,34 +88,33 @@ public:
     try
     {
       config_.device_id = perception::getDeviceIdByName(config_.device_name);
-      event_->info("Device ID for name '" + config_.device_name + "' is " + std::to_string(config_.device_id));
+      RCLCPP_INFO(node_->get_logger(), "Device ID for name '%s' is %d", config_.device_name.c_str(), config_.device_id);
     }
     catch (const std::exception& e)
     {
-      event_->error("Failed to get device ID for name '" + config_.device_name + "': " + e.what());
+      RCLCPP_ERROR(node_->get_logger(), "Failed to get device ID for name '%s': %s", config_.device_name.c_str(), e.what());
       throw perception_exception("Failed to get device ID for name '" + config_.device_name + "': " + e.what());
     }
 
     // Publish about the assigned driver parameters
-    event_->info("Assigned driver name: " + config_.name);
-    event_->info("Assigned driver device_name: " + config_.device_name);
-    event_->info("Assigned driver device_id: " + std::to_string(config_.device_id));
-    event_->info("Assigned driver subscribe: " + std::string(config_.interface_enabled ? "true" : "false"));
-    event_->info("Assigned driver topic: " + config_.interface_name);
-    event_->info("Assigned driver frame_id: " + config_.frame_id);
-    event_->info("Assigned driver sample_rate: " + std::to_string(sample_rate_));
-    event_->info("Assigned driver channels: " + std::to_string(channels_));
+    RCLCPP_INFO(node_->get_logger(), "Assigned driver name: %s", config_.name.c_str());
+    RCLCPP_INFO(node_->get_logger(), "Assigned driver device_name: %s", config_.device_name.c_str());
+    RCLCPP_INFO(node_->get_logger(), "Assigned driver device_id: %d", config_.device_id);
+    RCLCPP_INFO(node_->get_logger(), "Assigned driver subscribe: %s", config_.interface_enabled ? "true" : "false");
+    RCLCPP_INFO(node_->get_logger(), "Assigned driver topic: %s", config_.interface_name.c_str());
+    RCLCPP_INFO(node_->get_logger(), "Assigned driver frame_id: %s", config_.frame_id.c_str());
+    RCLCPP_INFO(node_->get_logger(), "Assigned driver sample_rate: %d", sample_rate_);
+    RCLCPP_INFO(node_->get_logger(), "Assigned driver channels: %d", channels_);
 
-    event_->info("Initialized");
-
+    RCLCPP_INFO(node_->get_logger(), "Initialized");
     // If subscribing to audio data, set up the subscriber
     if (config_.interface_enabled)
     {
       audio_subscriber_ = node->create_subscription<perception_msgs::msg::PerceptionAudio>(
           config_.interface_name, 10, std::bind(&SpeakerAudioDriver::receiveData, this, std::placeholders::_1));
-      event_->info("Audio subscriber created for topic: " + config_.interface_name);
+      RCLCPP_INFO(node_->get_logger(), "Audio subscriber created for topic: %s", config_.interface_name.c_str());
     }
-  }
+  } 
 
   /**
    * @brief Start the driver streaming with a ROS node. This function initializes the speaker driver
@@ -124,7 +123,7 @@ public:
    */
   void start() override
   {
-    event_->info("started.");
+    RCLCPP_INFO(node_->get_logger(), "started.");
   }
 
   /**
@@ -138,20 +137,20 @@ public:
       err = Pa_StopStream(pair.second);
       if (err != paNoError)
       {
-        event_->error("Failed to stop speaker stream: " + std::string(Pa_GetErrorText(err)));
+        RCLCPP_ERROR(node_->get_logger(), "Failed to stop speaker stream: %s", Pa_GetErrorText(err));
         throw perception_exception("Failed to stop speaker stream: " + std::string(Pa_GetErrorText(err)));
       }
 
       err = Pa_CloseStream(pair.second);
       if (err != paNoError)
       {
-        event_->error("Failed to close speaker stream: " + std::string(Pa_GetErrorText(err)));
+        RCLCPP_ERROR(node_->get_logger(), "Failed to close speaker stream: %s", Pa_GetErrorText(err));
         throw perception_exception("Failed to close speaker stream: " + std::string(Pa_GetErrorText(err)));
       }
       pair.second = nullptr;
     }
 
-    event_->info("stopped.");
+    RCLCPP_INFO(node_->get_logger(), "stopped.");
   }
 
   /**
@@ -167,7 +166,7 @@ public:
 
     if (data.samples.empty())
     {
-      event_->error("Received empty audio data, nothing to set.");
+      RCLCPP_ERROR(node_->get_logger(), "Received empty audio data, nothing to set.");
       throw perception_exception("Received empty audio data, nothing to set.");
     }
 
@@ -190,37 +189,37 @@ public:
 
       if (err != paNoError)
       {
-        event_->error("Failed to open speaker stream: " + std::string(Pa_GetErrorText(err)));
+        RCLCPP_ERROR(node_->get_logger(), "Failed to open speaker stream: %s", Pa_GetErrorText(err));
         throw perception_exception("Failed to open speaker stream: " + std::string(Pa_GetErrorText(err)));
       }
 
       err = Pa_StartStream(stream);
       if (err != paNoError)
       {
-        event_->error("Failed to start speaker stream: " + std::string(Pa_GetErrorText(err)));
+        RCLCPP_ERROR(node_->get_logger(), "Failed to start speaker stream: %s", Pa_GetErrorText(err));
         throw perception_exception("Failed to start speaker stream: " + std::string(Pa_GetErrorText(err)));
       }
 
       if (!Pa_IsStreamActive(stream))
       {
-        event_->error("Stream is not active after starting.");
+        RCLCPP_ERROR(node_->get_logger(), "Stream is not active after starting.");
         throw perception_exception("PortAudio stream failed to activate.");
       }
 
       // Store the stream in the dictionary
       stream_dict_[stream_key] = stream;
-      event_->info("Opened new speaker stream: " + stream_key);
+      RCLCPP_INFO(node_->get_logger(), "Opened new speaker stream: %s", stream_key.c_str());
     }
 
     // Write data to the stream
     try
     {
       write_data(data, stream_key);
-      event_->info("Audio data written to stream: " + stream_key);
+      RCLCPP_INFO(node_->get_logger(), "Audio data written to stream: %s", stream_key.c_str());
     }
     catch (const perception_exception& e)
     {
-      event_->error("Error writing audio data to stream: " + std::string(e.what()));
+      RCLCPP_ERROR(node_->get_logger(), "Error writing audio data to stream: %s", e.what());
       throw;
     }
   }
@@ -243,7 +242,7 @@ public:
    */
   void test() override
   {
-    event_->info("Testing by playing :" + test_file_path_);
+    RCLCPP_INFO(node_->get_logger(), "Testing by playing: %s", test_file_path_.c_str());
 
     auto filepath = check_file(test_file_path_);
 
@@ -251,18 +250,17 @@ public:
     {
       auto audio_data = readWavFile(filepath.string());
 
-      event_->info("Read audio data from " + filepath.string() + " with " + std::to_string(audio_data.samples.size()) +
-                   " samples, " + std::to_string(audio_data.sample_rate) + " Hz, " +
-                   std::to_string(audio_data.channels) + " channels.");
+      RCLCPP_INFO(node_->get_logger(), "Read audio data from %s with %zu samples, %d Hz, %d channels.",
+                  filepath.string().c_str(), audio_data.samples.size(), audio_data.sample_rate, audio_data.channels);
 
       setDataStream(audio_data);
     }
     catch (const perception_exception& e)
     {
-      event_->error("Error during test: " + std::string(e.what()));
+      RCLCPP_ERROR(node_->get_logger(), "Error during test: %s", e.what());
     }
 
-    event_->info("Test completed.");
+    RCLCPP_INFO(node_->get_logger(), "Test completed.");
   }
 
 protected:

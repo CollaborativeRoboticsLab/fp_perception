@@ -7,7 +7,6 @@
 #include <pluginlib/class_loader.hpp>
 #include <perception_base/driver_base.hpp>
 #include <perception_base/algorithm_base.hpp>
-#include <event_logger/event_client.hpp>
 
 namespace perception
 {
@@ -28,8 +27,6 @@ public:
     , transcription_driver_loader_("perception", "perception::DriverBase")
     , speech_driver_loader_("perception", "perception::DriverBase")
     , sentiment_driver_loader_("perception", "perception::DriverBase")
-    , eye_gaze_algorithm_loader_("perception", "perception::AlgorithmBase")
-    , context_algorithm_loader_("perception", "perception::AlgorithmBase")
   {
     try
     {
@@ -50,9 +47,7 @@ public:
 
   void initialize()
   {
-    event_ = std::make_shared<EventClient>(shared_from_this(), "perception_server", "/events");
-
-    event_->info("PerceptionServer initializing...");
+    RCLCPP_INFO(this->get_logger(), "Initializing PerceptionServer...");
 
     /*************************************************************************
      * Identify what plugins to load
@@ -65,10 +60,6 @@ public:
     this->declare_parameter("use_sentiment_driver", false);
     this->declare_parameter("use_speech_driver", false);
 
-    // algorithms
-    this->declare_parameter("use_eye_gaze_algorithm", false);
-    this->declare_parameter("use_context_identification_algorithm", false);
-
     // mischellaneous
     this->declare_parameter("run_tests", false);
 
@@ -79,10 +70,6 @@ public:
     use_transcription_driver_ = this->get_parameter("use_transcription_driver").as_bool();
     use_sentiment_driver_ = this->get_parameter("use_sentiment_driver").as_bool();
     use_speech_driver_ = this->get_parameter("use_speech_driver").as_bool();
-
-    // algorithms
-    use_eye_gaze_algorithm_ = this->get_parameter("use_eye_gaze_algorithm").as_bool();
-    use_context_identification_algorithm_ = this->get_parameter("use_context_identification_algorithm").as_bool();
 
     // run tests
     run_tests_ = this->get_parameter("run_tests").as_bool();
@@ -99,17 +86,17 @@ public:
       this->declare_parameter("vision_driver", "perception::DefaultDriver");
       std::string vision_driver_name = this->get_parameter("vision_driver").as_string();
 
-      event_->info("Loading vision driver plugin: " + vision_driver_name);
+      RCLCPP_INFO(this->get_logger(), "Loading vision driver plugin: %s", vision_driver_name.c_str());
 
       vision_driver_ = vision_driver_loader_.createSharedInstance(vision_driver_name);
       vision_driver_->initialize(shared_from_this());
       vision_driver_->start();
 
-      event_->info("Started vision driver plugin: " + vision_driver_name);
+      RCLCPP_INFO(this->get_logger(), "Started vision driver plugin: %s", vision_driver_name.c_str());
     }
     else
     {
-      event_->info("Vision driver plugin not loaded.");
+      RCLCPP_INFO(this->get_logger(), "Vision driver plugin not loaded.");
     }
 
     /*************************************************************************
@@ -121,17 +108,17 @@ public:
       this->declare_parameter("microphone_driver", "perception::MicrophoneAudioDriver");
       std::string mic_driver_name = this->get_parameter("microphone_driver").as_string();
 
-      event_->info("Loading microphone driver plugin: " + mic_driver_name);
+      RCLCPP_INFO(this->get_logger(), "Loading microphone driver plugin: %s", mic_driver_name.c_str());
 
       microphone_driver_ = listener_driver_loader_.createSharedInstance(mic_driver_name);
       microphone_driver_->initialize(shared_from_this());
       microphone_driver_->start();
 
-      event_->info("Started microphone driver plugin: " + mic_driver_name);
+      RCLCPP_INFO(this->get_logger(), "Started microphone driver plugin: %s", mic_driver_name.c_str());
     }
     else
     {
-      event_->info("Microphone driver plugin not loaded.");
+      RCLCPP_INFO(this->get_logger(), "Microphone driver plugin not loaded.");
     }
 
     /*************************************************************************
@@ -143,17 +130,17 @@ public:
       this->declare_parameter("speaker_driver", "perception::SpeakerAudioDriver");
       std::string speaker_driver_name = this->get_parameter("speaker_driver").as_string();
 
-      event_->info("Loading speaker driver plugin: " + speaker_driver_name);
+      RCLCPP_INFO(this->get_logger(), "Loading speaker driver plugin: %s", speaker_driver_name.c_str());
 
       speaker_driver_ = speaker_driver_loader_.createSharedInstance(speaker_driver_name);
       speaker_driver_->initialize(shared_from_this());
       speaker_driver_->start();
 
-      event_->info("Started speaker driver plugin: " + speaker_driver_name);
+      RCLCPP_INFO(this->get_logger(), "Started speaker driver plugin: %s", speaker_driver_name.c_str());
     }
     else
     {
-      event_->info("Speaker driver plugin not loaded.");
+      RCLCPP_INFO(this->get_logger(), "Speaker driver plugin not loaded.");
     }
 
     /*************************************************************************
@@ -164,17 +151,17 @@ public:
       this->declare_parameter("transcription_driver", "perception::OpenAIDriver");
       std::string transcription_driver_name = this->get_parameter("transcription_driver").as_string();
 
-      event_->info("Loading transcription driver plugin: " + transcription_driver_name);
+      RCLCPP_INFO(this->get_logger(), "Loading transcription driver plugin: %s", transcription_driver_name.c_str());
 
       transcription_driver_ = transcription_driver_loader_.createSharedInstance(transcription_driver_name);
       transcription_driver_->initialize(shared_from_this());
       transcription_driver_->start();
 
-      event_->info("Started transcription driver plugin: " + transcription_driver_name);
+      RCLCPP_INFO(this->get_logger(), "Started transcription driver plugin: %s", transcription_driver_name.c_str());
     }
     else
     {
-      event_->info("Transcription driver plugin not loaded.");
+      RCLCPP_INFO(this->get_logger(), "Transcription driver plugin not loaded.");
     }
 
     /*************************************************************************
@@ -185,17 +172,17 @@ public:
       this->declare_parameter("speech_synthesis_driver", "perception::OpenAISpeechDriver");
       std::string speech_driver_name = this->get_parameter("speech_synthesis_driver").as_string();
 
-      event_->info("Loading speech synthesis driver plugin: " + speech_driver_name);
+      RCLCPP_INFO(this->get_logger(), "Loading speech synthesis driver plugin: %s", speech_driver_name.c_str());
 
       speech_driver_ = speech_driver_loader_.createSharedInstance(speech_driver_name);
       speech_driver_->initialize(shared_from_this());
       speech_driver_->start();
 
-      event_->info("Started speech synthesis driver plugin: " + speech_driver_name);
+      RCLCPP_INFO(this->get_logger(), "Started speech synthesis driver plugin: %s", speech_driver_name.c_str());
     }
     else
     {
-      event_->info("Speech synthesis driver plugin not loaded.");
+      RCLCPP_INFO(this->get_logger(), "Speech synthesis driver plugin not loaded.");
     }
 
     /*************************************************************************
@@ -206,64 +193,17 @@ public:
       this->declare_parameter("sentiment_driver", "perception::SentimentDriver");
       std::string sentiment_driver_name = this->get_parameter("sentiment_driver").as_string();
 
-      event_->info("Loading sentiment driver plugin: " + sentiment_driver_name);
+      RCLCPP_INFO(this->get_logger(), "Loading sentiment driver plugin: %s", sentiment_driver_name.c_str());
 
       sentiment_driver_ = sentiment_driver_loader_.createSharedInstance(sentiment_driver_name);
       sentiment_driver_->initialize(shared_from_this());
       sentiment_driver_->start();
 
-      event_->info("Started sentiment driver plugin: " + sentiment_driver_name);
+      RCLCPP_INFO(this->get_logger(), "Started sentiment driver plugin: %s", sentiment_driver_name.c_str());
     }
     else
     {
-      event_->info("Sentiment driver plugin not loaded.");
-    }
-
-    /*************************************************************************
-     * eye gaze algorithm plugin class loader and driver pointer
-     ************************************************************************/
-
-    if (use_eye_gaze_algorithm_)
-    {
-      this->declare_parameter("eye_gaze_algorithm", "perception::GazeAlgorithm");
-      std::string eye_gaze_algorithm_name = this->get_parameter("eye_gaze_algorithm").as_string();
-
-      event_->info("Loading eye gaze algorithm plugin: " + eye_gaze_algorithm_name);
-
-      eye_gaze_algorithm_ = eye_gaze_algorithm_loader_.createSharedInstance(eye_gaze_algorithm_name);
-      eye_gaze_algorithm_->initialize(shared_from_this());
-      eye_gaze_algorithm_->set_vision_driver(vision_driver_);
-      eye_gaze_algorithm_->start();
-
-      event_->info("Started eye gaze algorithm plugin: " + eye_gaze_algorithm_name);
-    }
-    else
-    {
-      event_->info("Eye gaze algorithm plugin not loaded.");
-    }
-
-    /*************************************************************************
-     * context identification algorithm plugin class loader and driver pointer
-     ************************************************************************/
-    if (use_context_identification_algorithm_)
-    {
-      this->declare_parameter("context_identification_algorithm", "perception::ContextAlgorithm");
-      std::string context_algorithm_name = this->get_parameter("context_identification_algorithm").as_string();
-
-      event_->info("Loading context identification algorithm plugin: " + context_algorithm_name);
-
-      context_identification_algorithm_ = context_algorithm_loader_.createSharedInstance(context_algorithm_name);
-      context_identification_algorithm_->initialize(shared_from_this());
-      context_identification_algorithm_->set_audio_input_driver(microphone_driver_);
-      context_identification_algorithm_->set_transcription_driver(transcription_driver_);
-      context_identification_algorithm_->set_sentiment_driver(sentiment_driver_);
-      context_identification_algorithm_->start();
-
-      event_->info("Started context identification algorithm plugin: " + context_algorithm_name);
-    }
-    else
-    {
-      event_->info("Context identification algorithm plugin not loaded.");
+      RCLCPP_INFO(this->get_logger(), "Sentiment driver plugin not loaded.");
     }
 
     /*************************************************************************
@@ -271,108 +211,99 @@ public:
      ************************************************************************/
     if (run_tests_)
     {
-      event_->info("Running tests...");
+      RCLCPP_INFO(this->get_logger(), "Running tests...");
+
       run_tests();
-      event_->info("Tests completed.");
+
+      RCLCPP_INFO(this->get_logger(), "Tests completed.");
     }
   }
 
 protected:
   void run_tests()
   {
-    event_->info("Running tests for loaded plugins...");
+    RCLCPP_INFO(this->get_logger(), "Running tests for loaded plugins...");
 
     if (use_vision_driver_)
     {
-      event_->info("Testing vision driver...");
+      RCLCPP_INFO(this->get_logger(), "Testing vision driver...");
       vision_driver_->test();
     }
     else
-      event_->info("Vision driver not loaded, skipping test.");
+      RCLCPP_INFO(this->get_logger(), "Vision driver not loaded, skipping test.");
 
     if (use_microphone_driver_)
     {
-      event_->info("Testing microphone driver...");
+      RCLCPP_INFO(this->get_logger(), "Testing microphone driver...");
       microphone_driver_->test();
     }
     else
-      event_->info("Microphone driver not loaded, skipping test.");
+      RCLCPP_INFO(this->get_logger(), "Microphone driver not loaded, skipping test.");
 
     if (use_speaker_driver_)
     {
-      event_->info("Testing speaker driver...");
+      RCLCPP_INFO(this->get_logger(), "Testing speaker driver...");
       speaker_driver_->test();
     }
     else
-      event_->info("Speaker driver not loaded, skipping test.");
+      RCLCPP_INFO(this->get_logger(), "Speaker driver not loaded, skipping test.");
 
     if (use_transcription_driver_)
     {
-      event_->info("Testing transcription driver...");
+      RCLCPP_INFO(this->get_logger(), "Testing transcription driver...");
       transcription_driver_->test();
     }
     else
-      event_->info("Transcription driver not loaded, skipping test.");
+      RCLCPP_INFO(this->get_logger(), "Transcription driver not loaded, skipping test.");
 
     if (use_speech_driver_)
     {
-      event_->info("Testing speech synthesis driver...");
+      RCLCPP_INFO(this->get_logger(), "Testing speech synthesis driver...");
       speech_driver_->test();
     }
     else
-      event_->info("Speech synthesis driver not loaded, skipping test.");
+      RCLCPP_INFO(this->get_logger(), "Speech synthesis driver not loaded, skipping test.");
 
     if (use_sentiment_driver_)
     {
-      event_->info("Testing sentiment driver...");
+      RCLCPP_INFO(this->get_logger(), "Testing sentiment driver...");
       sentiment_driver_->test();
     }
     else
-      event_->info("Sentiment driver not loaded, skipping test.");
+      RCLCPP_INFO(this->get_logger(), "Sentiment driver not loaded, skipping test.");
   }
 
   void print_usage()
   {  // drivers
     if (use_vision_driver_)
-      event_->info("Using vision driver.");
+      RCLCPP_INFO(this->get_logger(), "Using vision driver.");
     else
-      event_->info("Will not use vision driver.");
+      RCLCPP_INFO(this->get_logger(), "Will not use vision driver.");
 
     if (use_microphone_driver_)
-      event_->info("Using microphone driver.");
+      RCLCPP_INFO(this->get_logger(), "Using microphone driver.");
     else
-      event_->info("Will not use microphone driver.");
+      RCLCPP_INFO(this->get_logger(), "Will not use microphone driver.");
 
     if (use_speaker_driver_)
-      event_->info("Using speaker driver.");
+      RCLCPP_INFO(this->get_logger(), "Using speaker driver.");
     else
-      event_->info("Will not use speaker driver.");
+      RCLCPP_INFO(this->get_logger(), "Will not use speaker driver.");
 
     if (use_transcription_driver_)
-      event_->info("Using transcription driver.");
+      RCLCPP_INFO(this->get_logger(), "Using transcription driver.");
     else
-      event_->info("Will not use transcription driver.");
+      RCLCPP_INFO(this->get_logger(), "Will not use transcription driver.");
 
     if (use_speech_driver_)
-      event_->info("Using speech synthesis driver.");
+      RCLCPP_INFO(this->get_logger(), "Using speech synthesis driver.");
     else
-      event_->info("Will not use speech synthesis driver.");
+      RCLCPP_INFO(this->get_logger(), "Will not use speech synthesis driver.");
 
     if (use_sentiment_driver_)
-      event_->info("Using sentiment driver.");
+      RCLCPP_INFO(this->get_logger(), "Using sentiment driver.");
     else
-      event_->info("Will not use sentiment driver.");
-
-    // algorithms
-    if (use_eye_gaze_algorithm_)
-      event_->info("Using eye gaze algorithm.");
-    else
-      event_->info("Will not use eye gaze algorithm.");
-
-    if (use_context_identification_algorithm_)
-      event_->info("Using context identification algorithm.");
-    else
-      event_->info("Will not use context identification algorithm.");
+      RCLCPP_INFO(this->get_logger(), "Will not use sentiment driver.");
   }
 
   /** Run Tests */
@@ -384,11 +315,6 @@ protected:
   bool use_transcription_driver_;
   bool use_sentiment_driver_;
   bool use_speech_driver_;
-  bool use_eye_gaze_algorithm_;
-  bool use_context_identification_algorithm_;
-
-  /** client for publishing events */
-  std::shared_ptr<EventClient> event_;
 
   /** plugin loader for vision driver */
   pluginlib::ClassLoader<perception::DriverBase> vision_driver_loader_;
@@ -425,18 +351,6 @@ protected:
 
   /** shared pointer for speech synthesis driver */
   std::shared_ptr<perception::DriverBase> speech_driver_;
-
-  /** plugin loader for eye gaze algorithm */
-  pluginlib::ClassLoader<perception::AlgorithmBase> eye_gaze_algorithm_loader_;
-
-  /** shared pointer for eye gaze algorithm */
-  std::shared_ptr<perception::AlgorithmBase> eye_gaze_algorithm_;
-
-  /** plugin loader for context identification algorithm */
-  pluginlib::ClassLoader<perception::AlgorithmBase> context_algorithm_loader_;
-
-  /** shared pointer for context identification algorithm */
-  std::shared_ptr<perception::AlgorithmBase> context_identification_algorithm_;
 };
 
 }  // namespace perception

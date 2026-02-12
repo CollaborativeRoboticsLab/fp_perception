@@ -5,7 +5,6 @@
 #include <perception_base/utils/options.hpp>
 #include <perception_base/utils/exceptions.hpp>
 #include <perception_base/driver_base.hpp>
-#include <event_logger/event_client.hpp>
 
 namespace perception
 {
@@ -99,7 +98,6 @@ namespace perception
     void initialize_base(const rclcpp::Node::SharedPtr &node)
     {
       node_ = node;
-      event_ = std::make_shared<EventClient>(node_, config_.name, "/events");
     }
 
     /**
@@ -111,11 +109,6 @@ namespace perception
      * @brief algorithm options
      */
     algorithm_options config_;
-
-    /**
-     * @brief client for publishing events
-     */
-    std::shared_ptr<EventClient> event_;
 
     /**
      * @brief driver for vision

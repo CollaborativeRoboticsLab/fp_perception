@@ -84,7 +84,7 @@ public:
     err = Pa_Initialize();
     if (err != paNoError)
     {
-      event_->error("PortAudio initialization failed: " + std::string(Pa_GetErrorText(err)));
+      RCLCPP_ERROR(node_->get_logger(), "PortAudio initialization failed: %s", Pa_GetErrorText(err));
       throw perception_exception("PortAudio initialization failed: " + std::string(Pa_GetErrorText(err)));
     }
 
@@ -92,35 +92,35 @@ public:
     try
     {
       config_.device_id = perception::getDeviceIdByName(config_.device_name);
-      event_->info("Device ID for name '" + config_.device_name + "' is " + std::to_string(config_.device_id));
+      RCLCPP_INFO(node_->get_logger(), "Device ID for name '%s' is %d", config_.device_name.c_str(), config_.device_id);
     }
     catch (const std::exception& e)
     {
-      event_->error("Failed to get device ID for name '" + config_.device_name + "': " + e.what());
+      RCLCPP_ERROR(node_->get_logger(), "Failed to get device ID for name '%s': %s", config_.device_name.c_str(), e.what());
       throw perception_exception("Failed to get device ID for name '" + config_.device_name + "': " + e.what());
     }
 
     // Publish about the assigned driver parameters
-    event_->info("Assigned driver name: " + config_.name);
-    event_->info("Assigned driver device_name: " + config_.device_name);
-    event_->info("Assigned driver device_id: " + std::to_string(config_.device_id));
-    event_->info("Assigned driver publish: " + std::string(config_.interface_enabled ? "true" : "false"));
-    event_->info("Assigned driver topic: " + config_.interface_name);
-    event_->info("Assigned driver frame_id: " + config_.frame_id);
-    event_->info("Assigned driver chunk_size: " + std::to_string(chunk_size_));
-    event_->info("Assigned driver sample_rate: " + std::to_string(sample_rate_));
-    event_->info("Assigned driver channels: " + std::to_string(channels_));
-    event_->info("Assigned driver buffer_time: " + std::to_string(buffer_time_));
-    event_->info("Assigned driver buffer size: " + std::to_string(buffer_size_));
+    RCLCPP_INFO(node_->get_logger(), "Assigned driver name: %s", config_.name.c_str());
+    RCLCPP_INFO(node_->get_logger(), "Assigned driver device_name: %s", config_.device_name.c_str());
+    RCLCPP_INFO(node_->get_logger(), "Assigned driver device_id: %d", config_.device_id);
+    RCLCPP_INFO(node_->get_logger(), "Assigned driver publish: %s", config_.interface_enabled ? "true" : "false");
+    RCLCPP_INFO(node_->get_logger(), "Assigned driver topic: %s", config_.interface_name.c_str());
+    RCLCPP_INFO(node_->get_logger(), "Assigned driver frame_id: %s", config_.frame_id.c_str());
+    RCLCPP_INFO(node_->get_logger(), "Assigned driver chunk_size: %d", chunk_size_);
+    RCLCPP_INFO(node_->get_logger(), "Assigned driver sample_rate: %d", sample_rate_);
+    RCLCPP_INFO(node_->get_logger(), "Assigned driver channels: %d", channels_);
+    RCLCPP_INFO(node_->get_logger(), "Assigned driver buffer_time: %d", buffer_time_);
+    RCLCPP_INFO(node_->get_logger(), "Assigned driver buffer size: %d", buffer_size_);
 
     // Log that the driver has been initialized
-    event_->info("Initialized");
+    RCLCPP_INFO(node_->get_logger(), "Initialized");
 
     // If publishing is enabled, create a publisher for the audio topic
     if (config_.interface_enabled)
     {
       audio_publisher_ = node->create_publisher<perception_msgs::msg::PerceptionAudio>(config_.interface_name, 10);
-      event_->info("Publisher created for topic: " + config_.interface_name);
+      RCLCPP_INFO(node_->get_logger(), "Publisher created for topic: %s", config_.interface_name.c_str());
     }
   }
 
@@ -131,7 +131,7 @@ public:
    */
   void start() override
   {
-    event_->info("starting on device " + std::to_string(config_.device_id));
+    RCLCPP_INFO(node_->get_logger(), "starting on device %d", config_.device_id);
 
     PaStreamParameters inputParams;
     inputParams.device = config_.device_id;
@@ -143,29 +143,29 @@ public:
     err = Pa_OpenStream(&stream_, &inputParams, nullptr, sample_rate_, chunk_size_, paNoFlag, nullptr, nullptr);
     if (err != paNoError)
     {
-      event_->error("Failed to open microphone stream: " + std::string(Pa_GetErrorText(err)));
+      RCLCPP_ERROR(node_->get_logger(), "Failed to open microphone stream: %s", Pa_GetErrorText(err));
       throw perception_exception("Failed to open microphone stream: " + std::string(Pa_GetErrorText(err)));
     }
 
     err = Pa_StartStream(stream_);
     if (err != paNoError)
     {
-      event_->error("Failed to start microphone stream: " + std::string(Pa_GetErrorText(err)));
+      RCLCPP_ERROR(node_->get_logger(), "Failed to start microphone stream: %s", Pa_GetErrorText(err));
       throw perception_exception("Failed to start microphone stream: " + std::string(Pa_GetErrorText(err)));
     }
 
     if (!Pa_IsStreamActive(stream_))
     {
-      event_->error("Stream is not active after starting.");
+      RCLCPP_ERROR(node_->get_logger(), "Stream is not active after starting.");
       throw perception_exception("PortAudio stream failed to activate.");
     }
 
     // Start the driver thread to capture and publish audio data
-    event_->info("starting driver thread for audio capture...");
+    RCLCPP_INFO(node_->get_logger(), "starting driver thread for audio capture...");
     is_running_ = true;
     driver_thread_ = std::thread(&MicrophoneAudioDriver::driver_thread, this);
 
-    event_->info("started.");
+    RCLCPP_INFO(node_->get_logger(), "started.");
   }
 
   /**
@@ -179,7 +179,7 @@ public:
     if (driver_thread_.joinable())
     {
       driver_thread_.join();
-      event_->info("thread stopped.");
+      RCLCPP_INFO(node_->get_logger(), "thread stopped.");
     }
 
     if (stream_)
@@ -187,7 +187,7 @@ public:
       Pa_StopStream(stream_);
       Pa_CloseStream(stream_);
       stream_ = nullptr;
-      event_->info("stopped.");
+      RCLCPP_INFO(node_->get_logger(), "stopped.");
     }
   }
 
@@ -240,8 +240,8 @@ public:
    */
   void test() override
   {
-    event_->info("Testing started. Please speak into the microphone. waiting 5 seconds...");
-
+    RCLCPP_INFO(node_->get_logger(), "Testing started. Please speak into the microphone. waiting 5 seconds...");
+    
     // amount of frames required for 5 seconds of audio
     unsigned long frames_to_capture = sample_rate_ * channels_ * 5;  // 5 seconds of audio
     unsigned long frames_captured = 0;
@@ -263,12 +263,11 @@ public:
         accumilated_samples.chunk_size = data.chunk_size;
         accumilated_samples.chunk_count += data.chunk_count;
 
-        event_->info("Captured " + std::to_string(frames_captured) + "/" + std::to_string(frames_to_capture) +
-                     " frames of audio data.");
+        RCLCPP_INFO(node_->get_logger(), "Captured %lu/%lu frames of audio data.", frames_captured, frames_to_capture);
       }
       catch (const perception_exception& e)
       {
-        event_->error("Error during test: " + std::string(e.what()));
+        RCLCPP_ERROR(node_->get_logger(), "Error during test: %s", e.what());
         std::this_thread::sleep_for(std::chrono::milliseconds(100));
         continue;  // Retry getting data if an error occurs
       }
@@ -280,9 +279,9 @@ public:
     // Write the data to a file for further analysis
     writeWavFile("test/mic_test.wav", accumilated_samples);
 
-    event_->info("Audio data written to file: test/mic_test.wav");
+    RCLCPP_INFO(node_->get_logger(), "Audio data written to file: test/mic_test.wav");
 
-    event_->info("Test completed.");
+    RCLCPP_INFO(node_->get_logger(), "Test completed.");
   }
 
 protected:
@@ -297,7 +296,7 @@ protected:
 
       if (err != paNoError)
       {
-        event_->error("Error reading from PortAudio stream: " + std::string(Pa_GetErrorText(err)));
+        RCLCPP_ERROR(node_->get_logger(), "Error reading from PortAudio stream: %s", Pa_GetErrorText(err));
         std::this_thread::sleep_for(std::chrono::milliseconds(100));
         continue;
       }
@@ -332,7 +331,7 @@ protected:
       }
     }
 
-    event_->info("driver thread stopped.");
+    RCLCPP_INFO(node_->get_logger(), "driver thread stopped.");
   }
 
   PaStream* stream_;

@@ -16,8 +16,6 @@ find_package(rclcpp_components REQUIRED)
 find_package(pluginlib REQUIRED)
 find_package(perception_base REQUIRED)
 find_package(perception_msgs REQUIRED)
-find_package(backward_ros REQUIRED)
-
 include_directories(
   include
 )
@@ -35,7 +33,6 @@ ament_target_dependencies(${PROJECT_NAME}_node
   pluginlib
   perception_base
   perception_msgs
-  backward_ros
 )
 
 install(TARGETS ${PROJECT_NAME}_node

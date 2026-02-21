@@ -15,7 +15,6 @@ namespace perception
 class OpenAIDriver : public RestBase
 {
 public:
-  using Transcribe = perception_msgs::srv::PerceptionTranscribe;
   /**
    * @brief Construct a new Prompt Tools Transcribe Driver object
    *
@@ -45,64 +44,22 @@ public:
     node->declare_parameter("driver.transcription.OpenAIDriver.name", "OpenAIDriver");
     node->declare_parameter("driver.transcription.OpenAIDriver.model", "whisper-1");
     node->declare_parameter("driver.transcription.OpenAIDriver.test_file_path", "test/mic.wav");
-    node->declare_parameter("driver.transcription.OpenAIDriver.provide_service", false);
-    node->declare_parameter("driver.transcription.OpenAIDriver.service_name", "perception/transcription");
 
     // Get parameters from the node
-    config_.name = node->get_parameter("driver.transcription.OpenAIDriver.name").as_string();
+    name_ = node->get_parameter("driver.transcription.OpenAIDriver.name").as_string();
     model_name_ = node->get_parameter("driver.transcription.OpenAIDriver.model").as_string();
     test_file_path_ = node->get_parameter("driver.transcription.OpenAIDriver.test_file_path").as_string();
-    config_.interface_name = node->get_parameter("driver.transcription.OpenAIDriver.service_name").as_string();
-    config_.interface_enabled = node->get_parameter("driver.transcription.OpenAIDriver.provide_service").as_bool();
 
     // Initialize the REST base class
     initialize_rest_base(node, "driver.transcription.OpenAIDriver", "OPENAI_API_KEY");
 
     // Log the parameters
-    RCLCPP_INFO(node_->get_logger(), "Assigned driver Name: %s", config_.name.c_str());
+    RCLCPP_INFO(node_->get_logger(), "Assigned driver Name: %s", name_.c_str());
     RCLCPP_INFO(node_->get_logger(), "Assigned driver Model: %s", model_name_.c_str());
     RCLCPP_INFO(node_->get_logger(), "Assigned driver Test Audio Path: %s", test_file_path_.c_str());
-    RCLCPP_INFO(node_->get_logger(), "Assigned driver Service Name: %s", config_.interface_name.c_str());
-    RCLCPP_INFO(node_->get_logger(), "Assigned driver Provide Service: %s", config_.interface_enabled ? "true" : "false");
-
-    // Initialize service if enabled
-    if (config_.interface_enabled)
-    {
-      service_ = node->create_service<Transcribe>(
-          config_.interface_name,
-          std::bind(&OpenAIDriver::service_cb, this, std::placeholders::_1, std::placeholders::_2));
-
-      RCLCPP_INFO(node_->get_logger(), "Service %s created for transcription.", config_.interface_name.c_str());
-      
-    }
-    else
-    {
-      RCLCPP_INFO(node_->get_logger(), "Transcription service not enabled.");
-    }
 
     // Log that the driver has been initialized
     RCLCPP_INFO(node_->get_logger(), "Initialized");
-  }
-
-  /**
-   * @brief Start the driver streaming
-   *
-   * This function should be overridden in derived classes to provide specific streaming logic.
-   */
-  void start() override
-  {
-    // Log that the client has been created
-    RCLCPP_INFO(node_->get_logger(), "Started");
-  }
-
-  /**
-   * @brief Stop driver streaming
-   *
-   * This function should be overridden in derived classes to provide specific stop logic.
-   */
-  void stop() override
-  {
-    // Implement the logic to stop the transcription service
   }
 
   /**
@@ -159,7 +116,8 @@ public:
   void test() override
   {
     // Implement test logic if needed
-    RCLCPP_INFO(node_->get_logger(), "Testing with model: %s by transcribing: %s", model_name_.c_str(), test_file_path_.c_str());
+    RCLCPP_INFO(node_->get_logger(), "Testing with model: %s by transcribing: %s", model_name_.c_str(),
+                test_file_path_.c_str());
 
     // Check if the test audio file exists
     auto filepath = check_file(test_file_path_);
@@ -231,42 +189,10 @@ protected:
     return res;
   }
 
-  /**
-   * @brief Service callback for transcription requests
-   *
-   * This method handles incoming transcription requests and processes them.
-   *
-   * @param request The incoming transcription request
-   * @param response The response to be sent back
-   */
-  void service_cb(const std::shared_ptr<Transcribe::Request> request, std::shared_ptr<Transcribe::Response> response)
-  {
-    RCLCPP_INFO(node_->get_logger(), "Received transcription request.");
-    
-    const auto& audio_data = perception::msg_to_audio_data(request->audio);
-
-    setDataStream(audio_data);
-    auto result = getData();
-
-    if (result.has_value())
-    {
-      response->transcription = std::any_cast<std::string>(result);
-      response->success = true;
-      RCLCPP_INFO(node_->get_logger(), "Transcription service processed request successfully.");
-    }
-    else
-    {
-      response->success = false;
-      response->transcription = "No transcription result received.";
-      RCLCPP_ERROR(node_->get_logger(), "Transcription service failed to process request.");
-    }
-  }
-
   perception::RESTResponse response_;
 
   std::string model_name_;
   std::string test_file_path_;
-  rclcpp::Service<Transcribe>::SharedPtr service_;
 };
 
 }  // namespace perception

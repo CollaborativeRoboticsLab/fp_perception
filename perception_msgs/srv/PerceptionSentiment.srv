@@ -1,5 +1,6 @@
 std_msgs/Header header
 string text
+bool use_device_audio
 ---
 string label
 float64 score

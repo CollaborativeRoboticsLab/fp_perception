@@ -1,4 +1,5 @@
 PerceptionAudio audio
+bool use_device_audio
 ---
 std_msgs/Header header
 string transcription

@@ -40,7 +40,7 @@ public:
    */
   ~SpeakerAudioDriver() override
   {
-    stop();
+    deinitialize();
     Pa_Terminate();
   }
 
@@ -56,19 +56,13 @@ public:
     // Configure parameters for the nodevision
     node->declare_parameter("driver.audio.SpeakerAudioDriver.name", "SpeakerAudioDriver");
     node->declare_parameter("driver.audio.SpeakerAudioDriver.device_name", "default");
-    node->declare_parameter("driver.audio.SpeakerAudioDriver.subscribe", false);
-    node->declare_parameter("driver.audio.SpeakerAudioDriver.topic", "audio/speaker");
-    node->declare_parameter("driver.audio.SpeakerAudioDriver.frame_id", "speaker_frame");
     node->declare_parameter("driver.audio.SpeakerAudioDriver.sample_rate", 44100);  // default sample rate
     node->declare_parameter("driver.audio.SpeakerAudioDriver.channels", 1);         // default number of channels
     node->declare_parameter("driver.audio.SpeakerAudioDriver.test_file_path", "test/mic_test.wav");       // default device ID
 
     // Load parameters from the node
-    config_.name = node->get_parameter("driver.audio.SpeakerAudioDriver.name").as_string();
-    config_.device_name = node->get_parameter("driver.audio.SpeakerAudioDriver.device_name").as_string();
-    config_.interface_enabled = node->get_parameter("driver.audio.SpeakerAudioDriver.subscribe").as_bool();
-    config_.interface_name = node->get_parameter("driver.audio.SpeakerAudioDriver.topic").as_string();
-    config_.frame_id = node->get_parameter("driver.audio.SpeakerAudioDriver.frame_id").as_string();
+    name_ = node->get_parameter("driver.audio.SpeakerAudioDriver.name").as_string();
+    device_name_ = node->get_parameter("driver.audio.SpeakerAudioDriver.device_name").as_string();
     sample_rate_ = node->get_parameter("driver.audio.SpeakerAudioDriver.sample_rate").as_int();
     channels_ = node->get_parameter("driver.audio.SpeakerAudioDriver.channels").as_int();
     test_file_path_ = node->get_parameter("driver.audio.SpeakerAudioDriver.test_file_path").as_string();
@@ -87,50 +81,30 @@ public:
     // get the device ID by name
     try
     {
-      config_.device_id = perception::getDeviceIdByName(config_.device_name);
-      RCLCPP_INFO(node_->get_logger(), "Device ID for name '%s' is %d", config_.device_name.c_str(), config_.device_id);
+      device_id_ = perception::getDeviceIdByName(device_name_);
+      RCLCPP_INFO(node_->get_logger(), "Device ID for name '%s' is %d", device_name_.c_str(), device_id_);
     }
     catch (const std::exception& e)
     {
-      RCLCPP_ERROR(node_->get_logger(), "Failed to get device ID for name '%s': %s", config_.device_name.c_str(), e.what());
-      throw perception_exception("Failed to get device ID for name '" + config_.device_name + "': " + e.what());
+      RCLCPP_ERROR(node_->get_logger(), "Failed to get device ID for name '%s': %s", device_name_.c_str(), e.what());
+      throw perception_exception("Failed to get device ID for name '" + device_name_ + "': " + e.what());
     }
 
     // Publish about the assigned driver parameters
-    RCLCPP_INFO(node_->get_logger(), "Assigned driver name: %s", config_.name.c_str());
-    RCLCPP_INFO(node_->get_logger(), "Assigned driver device_name: %s", config_.device_name.c_str());
-    RCLCPP_INFO(node_->get_logger(), "Assigned driver device_id: %d", config_.device_id);
-    RCLCPP_INFO(node_->get_logger(), "Assigned driver subscribe: %s", config_.interface_enabled ? "true" : "false");
-    RCLCPP_INFO(node_->get_logger(), "Assigned driver topic: %s", config_.interface_name.c_str());
-    RCLCPP_INFO(node_->get_logger(), "Assigned driver frame_id: %s", config_.frame_id.c_str());
+    RCLCPP_INFO(node_->get_logger(), "Assigned driver name: %s", name_.c_str());
+    RCLCPP_INFO(node_->get_logger(), "Assigned driver device_name: %s", device_name_.c_str());
+    RCLCPP_INFO(node_->get_logger(), "Assigned driver device_id: %d", device_id_);
     RCLCPP_INFO(node_->get_logger(), "Assigned driver sample_rate: %d", sample_rate_);
     RCLCPP_INFO(node_->get_logger(), "Assigned driver channels: %d", channels_);
 
     RCLCPP_INFO(node_->get_logger(), "Initialized");
-    // If subscribing to audio data, set up the subscriber
-    if (config_.interface_enabled)
-    {
-      audio_subscriber_ = node->create_subscription<perception_msgs::msg::PerceptionAudio>(
-          config_.interface_name, 10, std::bind(&SpeakerAudioDriver::receiveData, this, std::placeholders::_1));
-      RCLCPP_INFO(node_->get_logger(), "Audio subscriber created for topic: %s", config_.interface_name.c_str());
-    }
   } 
-
-  /**
-   * @brief Start the driver streaming with a ROS node. This function initializes the speaker driver
-   * and starts the audio stream. It uses PortAudio to open the default audio stream and starts it.
-   *
-   */
-  void start() override
-  {
-    RCLCPP_INFO(node_->get_logger(), "started.");
-  }
 
   /**
    * @brief Stop driver streaming. This function stops the audio stream and closes it.
    * It also terminates the PortAudio library.
    */
-  void stop() override
+  void deinitialize() override
   {
     for (auto& pair : stream_dict_)
     {
@@ -225,19 +199,6 @@ public:
   }
 
   /**
-   * @brief Set the latest audio data to the driver from topic subscription.
-   * This function is called when new audio data is received from the subscribed topic.
-   *
-   * @param msg The audio data message received from the topic.
-   * @throws perception_exception if the stream is not active
-   */
-  void receiveData(const perception_msgs::msg::PerceptionAudio& msg)
-  {
-    auto data = perception::msg_to_audio_data(msg);
-    setDataStream(data);
-  }
-
-  /**
    * @brief Read test/mic_test.wav and play it through the speaker.
    */
   void test() override
@@ -317,9 +278,6 @@ protected:
   int sample_rate_;  // Default sample rate
   int channels_;     // Default number of channels
   std::string test_file_path_;
-
-  // Subscriber for audio data
-  rclcpp::Subscription<perception_msgs::msg::PerceptionAudio>::SharedPtr audio_subscriber_;
 
   std::map<std::string, PaStream*> stream_dict_;
 };

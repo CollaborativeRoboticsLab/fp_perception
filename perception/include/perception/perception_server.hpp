@@ -14,19 +14,18 @@ namespace perception
 class PerceptionServer : public rclcpp::Node
 {
 public:
+  using Audio = perception_msgs::msg::PerceptionAudio;
+  using Speech = perception_msgs::srv::PerceptionSpeech;
+  using Transcribe = perception_msgs::srv::PerceptionTranscribe;
+  using Sentiment = perception_msgs::srv::PerceptionSentiment;
+
   /**
    * @brief Construct a new Perception Server object
    *
    * @param options Node options for the server
    */
   PerceptionServer(const rclcpp::NodeOptions& options = rclcpp::NodeOptions())
-    : Node("perception_server", options)
-    , vision_driver_loader_("perception", "perception::DriverBase")
-    , listener_driver_loader_("perception", "perception::DriverBase")
-    , speaker_driver_loader_("perception", "perception::DriverBase")
-    , transcription_driver_loader_("perception", "perception::DriverBase")
-    , speech_driver_loader_("perception", "perception::DriverBase")
-    , sentiment_driver_loader_("perception", "perception::DriverBase")
+    : Node("perception_server", options), driver_loader_("perception", "perception::DriverBase")
   {
     try
     {
@@ -71,11 +70,81 @@ public:
     use_sentiment_driver_ = this->get_parameter("use_sentiment_driver").as_bool();
     use_speech_driver_ = this->get_parameter("use_speech_driver").as_bool();
 
+    // ROS Interface
+    this->declare_parameter("interface.audio_input.topic", "perception/microphone");
+    this->declare_parameter("interface.audio_input.frame_id", "microphone_frame");
+    this->declare_parameter("interface.audio_input.publish", false);
+    this->declare_parameter("interface.audio_input.frequency", 10);
+
+    this->declare_parameter("interface.audio_output.topic", "perception/speaker");
+    this->declare_parameter("interface.audio_output.subscribe", false);
+
+    this->declare_parameter("interface.transcription.service", "perception/transcription");
+    this->declare_parameter("interface.transcription.provide_service", false);
+    this->declare_parameter("interface.transcription.buffer_duration", 10);
+
+    this->declare_parameter("interface.speech.service_name", "perception/speech");
+    this->declare_parameter("interface.speech.provide_service", false);
+
+    this->declare_parameter("interface.sentiment.service_name", "perception/sentiment_analysis");
+    this->declare_parameter("interface.sentiment.provide_service", false);
+
+    this->declare_parameter("interface.vision_input.topic", "perception/camera");
+    this->declare_parameter("interface.vision_input.frame_id", "camera_frame");
+    this->declare_parameter("interface.vision_input.publish", false);
+    this->declare_parameter("interface.vision_input.frequency", 10);
+    this->declare_parameter("interface.vision_input.non_ros", false);
+
+    audio_input_publish_ = this->get_parameter("interface.audio_input.publish").as_bool();
+    audio_input_topic_ = this->get_parameter("interface.audio_input.topic").as_string();
+    audio_input_frame_id_ = this->get_parameter("interface.audio_input.frame_id").as_string();
+    audio_input_frequency_ = this->get_parameter("interface.audio_input.frequency").as_int();
+
+    audio_output_subscribe_ = this->get_parameter("interface.audio_output.subscribe").as_bool();
+    audio_output_topic_ = this->get_parameter("interface.audio_output.topic").as_string();
+
+    transcription_service_ = this->get_parameter("interface.transcription.service").as_string();
+    transcription_enabled_ = this->get_parameter("interface.transcription.provide_service").as_bool();
+    transcription_buffer_duration_ = this->get_parameter("interface.transcription.buffer_duration").as_int();
+
+    speech_service_name_ = this->get_parameter("interface.speech.service_name").as_string();
+    speech_enabled_ = this->get_parameter("interface.speech.provide_service").as_bool();
+
+    sentiment_service_name_ = this->get_parameter("interface.sentiment.service_name").as_string();
+    sentiment_enabled_ = this->get_parameter("interface.sentiment.provide_service").as_bool();
+
+    vision_input_publish_ = this->get_parameter("interface.vision_input.publish").as_bool();
+    vision_input_topic_ = this->get_parameter("interface.vision_input.topic").as_string();
+    vision_input_frame_id_ = this->get_parameter("interface.vision_input.frame_id").as_string();
+    vision_input_frequency_ = this->get_parameter("interface.vision_input.frequency").as_int();
+    vision_input_non_ros_ = this->get_parameter("interface.vision_input.non_ros").as_bool();
+
+    RCLCPP_INFO(this->get_logger(), "Audio input publish: %s", audio_input_publish_ ? "true" : "false");
+    RCLCPP_INFO(this->get_logger(), "Audio input topic: %s", audio_input_topic_.c_str());
+    RCLCPP_INFO(this->get_logger(), "Audio input frame_id: %s", audio_input_frame_id_.c_str());
+    RCLCPP_INFO(this->get_logger(), "Audio input frequency: %d", audio_input_frequency_);
+
+    RCLCPP_INFO(this->get_logger(), "Audio output subscribe: %s", audio_output_subscribe_ ? "true" : "false");
+    RCLCPP_INFO(this->get_logger(), "Audio output topic: %s", audio_output_topic_.c_str());
+
+    RCLCPP_INFO(this->get_logger(), "Transcription enabled: %s", transcription_enabled_ ? "true" : "false");
+    RCLCPP_INFO(this->get_logger(), "Transcription service: %s", transcription_service_.c_str());
+    RCLCPP_INFO(this->get_logger(), "Transcription buffer duration: %d seconds", transcription_buffer_duration_);
+
+    RCLCPP_INFO(this->get_logger(), "Speech synthesis enabled: %s", speech_enabled_ ? "true" : "false");
+    RCLCPP_INFO(this->get_logger(), "Speech synthesis service name: %s", speech_service_name_.c_str());
+
+    RCLCPP_INFO(this->get_logger(), "Sentiment analysis enabled: %s", sentiment_enabled_ ? "true" : "false");
+    RCLCPP_INFO(this->get_logger(), "Sentiment analysis service name: %s", sentiment_service_name_.c_str());
+
+    RCLCPP_INFO(this->get_logger(), "Vision input publish: %s", vision_input_publish_ ? "true" : "false");
+    RCLCPP_INFO(this->get_logger(), "Vision input topic: %s", vision_input_topic_.c_str());
+    RCLCPP_INFO(this->get_logger(), "Vision input frame_id: %s", vision_input_frame_id_.c_str());
+    RCLCPP_INFO(this->get_logger(), "Vision input frequency: %d", vision_input_frequency_);
+    RCLCPP_INFO(this->get_logger(), "Vision input non-ROS: %s", vision_input_non_ros_ ? "true" : "false");
+
     // run tests
     run_tests_ = this->get_parameter("run_tests").as_bool();
-
-    // Print usage information
-    print_usage();
 
     /*************************************************************************
      * vision driver plugin class loader and driver pointer
@@ -83,20 +152,28 @@ public:
 
     if (use_vision_driver_)
     {
-      this->declare_parameter("vision_driver", "perception::DefaultDriver");
-      std::string vision_driver_name = this->get_parameter("vision_driver").as_string();
+      this->declare_parameter("ros_vision_driver", "perception::DefaultDriver");
+      std::string ros_vision_driver_name = this->get_parameter("ros_vision_driver").as_string();
 
-      RCLCPP_INFO(this->get_logger(), "Loading vision driver plugin: %s", vision_driver_name.c_str());
+      RCLCPP_INFO(this->get_logger(), "Loading vision driver plugin: %s", ros_vision_driver_name.c_str());
 
-      vision_driver_ = vision_driver_loader_.createSharedInstance(vision_driver_name);
-      vision_driver_->initialize(shared_from_this());
-      vision_driver_->start();
+      ros_vision_driver_ = driver_loader_.createSharedInstance(ros_vision_driver_name);
+      ros_vision_driver_->initialize(shared_from_this());
 
-      RCLCPP_INFO(this->get_logger(), "Started vision driver plugin: %s", vision_driver_name.c_str());
+      RCLCPP_INFO(this->get_logger(), "Started vision driver plugin: %s", ros_vision_driver_name.c_str());
     }
-    else
+
+    if (use_vision_driver_)
     {
-      RCLCPP_INFO(this->get_logger(), "Vision driver plugin not loaded.");
+      this->declare_parameter("non_ros_vision_driver", "perception::OpenCVDriver");
+      std::string non_ros_vision_driver_name = this->get_parameter("non_ros_vision_driver").as_string();
+
+      RCLCPP_INFO(this->get_logger(), "Loading vision driver plugin: %s", non_ros_vision_driver_name.c_str());
+
+      non_ros_vision_driver_ = driver_loader_.createSharedInstance(non_ros_vision_driver_name);
+      non_ros_vision_driver_->initialize(shared_from_this());
+
+      RCLCPP_INFO(this->get_logger(), "Started vision driver plugin: %s", non_ros_vision_driver_name.c_str());
     }
 
     /*************************************************************************
@@ -110,15 +187,10 @@ public:
 
       RCLCPP_INFO(this->get_logger(), "Loading microphone driver plugin: %s", mic_driver_name.c_str());
 
-      microphone_driver_ = listener_driver_loader_.createSharedInstance(mic_driver_name);
+      microphone_driver_ = driver_loader_.createSharedInstance(mic_driver_name);
       microphone_driver_->initialize(shared_from_this());
-      microphone_driver_->start();
 
       RCLCPP_INFO(this->get_logger(), "Started microphone driver plugin: %s", mic_driver_name.c_str());
-    }
-    else
-    {
-      RCLCPP_INFO(this->get_logger(), "Microphone driver plugin not loaded.");
     }
 
     /*************************************************************************
@@ -132,17 +204,11 @@ public:
 
       RCLCPP_INFO(this->get_logger(), "Loading speaker driver plugin: %s", speaker_driver_name.c_str());
 
-      speaker_driver_ = speaker_driver_loader_.createSharedInstance(speaker_driver_name);
+      speaker_driver_ = driver_loader_.createSharedInstance(speaker_driver_name);
       speaker_driver_->initialize(shared_from_this());
-      speaker_driver_->start();
 
       RCLCPP_INFO(this->get_logger(), "Started speaker driver plugin: %s", speaker_driver_name.c_str());
     }
-    else
-    {
-      RCLCPP_INFO(this->get_logger(), "Speaker driver plugin not loaded.");
-    }
-
     /*************************************************************************
      * transcription driver plugin class loader and driver pointer
      ************************************************************************/
@@ -153,15 +219,10 @@ public:
 
       RCLCPP_INFO(this->get_logger(), "Loading transcription driver plugin: %s", transcription_driver_name.c_str());
 
-      transcription_driver_ = transcription_driver_loader_.createSharedInstance(transcription_driver_name);
+      transcription_driver_ = driver_loader_.createSharedInstance(transcription_driver_name);
       transcription_driver_->initialize(shared_from_this());
-      transcription_driver_->start();
 
       RCLCPP_INFO(this->get_logger(), "Started transcription driver plugin: %s", transcription_driver_name.c_str());
-    }
-    else
-    {
-      RCLCPP_INFO(this->get_logger(), "Transcription driver plugin not loaded.");
     }
 
     /*************************************************************************
@@ -174,15 +235,10 @@ public:
 
       RCLCPP_INFO(this->get_logger(), "Loading speech synthesis driver plugin: %s", speech_driver_name.c_str());
 
-      speech_driver_ = speech_driver_loader_.createSharedInstance(speech_driver_name);
+      speech_driver_ = driver_loader_.createSharedInstance(speech_driver_name);
       speech_driver_->initialize(shared_from_this());
-      speech_driver_->start();
 
       RCLCPP_INFO(this->get_logger(), "Started speech synthesis driver plugin: %s", speech_driver_name.c_str());
-    }
-    else
-    {
-      RCLCPP_INFO(this->get_logger(), "Speech synthesis driver plugin not loaded.");
     }
 
     /*************************************************************************
@@ -195,9 +251,8 @@ public:
 
       RCLCPP_INFO(this->get_logger(), "Loading sentiment driver plugin: %s", sentiment_driver_name.c_str());
 
-      sentiment_driver_ = sentiment_driver_loader_.createSharedInstance(sentiment_driver_name);
+      sentiment_driver_ = driver_loader_.createSharedInstance(sentiment_driver_name);
       sentiment_driver_->initialize(shared_from_this());
-      sentiment_driver_->start();
 
       RCLCPP_INFO(this->get_logger(), "Started sentiment driver plugin: %s", sentiment_driver_name.c_str());
     }
@@ -217,6 +272,37 @@ public:
 
       RCLCPP_INFO(this->get_logger(), "Tests completed.");
     }
+
+    if (audio_input_publish_)
+      publish_audio_ = std::thread(&PerceptionServer::publishAudio, this);
+
+    if (vision_input_publish_)
+      publish_vision_ = std::thread(&PerceptionServer::publishVideo, this);
+
+    if (audio_input_publish_)
+      audio_publisher_ = this->create_publisher<Audio>(audio_input_topic_, 10);
+
+    if (audio_output_subscribe_)
+      audio_subscriber_ = this->create_subscription<Audio>(
+          audio_output_topic_, 10, std::bind(&SpeakerAudioDriver::audioCallback, this, std::placeholders::_1));
+
+    if (transcription_enabled_)
+      transcription_ = this->create_service<Transcribe>(
+          transcription_service_,
+          std::bind(&PerceptionServer::transcribe_callback, this, std::placeholders::_1, std::placeholders::_2));
+
+    if (speech_enabled_)
+      speech_service_ =
+          this->create_service<Speech>(speech_service_name_, std::bind(&PerceptionServer::speech_callback, this,
+                                                                       std::placeholders::_1, std::placeholders::_2));
+
+    if (sentiment_enabled_)
+      sentiment_service_ = this->create_service<Sentiment>(
+          sentiment_service_name_,
+          std::bind(&PerceptionServer::sentiment_callback, this, std::placeholders::_1, std::placeholders::_2));
+
+    if (vision_input_publish_)
+      image_publisher_ = this->create_publisher<sensor_msgs::msg::Image>(vision_input_topic_, 10);
   }
 
 protected:
@@ -229,128 +315,380 @@ protected:
       RCLCPP_INFO(this->get_logger(), "Testing vision driver...");
       vision_driver_->test();
     }
-    else
-      RCLCPP_INFO(this->get_logger(), "Vision driver not loaded, skipping test.");
 
     if (use_microphone_driver_)
     {
       RCLCPP_INFO(this->get_logger(), "Testing microphone driver...");
       microphone_driver_->test();
     }
-    else
-      RCLCPP_INFO(this->get_logger(), "Microphone driver not loaded, skipping test.");
 
     if (use_speaker_driver_)
     {
       RCLCPP_INFO(this->get_logger(), "Testing speaker driver...");
       speaker_driver_->test();
     }
-    else
-      RCLCPP_INFO(this->get_logger(), "Speaker driver not loaded, skipping test.");
 
     if (use_transcription_driver_)
     {
       RCLCPP_INFO(this->get_logger(), "Testing transcription driver...");
       transcription_driver_->test();
     }
-    else
-      RCLCPP_INFO(this->get_logger(), "Transcription driver not loaded, skipping test.");
 
     if (use_speech_driver_)
     {
       RCLCPP_INFO(this->get_logger(), "Testing speech synthesis driver...");
       speech_driver_->test();
     }
-    else
-      RCLCPP_INFO(this->get_logger(), "Speech synthesis driver not loaded, skipping test.");
 
     if (use_sentiment_driver_)
     {
       RCLCPP_INFO(this->get_logger(), "Testing sentiment driver...");
       sentiment_driver_->test();
     }
-    else
-      RCLCPP_INFO(this->get_logger(), "Sentiment driver not loaded, skipping test.");
   }
 
-  void print_usage()
-  {  // drivers
-    if (use_vision_driver_)
-      RCLCPP_INFO(this->get_logger(), "Using vision driver.");
-    else
-      RCLCPP_INFO(this->get_logger(), "Will not use vision driver.");
+  /**
+   * @brief Driver thread function. need to be overridden in derived classesif used
+   */
+  virtual void publishAudio()
+  {
+    while (rclcpp::ok())
+    {
+      audio_data data;
 
-    if (use_microphone_driver_)
-      RCLCPP_INFO(this->get_logger(), "Using microphone driver.");
-    else
-      RCLCPP_INFO(this->get_logger(), "Will not use microphone driver.");
+      if (use_microphone_driver_ and microphone_driver_)
+        data = std::any_cast<audio_data>(microphone_driver_->getDataStream());
 
-    if (use_speaker_driver_)
-      RCLCPP_INFO(this->get_logger(), "Using speaker driver.");
-    else
-      RCLCPP_INFO(this->get_logger(), "Will not use speaker driver.");
+      if (use_transcription_driver_ && transcription_driver_)
+      {
+        if (!use_microphone_driver_ or !microphone_driver_)
+        {
+          RCLCPP_ERROR(this->get_logger(), "Transcription driver is enabled but microphone driver is not.");
+          break;
+        }
 
-    if (use_transcription_driver_)
-      RCLCPP_INFO(this->get_logger(), "Using transcription driver.");
-    else
-      RCLCPP_INFO(this->get_logger(), "Will not use transcription driver.");
+        if (data.samples.empty())
+        {
+          RCLCPP_WARN(this->get_logger(), "No audio data available for transcription.");
+          continue;
+        }
 
-    if (use_speech_driver_)
-      RCLCPP_INFO(this->get_logger(), "Using speech synthesis driver.");
-    else
-      RCLCPP_INFO(this->get_logger(), "Will not use speech synthesis driver.");
+        transcription_buffer_.sample_rate = data.sample_rate;
+        transcription_buffer_.channels = data.channels;
+        transcription_buffer_.chunk_size = data.chunk_size;
+        transcription_buffer_.chunk_count = data.chunk_count;
 
-    if (use_sentiment_driver_)
-      RCLCPP_INFO(this->get_logger(), "Using sentiment driver.");
-    else
-      RCLCPP_INFO(this->get_logger(), "Will not use sentiment driver.");
+        // Store the audio data of the buffer duration in the buffer for the transcription driver.
+        // Keep the latest data and dump the old data if the buffer exceeds the specified duration.
+        transcription_buffer_.samples.insert(transcription_buffer_.samples.end(), data.samples.begin(),
+                                             data.samples.end());
+
+        size_t max_buffer_size = data.sample_rate * data.channels * transcription_buffer_duration_;
+
+        if (transcription_buffer_.samples.size() > max_buffer_size)
+          transcription_buffer_.samples.erase(transcription_buffer_.samples.begin(),
+                                              transcription_buffer_.samples.size() - max_buffer_size);
+
+        // Update the chunk count based on the current buffer size
+        transcription_buffer_.chunk_count = transcription_buffer_.samples.size() / (data.chunk_size * data.channels);
+      }
+
+      if (audio_input_publish_)
+      {
+        // If publishing is enabled, publish the audio data
+        Audio msg;
+        msg.header.stamp = rclcpp::Clock().now();
+        msg.header.frame_id = audio_input_frame_id_;
+        msg.sample_rate = data.sample_rate;
+        msg.channels = data.channels;
+        msg.chunk_size = data.chunk_size;
+        msg.chunk_count = data.chunk_count;
+        msg.samples = data.samples;
+
+        audio_publisher_->publish(msg);
+      }
+
+      std::this_thread::sleep_for(std::chrono::milliseconds(int(1000 / audio_input_frequency_)));
+    }
   }
 
-  /** Run Tests */
-  bool run_tests_;
+  void publishVideo()
+  {
+    while (rclcpp::ok())
+    {
+      if (use_vision_driver_ and !vision_input_non_ros_)
+      {
+        try
+        {
+          // Convert sensor_msgs::Image to OpenCV Mat
+          auto image = std::any_cast<sensor_msgs::msg::Image::ConstSharedPtr>(ros_vision_driver_->getData());
+          auto cv_ptr = cv_bridge::toCvCopy(image, image->encoding);
+          cv::Mat frame = cv_ptr->image.clone();
 
-  bool use_vision_driver_;
-  bool use_microphone_driver_;
-  bool use_speaker_driver_;
-  bool use_transcription_driver_;
-  bool use_sentiment_driver_;
-  bool use_speech_driver_;
+          auto msg = cv_bridge::CvImage(std_msgs::msg::Header(), "bgr8", frame).toImageMsg();
+          msg->header = image->header;
+        }
+        catch (const cv_bridge::Exception& e)
+        {
+          throw perception_exception("cv_bridge conversion failed: " + std::string(e.what()));
+        }
+      }
 
-  /** plugin loader for vision driver */
-  pluginlib::ClassLoader<perception::DriverBase> vision_driver_loader_;
+      if (use_vision_driver_ and vision_input_non_ros_)
+      {
+        // Capture frame from the camera
+        cv::Mat frame = std::any_cast<cv::Mat>(non_ros_vision_driver_->getData());
 
-  /** shared pointer for vision driver */
-  std::shared_ptr<perception::DriverBase> vision_driver_;
+        // If publishing is enabled, publish the image
+        auto msg = cv_bridge::CvImage(std_msgs::msg::Header(), "bgr8", frame).toImageMsg();
+        msg->header.stamp = node_->now();
+        msg->header.frame_id = vision_input_frame_id_;
+        image_publisher_->publish(*msg);
+      }
 
-  /** plugin loader for audio listener driver */
-  pluginlib::ClassLoader<perception::DriverBase> listener_driver_loader_;
+      std::this_thread::sleep_for(std::chrono::milliseconds(int(1000 / vision_input_frequency_)));
+    }
 
-  /** shared pointer for audio listener driver */
-  std::shared_ptr<perception::DriverBase> microphone_driver_;
+    /**
+     * @brief Set the latest audio data to the driver from topic subscription.
+     * This function is called when new audio data is received from the subscribed topic.
+     *
+     * @param msg The audio data message received from the topic.
+     * @throws perception_exception if the stream is not active
+     */
+    void audioCallback(const Audio& msg)
+    {
+      auto data = perception::msg_to_audio_data(msg);
+      speaker_driver_->setDataStream(data);
+    }
 
-  /** plugin loader for audio speaker driver */
-  pluginlib::ClassLoader<perception::DriverBase> speaker_driver_loader_;
+    /**
+     * @brief Service callback for transcription requests
+     *
+     * This method handles incoming transcription requests and processes them.
+     *
+     * @param request The incoming transcription request
+     * @param response The response to be sent back
+     */
+    void transcribe_callback(const std::shared_ptr<Transcribe::Request> request,
+                             std::shared_ptr<Transcribe::Response> response)
+    {
+      RCLCPP_INFO(node_->get_logger(), "Received transcription request.");
 
-  /** shared pointer for audio speaker driver */
-  std::shared_ptr<perception::DriverBase> speaker_driver_;
+      if (request->use_device_audio)
+      {
+        transcription_driver_->setDataStream(transcription_buffer_);
+        RCLCPP_INFO(node_->get_logger(), "Transcription with device audio : %d samples",
+                    transcription_buffer_.samples.size());
+      }
+      else
+      {
+        auto audio_data_input = perception::msg_to_audio_data(request->audio);
+        transcription_driver_->setDataStream(audio_data_input);
+        RCLCPP_INFO(node_->get_logger(), "Transcription with external audio : %d samples",
+                    audio_data_input.samples.size());
+      }
 
-  /** plugin loader for transcription driver */
-  pluginlib::ClassLoader<perception::DriverBase> transcription_driver_loader_;
+      auto result = transcription_driver_->getData();
 
-  /** shared pointer for transcription driver */
-  std::shared_ptr<perception::DriverBase> transcription_driver_;
+      if (result.has_value())
+      {
+        response->transcription = std::any_cast<std::string>(result);
+        response->success = true;
+        RCLCPP_INFO(node_->get_logger(), "Transcription service processed request successfully.");
+      }
+      else
+      {
+        response->success = false;
+        response->transcription = "No transcription result received.";
+        RCLCPP_ERROR(node_->get_logger(), "Transcription service failed to process request.");
+      }
+    }
 
-  /** plugin loader for sentiment driver */
-  pluginlib::ClassLoader<perception::DriverBase> sentiment_driver_loader_;
+    /**
+     * @brief Service callback for the speech service
+     *
+     * This function is called when a request is made to the speech service.
+     *
+     * @param request The request message containing the audio data and options.
+     * @param response The response message to be filled with the transcription result.
+     */
+    void speech_callback(const std::shared_ptr<Speech::Request> request, std::shared_ptr<Speech::Response> response)
+    {
+      RCLCPP_INFO(node_->get_logger(), "Received speech request with text: %s", request->input.text.c_str());
 
-  /** shared pointer for sentiment driver */
-  std::shared_ptr<perception::DriverBase> sentiment_driver_;
+      const auto& text_data = perception::msg_to_text_data(request->input);
 
-  /** plugin loader for speech synthesis driver */
-  pluginlib::ClassLoader<perception::DriverBase> speech_driver_loader_;
+      speech_driver_->setDataStream(text_data);
+      auto result = speech_driver_->getData();
 
-  /** shared pointer for speech synthesis driver */
-  std::shared_ptr<perception::DriverBase> speech_driver_;
-};
+      if (result.has_value())
+      {
+        if (request->use_device_audio)
+        {
+          RCLCPP_INFO(node_->get_logger(), "Using device audio for speech output.");
+          speaker_driver_->setDataStream(result);
+        }
+        else
+        {
+          RCLCPP_INFO(node_->get_logger(), "Using external audio for speech output.");
+          request->audio = perception::audio_data_to_msg(std::any_cast<audio_data>(result));
+        }
+      }
+      else
+      {
+        RCLCPP_ERROR(node_->get_logger(), "No speech synthesis result received.");
+      }
+    }
+
+    /**
+     * @brief Callback function for the sentiment analysis service
+     *
+     * This function is called when a request is received by the sentiment analysis service.
+     * It processes the request and sends back a response with the sentiment analysis results.
+     *
+     * @param request The request received from the client
+     * @param response The response to be sent back to the client
+     */
+    void sentiment_callback(const std::shared_ptr<Sentiment::Request> request,
+                            std::shared_ptr<Sentiment::Response> response)
+    {
+      RCLCPP_INFO(node_->get_logger(), "Received sentiment analysis request with text: %s", request->text.c_str());
+
+      if (request->use_device_audio)
+      {
+        RCLCPP_INFO(node_->get_logger(), "Using device audio for sentiment analysis.");
+
+        transcription_driver_->setDataStream(transcription_buffer_);
+        auto transcription_result = transcription_driver_->getData();
+
+        if (transcription_result.has_value())
+        {
+          auto transcription_text = std::any_cast<std::string>(transcription_result);
+          RCLCPP_INFO(node_->get_logger(), "Transcription result for sentiment analysis: %s",
+                      transcription_text.c_str());
+          sentiment_driver_->setDataStream(transcription_text);
+        }
+        else
+        {
+          RCLCPP_ERROR(node_->get_logger(), "No transcription result available for sentiment analysis.");
+          response->label = "Error: No transcription result available for sentiment analysis.";
+          response->score = 0.0;
+          return;
+        }
+      }
+      else
+      {
+        RCLCPP_INFO(node_->get_logger(), "Using external text for sentiment analysis.");
+        sentiment_driver_->setDataStream(request->text);
+      }
+
+      auto result = getData();
+
+      if (result.has_value())
+      {
+        auto sentiment_result = std::any_cast<std::pair<std::string, double>>(result);
+
+        // Set the response data
+        response->label = sentiment_result.first;   // Example response
+        response->score = sentiment_result.second;  // Example confidence score
+      }
+      else
+      {
+        RCLCPP_ERROR(node_->get_logger(), "No sentiment analysis result available");
+        response->label = "Error: No sentiment analysis result available";
+        response->score = 0.0;
+      }
+    }
+
+    /** Run Tests */
+    bool run_tests_;
+
+    bool use_vision_driver_;
+    bool use_microphone_driver_;
+    bool use_speaker_driver_;
+    bool use_transcription_driver_;
+    bool use_sentiment_driver_;
+    bool use_speech_driver_;
+
+    // Audio inputtopic parameters
+    bool audio_input_publish_;
+    std::string audio_input_topic_;
+    std::string audio_input_frame_id_;
+    int audio_input_frequency_;
+
+    // Audio output topic parameters
+    std::string audio_output_topic_;
+    bool audio_output_subscribe_;
+
+    // Transcription service parameters
+    bool transcription_enabled_;
+    std::string transcription_service_;
+    int transcription_buffer_duration_;
+    audio_data transcription_buffer_;
+
+    // Speech synthesis service parameters
+    bool speech_enabled_;
+    std::string speech_service_name_;
+
+    // Sentiment analysis service parameters
+    bool sentiment_enabled_;
+    std::string sentiment_service_name_;
+
+    // Vision input topic parameters
+    bool vision_input_publish_;
+    std::string vision_input_topic_;
+    std::string vision_input_frame_id_;
+    int vision_input_frequency_;
+    bool vision_input_non_ros_;
+
+    /** plugin loader for drivers */
+    pluginlib::ClassLoader<perception::DriverBase> driver_loader_;
+
+    /** shared pointer for vision driver */
+    std::shared_ptr<perception::DriverBase> ros_vision_driver_;
+
+    /** shared pointer for vision driver */
+    std::shared_ptr<perception::DriverBase> non_ros_vision_driver_;
+
+    /** shared pointer for audio listener driver */
+    std::shared_ptr<perception::DriverBase> microphone_driver_;
+
+    /** shared pointer for audio speaker driver */
+    std::shared_ptr<perception::DriverBase> speaker_driver_;
+
+    /** shared pointer for transcription driver */
+    std::shared_ptr<perception::DriverBase> transcription_driver_;
+
+    /** shared pointer for sentiment driver */
+    std::shared_ptr<perception::DriverBase> sentiment_driver_;
+
+    /** shared pointer for speech synthesis driver */
+    std::shared_ptr<perception::DriverBase> speech_driver_;
+
+    // Publisher for audio data
+    rclcpp::Publisher<Audio>::SharedPtr audio_publisher_;
+
+    // Subscriber for audio data
+    rclcpp::Subscription<Audio>::SharedPtr audio_subscriber_;
+
+    // Service for transcription
+    rclcpp::Service<Transcribe>::SharedPtr transcription_;
+
+    // Service for speech synthesis
+    rclcpp::Service<Speech>::SharedPtr speech_service_;
+
+    // Service for sentiment analysis
+    rclcpp::Service<Sentiment>::SharedPtr sentiment_service_;
+
+    // Publisher for vision data
+    rclcpp::Publisher<sensor_msgs::msg::Image>::SharedPtr image_publisher_;
+
+    // Thread for publishing gathered data from the device
+    std::thread publish_audio_;
+
+    // Thread for publishing gathered data from the device
+    std::thread publish_vision_;
+  };
 
 }  // namespace perception

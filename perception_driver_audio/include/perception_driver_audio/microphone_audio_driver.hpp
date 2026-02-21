@@ -40,7 +40,7 @@ public:
    */
   ~MicrophoneAudioDriver() override
   {
-    stop();
+    deinitialize();
     Pa_Terminate();
   }
 
@@ -57,19 +57,14 @@ public:
     node->declare_parameter("driver.audio.MicrophoneAudioDriver.name", "MicrophoneAudioDriver");
     node->declare_parameter("driver.audio.MicrophoneAudioDriver.device_name", "default");
     node->declare_parameter("driver.audio.MicrophoneAudioDriver.publish", false);
-    node->declare_parameter("driver.audio.MicrophoneAudioDriver.topic", "audio/microphone");
-    node->declare_parameter("driver.audio.MicrophoneAudioDriver.frame_id", "microphone_frame");
     node->declare_parameter("driver.audio.MicrophoneAudioDriver.chunk_size", 256);     // default chunk size
     node->declare_parameter("driver.audio.MicrophoneAudioDriver.sample_rate", 44100);  // default sample rate
     node->declare_parameter("driver.audio.MicrophoneAudioDriver.channels", 1);         // default number of channels
     node->declare_parameter("driver.audio.MicrophoneAudioDriver.buffer_time", 10);     // default device ID
 
     // Load parameters from the node
-    config_.name = node->get_parameter("driver.audio.MicrophoneAudioDriver.name").as_string();
-    config_.device_name = node->get_parameter("driver.audio.MicrophoneAudioDriver.device_name").as_string();
-    config_.interface_enabled = node->get_parameter("driver.audio.MicrophoneAudioDriver.publish").as_bool();
-    config_.interface_name = node->get_parameter("driver.audio.MicrophoneAudioDriver.topic").as_string();
-    config_.frame_id = node->get_parameter("driver.audio.MicrophoneAudioDriver.frame_id").as_string();
+    name = node->get_parameter("driver.audio.MicrophoneAudioDriver.name").as_string();
+    device_name = node->get_parameter("driver.audio.MicrophoneAudioDriver.device_name").as_string();
     chunk_size_ = node->get_parameter("driver.audio.MicrophoneAudioDriver.chunk_size").as_int();
     sample_rate_ = node->get_parameter("driver.audio.MicrophoneAudioDriver.sample_rate").as_int();
     channels_ = node->get_parameter("driver.audio.MicrophoneAudioDriver.channels").as_int();
@@ -91,53 +86,32 @@ public:
     // Get the device ID by name
     try
     {
-      config_.device_id = perception::getDeviceIdByName(config_.device_name);
-      RCLCPP_INFO(node_->get_logger(), "Device ID for name '%s' is %d", config_.device_name.c_str(), config_.device_id);
+      device_id = perception::getDeviceIdByName(device_name);
+      RCLCPP_INFO(node_->get_logger(), "Device ID for name '%s' is %d", device_name.c_str(), device_id);
     }
     catch (const std::exception& e)
     {
-      RCLCPP_ERROR(node_->get_logger(), "Failed to get device ID for name '%s': %s", config_.device_name.c_str(), e.what());
-      throw perception_exception("Failed to get device ID for name '" + config_.device_name + "': " + e.what());
+      RCLCPP_ERROR(node_->get_logger(), "Failed to get device ID for name '%s': %s", device_name.c_str(), e.what());
+      throw perception_exception("Failed to get device ID for name '" + device_name + "': " + e.what());
     }
 
     // Publish about the assigned driver parameters
-    RCLCPP_INFO(node_->get_logger(), "Assigned driver name: %s", config_.name.c_str());
-    RCLCPP_INFO(node_->get_logger(), "Assigned driver device_name: %s", config_.device_name.c_str());
-    RCLCPP_INFO(node_->get_logger(), "Assigned driver device_id: %d", config_.device_id);
-    RCLCPP_INFO(node_->get_logger(), "Assigned driver publish: %s", config_.interface_enabled ? "true" : "false");
-    RCLCPP_INFO(node_->get_logger(), "Assigned driver topic: %s", config_.interface_name.c_str());
-    RCLCPP_INFO(node_->get_logger(), "Assigned driver frame_id: %s", config_.frame_id.c_str());
+    RCLCPP_INFO(node_->get_logger(), "Assigned driver name: %s", name.c_str());
+    RCLCPP_INFO(node_->get_logger(), "Assigned driver device_name: %s", device_name.c_str());
+    RCLCPP_INFO(node_->get_logger(), "Assigned driver device_id: %d", device_id);
     RCLCPP_INFO(node_->get_logger(), "Assigned driver chunk_size: %d", chunk_size_);
     RCLCPP_INFO(node_->get_logger(), "Assigned driver sample_rate: %d", sample_rate_);
     RCLCPP_INFO(node_->get_logger(), "Assigned driver channels: %d", channels_);
     RCLCPP_INFO(node_->get_logger(), "Assigned driver buffer_time: %d", buffer_time_);
     RCLCPP_INFO(node_->get_logger(), "Assigned driver buffer size: %d", buffer_size_);
 
-    // Log that the driver has been initialized
-    RCLCPP_INFO(node_->get_logger(), "Initialized");
-
-    // If publishing is enabled, create a publisher for the audio topic
-    if (config_.interface_enabled)
-    {
-      audio_publisher_ = node->create_publisher<perception_msgs::msg::PerceptionAudio>(config_.interface_name, 10);
-      RCLCPP_INFO(node_->get_logger(), "Publisher created for topic: %s", config_.interface_name.c_str());
-    }
-  }
-
-  /**
-   * @brief Start the driver streaming. This function initializes the microphone driver and
-   * starts the audio stream. It uses PortAudio to open the default audio stream and starts it.
-   *
-   */
-  void start() override
-  {
-    RCLCPP_INFO(node_->get_logger(), "starting on device %d", config_.device_id);
+    RCLCPP_INFO(node_->get_logger(), "starting on device %d", device_id);
 
     PaStreamParameters inputParams;
-    inputParams.device = config_.device_id;
+    inputParams.device = device_id;
     inputParams.channelCount = channels_;
     inputParams.sampleFormat = paInt16;
-    inputParams.suggestedLatency = Pa_GetDeviceInfo(config_.device_id)->defaultLowInputLatency;
+    inputParams.suggestedLatency = Pa_GetDeviceInfo(device_id)->defaultLowInputLatency;
     inputParams.hostApiSpecificStreamInfo = nullptr;
 
     err = Pa_OpenStream(&stream_, &inputParams, nullptr, sample_rate_, chunk_size_, paNoFlag, nullptr, nullptr);
@@ -165,14 +139,15 @@ public:
     is_running_ = true;
     driver_thread_ = std::thread(&MicrophoneAudioDriver::driver_thread, this);
 
-    RCLCPP_INFO(node_->get_logger(), "started.");
+    // Log that the driver has been initialized
+    RCLCPP_INFO(node_->get_logger(), "Initialized");
   }
 
   /**
    * @brief Stop driver streaming. This function stops the audio stream and closes it.
    * It also terminates the PortAudio library.
    */
-  void stop() override
+  void deinitialize() override
   {
     is_running_ = false;
 
@@ -314,21 +289,6 @@ protected:
       }
 
       buffer_cv_.notify_one();
-
-      // If publishing is enabled, publish the audio data
-      if (config_.interface_enabled)
-      {
-        perception_msgs::msg::PerceptionAudio msg;
-        msg.header.stamp = rclcpp::Clock().now();
-        msg.header.frame_id = config_.frame_id;
-        msg.sample_rate = sample_rate_;
-        msg.channels = channels_;
-        msg.chunk_size = chunk_size_;
-        msg.chunk_count = 1;
-        msg.samples = buffer;
-
-        audio_publisher_->publish(msg);
-      }
     }
 
     RCLCPP_INFO(node_->get_logger(), "driver thread stopped.");
@@ -338,14 +298,12 @@ protected:
   PaError err = paNoError;
   std::deque<int16_t> audio_buffer_;
   std::mutex publish_mutex_;
+  int device_id;
   unsigned long chunk_size_;  // Default chunk size
   int sample_rate_;           // Default sample rate
   int channels_;              // Default number of channels
   int buffer_time_;           // Buffer time in seconds
   int buffer_size_;           // Buffer size in samples
-
-  // Publisher for audio data
-  rclcpp::Publisher<perception_msgs::msg::PerceptionAudio>::SharedPtr audio_publisher_;
 };
 
 }  // namespace perception

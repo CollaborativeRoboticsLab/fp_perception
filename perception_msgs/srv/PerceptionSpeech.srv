@@ -1,3 +1,4 @@
 PerceptionText input
+bool use_device_audio
 ---
 PerceptionAudio audio

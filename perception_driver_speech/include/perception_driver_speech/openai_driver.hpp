@@ -16,13 +16,13 @@ namespace perception
 class OpenAISpeechDriver : public RestBase
 {
 public:
-  using Speech = perception_msgs::srv::PerceptionSpeech;
   /**
    * @brief Construct a new OpenAI Speech Driver object
    */
   OpenAISpeechDriver()
   {
   }
+
   /**
    * @brief Destroy the OpenAI Speech Driver object
    */
@@ -46,15 +46,11 @@ public:
     node->declare_parameter("driver.speech.OpenAISpeechDriver.test_file_path", "test/speech.wav");
     node->declare_parameter("driver.speech.OpenAISpeechDriver.voice", "coral");
     node->declare_parameter("driver.speech.OpenAISpeechDriver.instructions", "Please speak clearly and slowly.");
-    node->declare_parameter("driver.speech.OpenAISpeechDriver.provide_service", false);
-    node->declare_parameter("driver.speech.OpenAISpeechDriver.service_name", "perception/speech");
 
     // Get parameters from the node
-    config_.name = node->get_parameter("driver.speech.OpenAISpeechDriver.name").as_string();
+    name_ = node->get_parameter("driver.speech.OpenAISpeechDriver.name").as_string();
     model_name_ = node->get_parameter("driver.speech.OpenAISpeechDriver.model").as_string();
     test_text_ = node->get_parameter("driver.speech.OpenAISpeechDriver.test_text").as_string();
-    config_.interface_name = node->get_parameter("driver.speech.OpenAISpeechDriver.service_name").as_string();
-    config_.interface_enabled = node->get_parameter("driver.speech.OpenAISpeechDriver.provide_service").as_bool();
     test_file_path_ = node->get_parameter("driver.speech.OpenAISpeechDriver.test_file_path").as_string();
     voice_ = node->get_parameter("driver.speech.OpenAISpeechDriver.voice").as_string();
     instructions_ = node->get_parameter("driver.speech.OpenAISpeechDriver.instructions").as_string();
@@ -63,51 +59,15 @@ public:
     initialize_rest_base(node, "driver.speech.OpenAISpeechDriver", "OPENAI_API_KEY");
 
     // log the parameters
-    RCLCPP_INFO(node_->get_logger(), "Assigned driver name: %s", config_.name.c_str());
+    RCLCPP_INFO(node_->get_logger(), "Assigned driver name: %s", name_.c_str());
     RCLCPP_INFO(node_->get_logger(), "Assigned driver model: %s", model_name_.c_str());
     RCLCPP_INFO(node_->get_logger(), "Assigned driver test text: %s", test_text_.c_str());
-    RCLCPP_INFO(node_->get_logger(), "Assigned driver service name: %s", config_.interface_name.c_str());
-    RCLCPP_INFO(node_->get_logger(), "Assigned driver service enabled: %s",
-                config_.interface_enabled ? "true" : "false");
-
-    // Create service if enabled
-    if (config_.interface_enabled)
-    {
-      service_ =
-          node->create_service<Speech>(config_.interface_name, std::bind(&OpenAISpeechDriver::service_cb, this,
-                                                                         std::placeholders::_1, std::placeholders::_2));
-
-      RCLCPP_INFO(node_->get_logger(), "Speech service created with name: %s", config_.interface_name.c_str());
-    }
-    else
-    {
-      RCLCPP_INFO(node_->get_logger(), "Speech service is disabled, not creating service.");
-    }
+    RCLCPP_INFO(node_->get_logger(), "Assigned driver test file path: %s", test_file_path_.c_str());
+    RCLCPP_INFO(node_->get_logger(), "Assigned driver voice: %s", voice_.c_str());
+    RCLCPP_INFO(node_->get_logger(), "Assigned driver instructions: %s", instructions_.c_str());
 
     // Log the driver initialization
     RCLCPP_INFO(node_->get_logger(), "Initialized");
-  }
-
-  /**
-   * @brief Start the driver streaming
-   *
-   * This function should be overridden in derived classes to provide specific streaming logic.
-   */
-  void start() override
-  {
-    // Log that the client has been created
-    RCLCPP_INFO(node_->get_logger(), "Started");
-    
-  }
-
-  /**
-   * @brief Stop driver streaming
-   *
-   * This function should be overridden in derived classes to provide specific stop logic.
-   */
-  void stop() override
-  {
-    // Implement the logic to stop the transcription service
   }
 
   /**
@@ -212,7 +172,7 @@ public:
     {
       audio_data data = std::any_cast<audio_data>(result);
       writeWavFile(test_file_path_, data);
-      RCLCPP_INFO(node_->get_logger(), "Speech synthesis result received and saved to %s", test_file_path_.c_str()  );
+      RCLCPP_INFO(node_->get_logger(), "Speech synthesis result received and saved to %s", test_file_path_.c_str());
     }
     else
     {
@@ -263,33 +223,6 @@ protected:
     throw perception_exception("fromJson() not implemented for this driver.");
   }
 
-  /**
-   * @brief Service callback for the speech service
-   *
-   * This function is called when a request is made to the speech service.
-   *
-   * @param request The request message containing the audio data and options.
-   * @param response The response message to be filled with the transcription result.
-   */
-  void service_cb(const std::shared_ptr<Speech::Request> request, std::shared_ptr<Speech::Response> response)
-  {
-    RCLCPP_INFO(node_->get_logger(), "Received speech request with text: %s", request->input.text.c_str());
-    const auto& text_data = perception::msg_to_text_data(request->input);
-
-    setDataStream(text_data);
-    auto result = getData();
-
-    if (result.has_value())
-    {
-      audio_data audio_stream = std::any_cast<audio_data>(result);
-      response->audio = audio_data_to_msg(audio_stream);
-    }
-    else
-    {
-      RCLCPP_ERROR(node_->get_logger(), "No transcription result received.");
-    }
-  }
-
   std::string model_name_;
   std::string test_text_;
   std::string voice_;
@@ -297,6 +230,5 @@ protected:
   std::string test_file_path_ = "test_audio.wav";  // Path to the test audio file
 
   perception::RESTResponse response_;
-  rclcpp::Service<Speech>::SharedPtr service_;
 };
 }  // namespace perception

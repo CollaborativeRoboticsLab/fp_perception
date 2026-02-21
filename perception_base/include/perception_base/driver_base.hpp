@@ -8,7 +8,6 @@
 #include <atomic>
 
 #include <rclcpp/rclcpp.hpp>
-#include <perception_base/utils/options.hpp>
 #include <perception_base/utils/exceptions.hpp>
 
 namespace perception
@@ -32,16 +31,10 @@ public:
   }
 
   /**
-   * @brief Start the driver streaming
+   * @brief Deinitialize the driver
    *
    */
-  virtual void start() = 0;
-
-  /**
-   * @brief Stop driver streaming
-   *
-   */
-  virtual void stop() = 0;
+  virtual void deinitialize() = 0;
 
   /**
    * @brief Get latest data from the driver
@@ -102,28 +95,7 @@ public:
    */
   virtual std::string getName() const
   {
-    return config_.name;
-  }
-
-  /**
-   * @brief Driver thread function. need to be overridden in derived classesif used
-   */
-  virtual void driver_thread()
-  {
-    // This is a placeholder for the driver thread logic.
-    while (rclcpp::ok())
-    {
-      // Here you would typically gather data from the device and publish it.
-      std::lock_guard<std::mutex> lock(buffer_mutex_);
-
-      // Simulate data gathering
-      // In a real implementation, you would gather data from the device here.
-      RCLCPP_INFO(node_->get_logger(), "Driver thread started for %s without implementation", config_.name.c_str());
-      
-
-      // If publishing is enabled, you would publish the data to a topic.
-      std::this_thread::sleep_for(std::chrono::milliseconds(int(1000 / config_.frequency)));
-    }
+    return name_;
   }
 
   /**
@@ -132,7 +104,7 @@ public:
    */
   virtual void test()
   {
-    RCLCPP_INFO(node_->get_logger(), "Driver test function called for driver: %s", config_.name.c_str());
+    RCLCPP_INFO(node_->get_logger(), "Driver test function called for driver: %s", name_.c_str());
   }
 
   /**
@@ -181,12 +153,17 @@ protected:
   rclcpp::Node::SharedPtr node_;
 
   /**
-   * @brief driver options
+   * @brief Name of the driver
    */
-  driver_options config_;
+  std::string name_;
 
   /**
-   * @brief Mutex to protect access to the camera data
+   * @brief Name of the device for the driver
+   */
+  std::string device_name_;
+
+  /**
+   * @brief Mutex to protect access to the driver data
    *
    */
   std::mutex buffer_mutex_;

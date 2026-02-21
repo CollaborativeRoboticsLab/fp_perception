@@ -15,7 +15,11 @@ class DefaultDriver : public DriverBase
 {
 public:
   DefaultDriver() = default;
-  ~DefaultDriver() override = default;
+
+  ~DefaultDriver()
+  {
+    deinitialize();
+  }
 
   /**
    * @brief Initialize the driver
@@ -31,43 +35,34 @@ public:
     node->declare_parameter("driver.vision.DefaultDriver.topic", "/camera/raw");
 
     // Load parameters from the node
-    config_.name = node->get_parameter("driver.vision.DefaultDriver.name").as_string();
-    config_.interface_name = node->get_parameter("driver.vision.DefaultDriver.topic").as_string();
+    name_ = node->get_parameter("driver.vision.DefaultDriver.name").as_string();
+    interface_name_ = node->get_parameter("driver.vision.DefaultDriver.topic").as_string();
 
     // Initialize the base driver
     initialize_base(node);
 
     // Publish about the assigned driver parameters
-    RCLCPP_INFO(node_->get_logger(), "Assigned driver name: %s", config_.name.c_str());
-    RCLCPP_INFO(node_->get_logger(), "Assigned driver topic: %s", config_.interface_name.c_str());
-    
+    RCLCPP_INFO(node_->get_logger(), "Assigned driver name: %s", name_.c_str());
+    RCLCPP_INFO(node_->get_logger(), "Assigned driver topic: %s", interface_name_.c_str());
 
-    RCLCPP_INFO(node_->get_logger(), "Initialized");
-  }
+    RCLCPP_INFO(node_->get_logger(), "DefaultDriver subscribing on topic %s", interface_name_.c_str());
 
-  /**
-   * @brief Start the driver streaming with a ROS node and namespace
-   *
-   */
-  void start() override
-  {
-    RCLCPP_INFO(node_->get_logger(), "DefaultDriver starting on topic %s", config_.interface_name.c_str());
     image_transport::ImageTransport transport(node_);
 
     image_sub_ =
-        transport.subscribe(config_.interface_name, 1, std::bind(&DefaultDriver::imageCallback, this, std::placeholders::_1));
+        transport.subscribe(interface_name_, 1, std::bind(&DefaultDriver::imageCallback, this, std::placeholders::_1));
 
-    RCLCPP_INFO(node_->get_logger(), "Started. Subscribed to image topic: %s", config_.interface_name.c_str());
+    RCLCPP_INFO(node_->get_logger(), "Started. Subscribed to image topic: %s", interface_name_.c_str());
   }
 
   /**
    * @brief Stop driver streaming
    *
    */
-  void stop() override
+  void deinitialize() override
   {
     image_sub_.shutdown();
-    RCLCPP_INFO(node_->get_logger(), "Driver stopped.");
+    RCLCPP_INFO(node_->get_logger(), "DefaultDriver unsubscribed from topic: %s", interface_name_.c_str());
   }
 
   /**
@@ -82,16 +77,7 @@ public:
     std::unique_lock<std::mutex> lock(buffer_mutex_);
     buffer_cv_.wait(lock, [this] { return latest_image_ != nullptr; });
 
-    try
-    {
-      // Convert sensor_msgs::Image to OpenCV Mat
-      auto cv_ptr = cv_bridge::toCvCopy(latest_image_, latest_image_->encoding);
-      return cv_ptr->image.clone();  // Return a deep copy of cv::Mat
-    }
-    catch (const cv_bridge::Exception& e)
-    {
-      throw perception_exception("cv_bridge conversion failed: " + std::string(e.what()));
-    }
+    return latest_image_;
   }
 
   /**
@@ -104,8 +90,18 @@ public:
     // Create the "test" directory if it doesn't exist
     DriverBase::check_directory("test");
 
-    cv::Mat frame = std::any_cast<cv::Mat>(getData());
-    cv::imwrite("test/default_vision_image.jpg", frame);
+    try
+    {
+      // Convert sensor_msgs::Image to OpenCV Mat
+      auto image = std::any_cast<sensor_msgs::msg::Image::ConstSharedPtr>(getData());
+      auto cv_ptr = cv_bridge::toCvCopy(image, image->encoding);
+      cv::Mat frame = cv_ptr->image.clone();
+      cv::imwrite("test/default_vision_image.jpg", frame);
+    }
+    catch (const cv_bridge::Exception& e)
+    {
+      throw perception_exception("cv_bridge conversion failed: " + std::string(e.what()));
+    }
 
     RCLCPP_INFO(node_->get_logger(), "Test image saved to test/default_vision_image.jpg. Test completed.");
   }
@@ -119,6 +115,7 @@ protected:
     buffer_cv_.notify_all();
   }
 
+  std::string interface_name_;
   image_transport::Subscriber image_sub_;
   sensor_msgs::msg::Image::ConstSharedPtr latest_image_;
 };

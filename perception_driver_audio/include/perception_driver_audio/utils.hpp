@@ -1,4 +1,5 @@
 #pragma once
+
 #include <portaudio.h>
 #include <string>
 #include <perception_base/utils/exceptions.hpp>
@@ -13,7 +14,7 @@ namespace perception
  *
  * @param target_name The name of the target device to search for.
  * @return int The ID of the found device.
- * @throws std::runtime_error if no devices are found or if the target device is not found.
+ * @throws perception::perception_exception if no devices are found or if the target device is not found.
  */
 int getDeviceIdByName(const std::string& target_name)
 {

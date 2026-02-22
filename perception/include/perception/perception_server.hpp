@@ -3,6 +3,9 @@
 #include <thread>
 #include <functional>
 #include <memory>
+#include <mutex>
+#include <condition_variable>
+#include <algorithm>
 
 #include <rclcpp/rclcpp.hpp>
 #include <pluginlib/class_loader.hpp>
@@ -86,13 +89,13 @@ public:
     this->declare_parameter("interface.audio_input.frame_id", "microphone_frame");
     this->declare_parameter("interface.audio_input.publish", false);
     this->declare_parameter("interface.audio_input.frequency", 10);
+    this->declare_parameter("interface.audio_input.buffer_duration", 10);
 
     this->declare_parameter("interface.audio_output.topic", "perception/speaker");
     this->declare_parameter("interface.audio_output.subscribe", false);
 
     this->declare_parameter("interface.transcription.service", "perception/transcription");
     this->declare_parameter("interface.transcription.provide_service", false);
-    this->declare_parameter("interface.transcription.buffer_duration", 10);
 
     this->declare_parameter("interface.speech.service_name", "perception/speech");
     this->declare_parameter("interface.speech.provide_service", false);
@@ -110,13 +113,13 @@ public:
     audio_input_topic_ = this->get_parameter("interface.audio_input.topic").as_string();
     audio_input_frame_id_ = this->get_parameter("interface.audio_input.frame_id").as_string();
     audio_input_frequency_ = this->get_parameter("interface.audio_input.frequency").as_int();
+    audio_input_buffer_duration_ = this->get_parameter("interface.audio_input.buffer_duration").as_int();
 
     audio_output_subscribe_ = this->get_parameter("interface.audio_output.subscribe").as_bool();
     audio_output_topic_ = this->get_parameter("interface.audio_output.topic").as_string();
 
     transcription_service_ = this->get_parameter("interface.transcription.service").as_string();
     transcription_enabled_ = this->get_parameter("interface.transcription.provide_service").as_bool();
-    transcription_buffer_duration_ = this->get_parameter("interface.transcription.buffer_duration").as_int();
 
     speech_service_name_ = this->get_parameter("interface.speech.service_name").as_string();
     speech_enabled_ = this->get_parameter("interface.speech.provide_service").as_bool();
@@ -140,7 +143,7 @@ public:
 
     RCLCPP_INFO(this->get_logger(), "Transcription enabled: %s", transcription_enabled_ ? "true" : "false");
     RCLCPP_INFO(this->get_logger(), "Transcription service: %s", transcription_service_.c_str());
-    RCLCPP_INFO(this->get_logger(), "Transcription buffer duration: %d seconds", transcription_buffer_duration_);
+    RCLCPP_INFO(this->get_logger(), "Transcription buffer duration: %d seconds", audio_input_buffer_duration_);
 
     RCLCPP_INFO(this->get_logger(), "Speech synthesis enabled: %s", speech_enabled_ ? "true" : "false");
     RCLCPP_INFO(this->get_logger(), "Speech synthesis service name: %s", speech_service_name_.c_str());
@@ -284,7 +287,9 @@ public:
       RCLCPP_INFO(this->get_logger(), "Tests completed.");
     }
 
-    if (audio_input_publish_)
+    // Start audio producer thread whenever the microphone is enabled.
+    // The publishAudio() loop also feeds the public ring buffer used by services.
+    if (use_microphone_driver_)
       publish_audio_ = std::thread(&PerceptionServer::publishAudio, this);
 
     if (vision_input_publish_)
@@ -373,44 +378,45 @@ protected:
       if (use_microphone_driver_ and microphone_driver_)
         data = std::any_cast<audio_data>(microphone_driver_->getDataStream());
 
-      if (use_transcription_driver_ && transcription_driver_)
+      // Producer: append to public buffer (protected by mutex/cv)
+      if (use_microphone_driver_ && microphone_driver_ && !data.samples.empty())
       {
-        if (!use_microphone_driver_ or !microphone_driver_)
+        std::unique_lock<std::mutex> lock(public_buffer_mutex_);
+
+        // If format changes, reset buffer and counters.
+        if (public_buffer_.sample_rate != data.sample_rate || public_buffer_.channels != data.channels)
         {
-          RCLCPP_ERROR(this->get_logger(), "Transcription driver is enabled but microphone driver is not.");
-          break;
+          public_buffer_.samples.clear();
+          public_buffer_total_samples_ = 0;
         }
 
-        if (data.samples.empty())
+        public_buffer_.sample_rate = data.sample_rate;
+        public_buffer_.channels = data.channels;
+        public_buffer_.chunk_size = data.chunk_size;
+        public_buffer_.chunk_count = data.chunk_count;
+
+        public_buffer_.samples.insert(public_buffer_.samples.end(), data.samples.begin(), data.samples.end());
+        public_buffer_total_samples_ += static_cast<uint64_t>(data.samples.size());
+
+        const size_t max_buffer_size =
+            static_cast<size_t>(std::max(1, data.sample_rate)) * static_cast<size_t>(std::max(1, data.channels)) *
+            static_cast<size_t>(std::max(1, audio_input_buffer_duration_));
+
+        if (public_buffer_.samples.size() > max_buffer_size)
         {
-          RCLCPP_WARN(this->get_logger(), "No audio data available for transcription.");
-          continue;
+          const auto excess = public_buffer_.samples.size() - max_buffer_size;
+          public_buffer_.samples.erase(public_buffer_.samples.begin(), public_buffer_.samples.begin() + excess);
         }
 
-        transcription_buffer_.sample_rate = data.sample_rate;
-        transcription_buffer_.channels = data.channels;
-        transcription_buffer_.chunk_size = data.chunk_size;
-        transcription_buffer_.chunk_count = data.chunk_count;
+        // Update chunk count based on current buffer size
+        const size_t denom = static_cast<size_t>(std::max(1, data.chunk_size)) * static_cast<size_t>(std::max(1, data.channels));
+        public_buffer_.chunk_count = denom ? (public_buffer_.samples.size() / denom) : 0;
 
-        // Store the audio data of the buffer duration in the buffer for the transcription driver.
-        // Keep the latest data and dump the old data if the buffer exceeds the specified duration.
-        transcription_buffer_.samples.insert(transcription_buffer_.samples.end(), data.samples.begin(),
-                                             data.samples.end());
-
-        size_t max_buffer_size = data.sample_rate * data.channels * transcription_buffer_duration_;
-
-        if (transcription_buffer_.samples.size() > max_buffer_size)
-        {
-          const auto excess = transcription_buffer_.samples.size() - max_buffer_size;
-          transcription_buffer_.samples.erase(transcription_buffer_.samples.begin(),
-                                              transcription_buffer_.samples.begin() + excess);
-        }
-
-        // Update the chunk count based on the current buffer size
-        transcription_buffer_.chunk_count = transcription_buffer_.samples.size() / (data.chunk_size * data.channels);
+        lock.unlock();
+        public_buffer_cv_.notify_all();
       }
 
-      if (audio_input_publish_)
+      if (audio_input_publish_ && audio_publisher_)
       {
         // If publishing is enabled, publish the audio data
         Audio msg;
@@ -493,21 +499,56 @@ protected:
   {
     RCLCPP_INFO(this->get_logger(), "Received transcription request.");
 
+    if (!transcription_driver_)
+    {
+      response->success = false;
+      response->transcription = "Transcription driver is not loaded.";
+      response->header.stamp = this->now();
+      response->header.frame_id = audio_input_frame_id_;
+      RCLCPP_ERROR(this->get_logger(), "%s", response->transcription.c_str());
+      return;
+    }
+
+    response->header.stamp = this->now();
+    response->header.frame_id = audio_input_frame_id_;
+
+    perception::audio_data audio_in;
+
     if (request->use_device_audio)
     {
-      transcription_driver_->setDataStream(transcription_buffer_);
-      RCLCPP_INFO(this->get_logger(), "Transcription with device audio : %d samples",
-                  transcription_buffer_.samples.size());
+      const int duration = std::max(1, request->device_buffer_time);
+
+      try
+      {
+        audio_in = wait_for_public_audio(duration);
+      }
+      catch (const std::exception& e)
+      {
+        response->success = false;
+        response->transcription = std::string("Device audio not available: ") + e.what();
+        RCLCPP_ERROR(this->get_logger(), "%s", response->transcription.c_str());
+        return;
+      }
+
+      RCLCPP_INFO(this->get_logger(), "Transcription with device audio: %zu samples", audio_in.samples.size());
     }
     else
     {
-      auto audio_data_input = perception::msg_to_audio_data(request->audio);
-      transcription_driver_->setDataStream(audio_data_input);
-      RCLCPP_INFO(this->get_logger(), "Transcription with external audio : %d samples",
-                  audio_data_input.samples.size());
+      audio_in = perception::msg_to_audio_data(request->audio);
+      response->header = request->audio.header;
+      RCLCPP_INFO(this->get_logger(), "Transcription with external audio: %zu samples", audio_in.samples.size());
     }
 
-    auto result = transcription_driver_->getData();
+    {
+      std::lock_guard<std::mutex> lock(transcription_driver_mutex_);
+      transcription_driver_->setDataStream(audio_in);
+    }
+
+    std::any result;
+    {
+      std::lock_guard<std::mutex> lock(transcription_driver_mutex_);
+      result = transcription_driver_->getData();
+    }
 
     if (result.has_value())
     {
@@ -573,18 +614,64 @@ protected:
   {
     RCLCPP_INFO(this->get_logger(), "Received sentiment analysis request with text: %s", request->text.c_str());
 
+    if (!sentiment_driver_)
+    {
+      response->label = "Error: sentiment driver not loaded";
+      response->score = 0.0;
+      RCLCPP_ERROR(this->get_logger(), "%s", response->label.c_str());
+      return;
+    }
+
+    std::string text = request->text;
+
     if (request->use_device_audio)
     {
       RCLCPP_INFO(this->get_logger(), "Using device audio for sentiment analysis.");
 
-      transcription_driver_->setDataStream(transcription_buffer_);
-      auto transcription_result = transcription_driver_->getData();
+      if (!transcription_driver_)
+      {
+        RCLCPP_ERROR(this->get_logger(), "Device audio sentiment requested but transcription driver is not loaded.");
+        response->label = "Error: transcription driver not loaded";
+        response->score = 0.0;
+        return;
+      }
+
+      const int duration = std::max(1, request->device_buffer_time);
+      perception::audio_data audio_in;
+      try
+      {
+        audio_in = wait_for_public_audio(duration);
+      }
+      catch (const std::exception& e)
+      {
+        response->label = std::string("Error: device audio not available: ") + e.what();
+        response->score = 0.0;
+        RCLCPP_ERROR(this->get_logger(), "%s", response->label.c_str());
+        return;
+      }
+
+      std::any transcription_result;
+      {
+        std::lock_guard<std::mutex> lock(transcription_driver_mutex_);
+        transcription_driver_->setDataStream(audio_in);
+        transcription_result = transcription_driver_->getData();
+      }
 
       if (transcription_result.has_value())
       {
-        auto transcription_text = std::any_cast<std::string>(transcription_result);
-        RCLCPP_INFO(this->get_logger(), "Transcription result for sentiment analysis: %s", transcription_text.c_str());
-        sentiment_driver_->setDataStream(transcription_text);
+        try
+        {
+          text = std::any_cast<std::string>(transcription_result);
+        }
+        catch (const std::bad_any_cast&)
+        {
+          RCLCPP_ERROR(this->get_logger(), "Unexpected transcription result type for sentiment analysis.");
+          response->label = "Error: unexpected transcription result type";
+          response->score = 0.0;
+          return;
+        }
+
+        RCLCPP_INFO(this->get_logger(), "Transcription result for sentiment analysis: %s", text.c_str());
       }
       else
       {
@@ -594,13 +681,18 @@ protected:
         return;
       }
     }
-    else
+
+    RCLCPP_INFO(this->get_logger(), "Using text for sentiment analysis.");
     {
-      RCLCPP_INFO(this->get_logger(), "Using external text for sentiment analysis.");
-      sentiment_driver_->setDataStream(request->text);
+      std::lock_guard<std::mutex> lock(sentiment_driver_mutex_);
+      sentiment_driver_->setDataStream(text);
     }
 
-    auto result = sentiment_driver_->getData();
+    std::any result;
+    {
+      std::lock_guard<std::mutex> lock(sentiment_driver_mutex_);
+      result = sentiment_driver_->getData();
+    }
 
     if (result.has_value())
     {
@@ -628,11 +720,21 @@ protected:
   bool use_sentiment_driver_;
   bool use_speech_driver_;
 
+  // Buffer to store audio data for other drivers when using device audio
+  audio_data public_buffer_;
+  std::mutex public_buffer_mutex_;
+  std::condition_variable public_buffer_cv_;
+  uint64_t public_buffer_total_samples_{ 0 };
+
+  std::mutex transcription_driver_mutex_;
+  std::mutex sentiment_driver_mutex_;
+
   // Audio inputtopic parameters
   bool audio_input_publish_;
   std::string audio_input_topic_;
   std::string audio_input_frame_id_;
   int audio_input_frequency_;
+  int audio_input_buffer_duration_;
 
   // Audio output topic parameters
   std::string audio_output_topic_;
@@ -641,8 +743,6 @@ protected:
   // Transcription service parameters
   bool transcription_enabled_;
   std::string transcription_service_;
-  int transcription_buffer_duration_;
-  audio_data transcription_buffer_;
 
   // Speech synthesis service parameters
   bool speech_enabled_;
@@ -706,6 +806,56 @@ protected:
 
   // Thread for publishing gathered data from the device
   std::thread publish_vision_;
+
+  perception::audio_data wait_for_public_audio(int duration_seconds)
+  {
+    duration_seconds = std::max(1, duration_seconds);
+
+    std::unique_lock<std::mutex> lock(public_buffer_mutex_);
+
+    // Wait until we have at least one chunk and can determine sample format.
+    if (public_buffer_.sample_rate <= 0 || public_buffer_.channels <= 0)
+    {
+      public_buffer_cv_.wait_for(lock, std::chrono::seconds(5), [this] {
+        return public_buffer_.sample_rate > 0 && public_buffer_.channels > 0 && !public_buffer_.samples.empty();
+      });
+    }
+
+    if (public_buffer_.sample_rate <= 0 || public_buffer_.channels <= 0)
+      throw perception_exception("public audio buffer not initialized");
+
+    const size_t max_samples = static_cast<size_t>(std::max(1, public_buffer_.sample_rate)) *
+                               static_cast<size_t>(std::max(1, public_buffer_.channels)) *
+                               static_cast<size_t>(std::max(1, audio_input_buffer_duration_));
+
+    const size_t needed_samples = static_cast<size_t>(public_buffer_.sample_rate) *
+                                  static_cast<size_t>(public_buffer_.channels) *
+                                  static_cast<size_t>(duration_seconds);
+
+    if (needed_samples > max_samples)
+      throw perception_exception("requested device_buffer_time exceeds configured interface.audio_input.buffer_duration");
+
+    const uint64_t start = public_buffer_total_samples_;
+    const uint64_t needed_total = start + static_cast<uint64_t>(needed_samples);
+
+    const auto timeout = std::chrono::seconds(duration_seconds + 10);
+    const bool ok = public_buffer_cv_.wait_for(lock, timeout, [this, needed_total] {
+      return public_buffer_total_samples_ >= needed_total;
+    });
+
+    if (!ok)
+      throw perception_exception("timeout waiting for device audio buffer to fill");
+
+    if (public_buffer_.samples.size() < needed_samples)
+      throw perception_exception("buffer underflow for requested duration");
+
+    perception::audio_data out = public_buffer_;
+    out.samples.assign(public_buffer_.samples.end() - static_cast<std::ptrdiff_t>(needed_samples),
+                       public_buffer_.samples.end());
+    out.chunk_count = 1;
+    out.chunk_size = static_cast<int>(needed_samples / static_cast<size_t>(std::max(1, out.channels)));
+    return out;
+  }
 };
 
 }  // namespace perception

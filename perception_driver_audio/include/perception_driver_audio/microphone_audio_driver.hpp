@@ -4,6 +4,8 @@
 #include <vector>
 #include <deque>
 #include <mutex>
+#include <algorithm>
+#include <cmath>
 #include <rclcpp/rclcpp.hpp>
 #include <std_msgs/msg/int16_multi_array.hpp>
 #include <perception_base/driver_base.hpp>
@@ -59,8 +61,7 @@ public:
     node->declare_parameter("driver.audio.MicrophoneAudioDriver.chunk_size", 256);     // default chunk size
     node->declare_parameter("driver.audio.MicrophoneAudioDriver.sample_rate", 44100);  // default sample rate
     node->declare_parameter("driver.audio.MicrophoneAudioDriver.channels", 1);         // default number of channels
-    node->declare_parameter("driver.audio.MicrophoneAudioDriver.buffer_time", 10);     // default device ID
-
+    node->declare_parameter("driver.audio.MicrophoneAudioDriver.buffer_time", 10);     // default buffer time in seconds
     // Load parameters from the node
     name_ = node->get_parameter("driver.audio.MicrophoneAudioDriver.name").as_string();
     device_name_ = node->get_parameter("driver.audio.MicrophoneAudioDriver.device_name").as_string();
@@ -68,8 +69,6 @@ public:
     sample_rate_ = node->get_parameter("driver.audio.MicrophoneAudioDriver.sample_rate").as_int();
     channels_ = node->get_parameter("driver.audio.MicrophoneAudioDriver.channels").as_int();
     buffer_time_ = node->get_parameter("driver.audio.MicrophoneAudioDriver.buffer_time").as_int();
-
-    buffer_size_ = sample_rate_ * channels_ * buffer_time_;
 
     // Initialize the base driver
     initialize_base(node);
@@ -113,12 +112,31 @@ public:
     inputParams.suggestedLatency = Pa_GetDeviceInfo(device_id_)->defaultLowInputLatency;
     inputParams.hostApiSpecificStreamInfo = nullptr;
 
+    // Try to open with the configured sample rate first; if the device rejects it,
+    // fall back to the device default sample rate and resample to the configured rate
+    // when returning data.
+    capture_sample_rate_ = sample_rate_;
     err = Pa_OpenStream(&stream_, &inputParams, nullptr, sample_rate_, chunk_size_, paNoFlag, nullptr, nullptr);
+    if (err == paInvalidSampleRate)
+    {
+      const PaDeviceInfo* info = Pa_GetDeviceInfo(device_id_);
+      const int fallback_rate = info ? static_cast<int>(std::lround(info->defaultSampleRate)) : sample_rate_;
+      RCLCPP_WARN(node_->get_logger(),
+                  "Requested mic sample_rate (%d) not supported by device '%s'. Falling back to %d and resampling.",
+                  sample_rate_, device_name_.c_str(), fallback_rate);
+
+      capture_sample_rate_ = fallback_rate;
+      err = Pa_OpenStream(&stream_, &inputParams, nullptr, capture_sample_rate_, chunk_size_, paNoFlag, nullptr, nullptr);
+    }
+
     if (err != paNoError)
     {
       RCLCPP_ERROR(node_->get_logger(), "Failed to open microphone stream: %s", Pa_GetErrorText(err));
       throw perception_exception("Failed to open microphone stream: " + std::string(Pa_GetErrorText(err)));
     }
+
+    // Buffer stores captured samples at the capture sample rate.
+    buffer_size_ = capture_sample_rate_ * channels_ * buffer_time_;
 
     err = Pa_StartStream(stream_);
     if (err != paNoError)
@@ -179,7 +197,11 @@ public:
     // Check if the audio buffer is empty and proceed only if it has enough data
     std::unique_lock<std::mutex> lock(buffer_mutex_);
 
-    if (!buffer_cv_.wait_for(lock, std::chrono::seconds(5), [this] { return audio_buffer_.size() >= chunk_size_; }))
+    const size_t chunk_samples = static_cast<size_t>(chunk_size_) * static_cast<size_t>(std::max(1, channels_));
+
+    if (!buffer_cv_.wait_for(lock, std::chrono::seconds(5), [this, chunk_samples] {
+          return audio_buffer_.size() >= chunk_samples;
+        }))
     {
       throw perception_exception("Timeout waiting for audio data.");
     }
@@ -190,18 +212,35 @@ public:
     data.chunk_size = chunk_size_;
     data.chunk_count = 0;
 
-    while (audio_buffer_.size() >= chunk_size_)
+    std::vector<int16_t> captured;
+    while (audio_buffer_.size() >= chunk_samples)
     {
       auto begin_iter = audio_buffer_.begin();
-      auto end_iter = begin_iter + chunk_size_;
+      auto end_iter = begin_iter + static_cast<std::ptrdiff_t>(chunk_samples);
 
       // Append the chunk to the output data
-      data.samples.insert(data.samples.end(), begin_iter, end_iter);
+      captured.insert(captured.end(), begin_iter, end_iter);
 
       // Erase the chunk from the buffer in one go
       audio_buffer_.erase(begin_iter, end_iter);
 
       data.chunk_count++;
+    }
+
+    // If the capture sample rate differs from the configured sample rate, resample.
+    if (capture_sample_rate_ != sample_rate_)
+    {
+      data.samples = resample_linear_interleaved(captured, channels_, capture_sample_rate_, sample_rate_);
+      data.sample_rate = sample_rate_;
+      data.chunk_size = std::max<int>(1, static_cast<int>(data.samples.size() / static_cast<size_t>(std::max(1, channels_))));
+      data.chunk_count = 1;
+    }
+    else
+    {
+      data.samples = std::move(captured);
+      data.sample_rate = capture_sample_rate_;
+      data.chunk_size = std::max<int>(1, static_cast<int>(data.samples.size() / static_cast<size_t>(std::max(1, channels_))));
+      data.chunk_count = 1;
     }
 
     return data;
@@ -259,12 +298,51 @@ public:
   }
 
 protected:
+  static std::vector<int16_t> resample_linear_interleaved(const std::vector<int16_t>& input, int channels,
+                                                          int input_rate, int output_rate)
+  {
+    if (input_rate <= 0 || output_rate <= 0)
+      throw perception_exception("Invalid sample rate for resampling");
+
+    channels = std::max(1, channels);
+    const size_t input_frames = input.size() / static_cast<size_t>(channels);
+
+    if (input_frames == 0 || input_rate == output_rate)
+      return input;
+
+    const double ratio = static_cast<double>(output_rate) / static_cast<double>(input_rate);
+    const size_t output_frames = std::max<size_t>(1, static_cast<size_t>(std::llround(input_frames * ratio)));
+    std::vector<int16_t> output(output_frames * static_cast<size_t>(channels));
+
+    for (int ch = 0; ch < channels; ++ch)
+    {
+      for (size_t out_i = 0; out_i < output_frames; ++out_i)
+      {
+        const double src_pos = static_cast<double>(out_i) / ratio;
+        const size_t i0 = static_cast<size_t>(std::floor(src_pos));
+        const size_t i1 = std::min(i0 + 1, input_frames - 1);
+        const double frac = src_pos - static_cast<double>(i0);
+
+        const int16_t s0 = input[i0 * static_cast<size_t>(channels) + static_cast<size_t>(ch)];
+        const int16_t s1 = input[i1 * static_cast<size_t>(channels) + static_cast<size_t>(ch)];
+
+        const double mixed = (1.0 - frac) * static_cast<double>(s0) + frac * static_cast<double>(s1);
+        const long rounded = std::lround(mixed);
+        const long clamped = std::clamp<long>(rounded, -32768, 32767);
+
+        output[out_i * static_cast<size_t>(channels) + static_cast<size_t>(ch)] = static_cast<int16_t>(clamped);
+      }
+    }
+
+    return output;
+  }
+
   void driver_thread()
   {
     while (rclcpp::ok() && is_running_)
     {
       // Read audio data from the PortAudio stream
-      std::vector<int16_t> buffer(chunk_size_ * channels_);
+      std::vector<int16_t> buffer(static_cast<size_t>(chunk_size_) * static_cast<size_t>(std::max(1, channels_)));
 
       err = Pa_ReadStream(stream_, buffer.data(), chunk_size_);
 
@@ -300,6 +378,7 @@ protected:
   int device_id_;             // Device ID for the microphone
   unsigned long chunk_size_;  // Default chunk size
   int sample_rate_;           // Default sample rate
+  int capture_sample_rate_{ 0 };  // Actual device capture rate (may differ from sample_rate_)
   int channels_;              // Default number of channels
   int buffer_time_;           // Buffer time in seconds
   int buffer_size_;           // Buffer size in samples

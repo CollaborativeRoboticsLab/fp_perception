@@ -20,32 +20,18 @@ def generate_launch_description():
     # load config file
     perception_config = os.path.join(get_package_share_directory('perception'), 'config', 'config.yaml')
 
-    eye_gaze_model_path = os.path.join(get_package_share_directory('perception_algo_eye_gaze_detection'), 'models/face_mesh.pt')
-    ambient_model_path = os.path.join(get_package_share_directory('perception_algo_context_detection'), 'models/ambient.pt')
-
     # create perception node
     perception_server = Node(
         package='perception',
         executable='perception_node',
         name='perception_node',
-        parameters=[perception_config,
-                    {'algorithm.GazeAlgorithm.detection.model_path': eye_gaze_model_path,
-                     'algorithm.ContextAlgorithm.AmbientDetector.model_path': ambient_model_path}],
+        parameters=[perception_config],
         output='screen',
         arguments=['--ros-args', '--log-level', 'info']
     )
-
-
-    # added perception listener launchfile
-    perception_launch_path = os.path.join(get_package_share_directory('perception_events'), 'launch', 'listener.launch.py')
-
-    perception_launch = IncludeLaunchDescription(
-            PythonLaunchDescriptionSource(perception_launch_path),
-        )
     
     # create launch description
     # return
     return LaunchDescription([
         perception_server,
-        perception_launch,
     ])

@@ -66,15 +66,15 @@
       audio:
         MicrophoneAudioDriver:
           name: MicrophoneAudioDriver
-          device_name: default
-          chunk_size: 48000 # number of frames per audio buffer processing cycle.will give inputoverflowed error if too small
-          sample_rate: 48000 # number of samples per second
-          channels: 2 # number of audio channels
+          device_name: "AM-4136"
+          chunk_size: 192000 # number of frames per audio buffer processing cycle.will give inputoverflowed error if too small
+          sample_rate: 192000 # number of samples per second
+          channels: 1 # number of audio channels
           buffer_time: 10 # buffering time in seconds
 
         SpeakerAudioDriver:
           name: SpeakerAudioDriver
-          device_name: default # use default audio output device
+          device_name: "ALC285 Analog"
           sample_rate: 48000
           channels: 2
           test_file_path: test/mic_test.wav

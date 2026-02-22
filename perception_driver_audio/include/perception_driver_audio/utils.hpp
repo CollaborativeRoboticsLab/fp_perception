@@ -2,7 +2,7 @@
 
 #include <portaudio.h>
 #include <string>
-#include <perception_base/utils/exceptions.hpp>
+#include <perception_base/exceptions.hpp>
 
 namespace perception
 {

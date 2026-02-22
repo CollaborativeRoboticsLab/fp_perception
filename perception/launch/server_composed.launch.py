@@ -35,17 +35,9 @@ def generate_launch_description():
             )
         ]
     )
-
-    # added perception listener launchfile
-    perception_launch_path = os.path.join(get_package_share_directory('perception_events'), 'launch', 'listener.launch.py')
-
-    perception_launch = IncludeLaunchDescription(
-            PythonLaunchDescriptionSource(perception_launch_path),
-        )
     
     # create launch description
     # return
     return LaunchDescription([
         perception_server,
-        perception_launch,
     ])

@@ -6,6 +6,9 @@
 #include <mutex>
 #include <map>
 #include <fstream>
+#include <algorithm>
+#include <cmath>
+#include <cstdint>
 #include <perception_base/driver_base.hpp>
 #include <perception_base/audio/structs.hpp>
 #include <perception_base/audio/wav.hpp>
@@ -57,7 +60,8 @@ public:
     node->declare_parameter("driver.audio.SpeakerAudioDriver.device_name", "default");
     node->declare_parameter("driver.audio.SpeakerAudioDriver.sample_rate", 44100);  // default sample rate
     node->declare_parameter("driver.audio.SpeakerAudioDriver.channels", 1);         // default number of channels
-    node->declare_parameter("driver.audio.SpeakerAudioDriver.test_file_path", "test/mic_test.wav");       // default device ID
+    node->declare_parameter("driver.audio.SpeakerAudioDriver.test_file_path",
+                            "test/mic_test.wav");  // default device ID
 
     // Load parameters from the node
     name_ = node->get_parameter("driver.audio.SpeakerAudioDriver.name").as_string();
@@ -97,7 +101,7 @@ public:
     RCLCPP_INFO(node_->get_logger(), "Assigned driver channels: %d", channels_);
 
     RCLCPP_INFO(node_->get_logger(), "Initialized");
-  } 
+  }
 
   /**
    * @brief Stop driver streaming. This function stops the audio stream and closes it.
@@ -135,7 +139,7 @@ public:
   void setDataStream(const std::any& input) override
   {
     // convert std::any to audio_data
-    const auto data = std::any_cast<const perception::audio_data&>(input);
+    auto data = std::any_cast<const perception::audio_data&>(input);
 
     if (data.samples.empty())
     {
@@ -143,8 +147,24 @@ public:
       throw perception_exception("Received empty audio data, nothing to set.");
     }
 
+    // Normalize incoming audio to the configured output sample rate.
+    // PortAudio/ALSA will fail to open for unsupported rates (e.g. 192kHz on some sinks).
+    // Channel count normalization is handled in write_data().
+    if (data.sample_rate != sample_rate_)
+    {
+      RCLCPP_WARN(node_->get_logger(),
+                  "Incoming audio sample_rate (%d) differs from configured output sample_rate (%d). Resampling.",
+                  data.sample_rate, sample_rate_);
+      data.samples = resample_linear_interleaved(data.samples, data.channels, data.sample_rate, sample_rate_);
+      data.sample_rate = sample_rate_;
+
+      const auto frames = static_cast<int>(data.samples.size() / std::max(1, data.channels));
+      data.chunk_size = std::max(1, frames);
+      data.chunk_count = 1;
+    }
+
     // Create a unique stream key based on format, rate, and channels
-    std::string stream_key = "int16_" + std::to_string(data.sample_rate) + "_" + std::to_string(channels_);
+    std::string stream_key = "int16_" + std::to_string(sample_rate_) + "_" + std::to_string(channels_);
 
     if (stream_dict_.find(stream_key) == stream_dict_.end())
     {
@@ -157,8 +177,8 @@ public:
 
       // Open a new stream for this format
       PaStream* stream = nullptr;
-      err = Pa_OpenStream(&stream, nullptr, &outputParameters, data.sample_rate, paFramesPerBufferUnspecified,
-                          paClipOff, nullptr, nullptr);
+      err = Pa_OpenStream(&stream, nullptr, &outputParameters, sample_rate_, paFramesPerBufferUnspecified, paClipOff,
+                          nullptr, nullptr);
 
       if (err != paNoError)
       {
@@ -224,6 +244,45 @@ public:
   }
 
 protected:
+  static std::vector<int16_t> resample_linear_interleaved(const std::vector<int16_t>& input, int channels,
+                                                          int input_rate, int output_rate)
+  {
+    if (input_rate <= 0 || output_rate <= 0)
+      throw perception_exception("Invalid sample rate for resampling");
+
+    channels = std::max(1, channels);
+    const size_t input_frames = input.size() / static_cast<size_t>(channels);
+
+    if (input_frames == 0 || input_rate == output_rate)
+      return input;
+
+    const double ratio = static_cast<double>(output_rate) / static_cast<double>(input_rate);
+    const size_t output_frames = std::max<size_t>(1, static_cast<size_t>(std::llround(input_frames * ratio)));
+    std::vector<int16_t> output(output_frames * static_cast<size_t>(channels));
+
+    for (int ch = 0; ch < channels; ++ch)
+    {
+      for (size_t out_i = 0; out_i < output_frames; ++out_i)
+      {
+        const double src_pos = static_cast<double>(out_i) / ratio;
+        const size_t i0 = static_cast<size_t>(std::floor(src_pos));
+        const size_t i1 = std::min(i0 + 1, input_frames - 1);
+        const double frac = src_pos - static_cast<double>(i0);
+
+        const int16_t s0 = input[i0 * static_cast<size_t>(channels) + static_cast<size_t>(ch)];
+        const int16_t s1 = input[i1 * static_cast<size_t>(channels) + static_cast<size_t>(ch)];
+
+        const double mixed = (1.0 - frac) * static_cast<double>(s0) + frac * static_cast<double>(s1);
+        const long rounded = std::lround(mixed);
+        const long clamped = std::clamp<long>(rounded, -32768, 32767);
+
+        output[out_i * static_cast<size_t>(channels) + static_cast<size_t>(ch)] = static_cast<int16_t>(clamped);
+      }
+    }
+
+    return output;
+  }
+
   void write_data(audio_data input_data, const std::string& stream_key)
   {
     std::vector<int16_t> data;  // Buffer for the actual data to write

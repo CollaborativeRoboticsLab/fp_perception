@@ -1,51 +1,72 @@
-# config for perception drivers
-# This file is used to configure the parameters for the perception drivers in the perception system.
 /**:
   ros__parameters:
+    # Server behavior
     run_tests: true
+
+    # Which plugin groups to load
     use_vision_driver: false
-    use_microphone_driver: false
-    use_speaker_driver: false
-    use_transcription_driver: false
-    use_sentiment_driver: false
+    use_microphone_driver: true
+    use_speaker_driver: true
+    use_transcription_driver: true
+    use_sentiment_driver: true
     use_speech_driver: true
 
-    use_eye_gaze_algorithm: false
-    use_context_identification_algorithm: false
+    # Pluginlib class selection
+    ros_vision_driver: perception::DefaultDriver
+    non_ros_vision_driver: perception::OpenCVDriver
+    microphone_driver: perception::MicrophoneAudioDriver
+    speaker_driver: perception::SpeakerAudioDriver
+    transcription_driver: perception::OpenAIDriver
+    sentiment_driver: perception::SentimentDriver
+    speech_synthesis_driver: perception::OpenAISpeechDriver
 
-    # Uncomment the following lines to enable the respective drivers
-    # vision_driver: perception::DefaultDriver                          # Default ROS driver for vision
-    vision_driver: perception::OpenCVDriver # OpenCV driver for vision
-    microphone_driver: perception::MicrophoneAudioDriver # Driver for microphone audio
-    speaker_driver: perception::SpeakerAudioDriver # Driver for speaker audio
-    transcription_driver: perception::OpenAIDriver # Driver for audio transcription
-    sentiment_analysis_driver: perception::SentimentDriver # Driver for sentiment analysis
-    speech_synthesis_driver: perception::OpenAISpeechDriver # Driver for speech synthesis
+    # ROS interface configuration
+    interface:
+      audio_input:
+        publish: false
+        topic: perception/microphone
+        frame_id: microphone_frame
+        frequency: 10
 
-    eye_gaze_algorithm: perception::GazeAlgorithm # Algorithm for eye gaze detection
-    context_identification_algorithm: perception::ContextAlgorithm # Algorithm for context identification
+      audio_output:
+        subscribe: false
+        topic: perception/speaker
 
+      transcription:
+        provide_service: false
+        service: perception/transcription
+        buffer_duration: 10
+
+      speech:
+        provide_service: false
+        service_name: perception/speech
+
+      sentiment:
+        provide_service: false
+        service_name: perception/sentiment_analysis
+
+      vision_input:
+        publish: false
+        topic: perception/camera
+        frame_id: camera_frame
+        frequency: 10
+        non_ros: false
+
+    # Plugin parameters (nested maps map to dot-separated ROS parameters)
     driver:
       vision:
         DefaultDriver:
           name: DefaultDriver
-          topic: /camera/image_raw
+          topic: /camera/raw
 
         OpenCVDriver:
           name: OpenCVDriver
           device_id: 0
-          publish: true
-          topic: /camera/image_raw
-          frame_id: camera_frame
-          frequency: 30.0
 
       audio:
         MicrophoneAudioDriver:
           name: MicrophoneAudioDriver
           device_name: default
-          publish: true
-          topic: /audio/microphone
-          frame_id: microphone_frame
           chunk_size: 48000 # number of frames per audio buffer processing cycle.will give inputoverflowed error if too small
           sample_rate: 48000 # number of samples per second
           channels: 2 # number of audio channels
@@ -54,9 +75,6 @@
         SpeakerAudioDriver:
           name: SpeakerAudioDriver
           device_name: default # use default audio output device
-          subscribe: true
-          topic: /audio/speaker
-          frame_id: speaker_frame
           sample_rate: 48000
           channels: 2
           test_file_path: test/mic_test.wav
@@ -66,8 +84,7 @@
       transcription:
         OpenAIDriver:
           name: OpenAIDriver
-          # model: gpt-4o-transcribe
-          model: whisper-1
+          model: whisper-1   # gpt-4o-transcribe
           # test_file_path: test/mic_test.wav
           test_file_path: install/perception_driver_audio/share/perception_driver_audio/audio/hello-1.wav
           # test_file_path: install/perception_driver_audio/share/perception_driver_audio/audio/hello-2.wav
@@ -80,8 +97,6 @@
       sentiment:
         SentimentDriver:
           name: SentimentDriver
-          service_name: sentiment_analysis
-          provide_service: true  
           rest:
             uri: https://router.huggingface.co/hf-inference/models/distilbert/distilbert-base-uncased-finetuned-sst-2-english
             method: POST
@@ -92,12 +107,10 @@
         OpenAISpeechDriver:
           name: OpenAISpeechDriver
           model: gpt-4o-mini-tts
-          test_text: "Hello, this is a test of the OpenAI speech synthesis driver."
-          test_file_path: test/speech_test.wav
-          voice: sage
-          instructions: "Speak clearly and at a moderate pace."
-          provide_service: true
-          service_name: perception/speech
+          test_text: "Hello this is a test speech for ROS2 perception speech driver."
+          test_file_path: test/speech.wav
+          voice: coral
+          instructions: "Please speak clearly and slowly."
           rest:
             uri: https://api.openai.com/v1/audio/speech
             method: POST

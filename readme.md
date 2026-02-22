@@ -2,37 +2,49 @@
 
 ## Overview
 
-The `perception` package provides a **standardized, plugin-based architecture** for managing **drivers** and **algorithms** that power perception systems in **human-robot interaction (HRI)** scenarios.
+The `perception` package provides a **standardized, plugin-based architecture** for managing **drivers** (and related processing) that power perception systems in **human-robot interaction (HRI)** scenarios.
 
 It enables modular development and dynamic loading of components at runtime using ROS 2's [`pluginlib`](https://github.com/ros/pluginlib), simplifying integration, testing, and extension of perception pipelines.
+
+## Documentation
+
+Start here:
+
+- [Server](docs/server_system.md) — how the server loads plugins, acquires devices, and routes data
+- [ROS Interface](docs/interfaces.md) — topics/services and message/service definitions
+- [Base Classes](docs/base_classes.md) — `DriverBase` and `RestBase`
+
+Drivers:
+
+- [Audio Drivers](docs/audio_drivers.md)
+- [Vision Drivers](docs/vision_drivers.md)
+- [Transcription Drivers](docs/transribe_drivers.md)
+- [Speech Drivers](docs/speech_drivers.md)
+- [Sentiment Drivers](docs/sentiment_drivers.md)
 
 
 ## Key Features
 
-* **Plugin-based driver and algorithm framework**
-  Easily integrate new sensors and processing modules without changing the core system.
+* **Plugin-based driver framework**
+  Integrate new sensors and drivers without changing the core system.
 
-* **Reusable base classes** for drivers (`DriverBase`) and algorithms (`AlgorithmBase`)
+* **Reusable base classes** for drivers (`DriverBase`) and REST-backed drivers (`RestBase`)
 
 * Designed with **HRI** in mind – enabling perception for social, assistive, and interactive robots.
 
-* Integrated **event publishing** using the `EventClient` abstraction for tracing and introspection.
+* Server exposes a small set of **ROS topics/services** for audio, vision, transcription, speech synthesis, and sentiment.
 
 
 ## Plugins
 
 ### Driver Plugins
 
-- `DriverBase` used to implement drivers that interact with perception hardware (e.g., cameras, audio devices and depth sensors).
+- `DriverBase` is used to implement drivers that interact with perception hardware (e.g., cameras, audio devices).
 
-- [Perception Vision Driver](https://github.com/CollaborativeRoboticsLab/perception/blob/main/perception_driver_vision/readme.md) plugins required to interact with visual data
-- [Perception Audio Driver](https://github.com/CollaborativeRoboticsLab/perception/blob/main/perception_driver_audio/readme.md) plugins required to interact with visual data
+- Package READMEs:
+  - [perception_driver_vision/readme.md](perception_driver_vision/readme.md)
+  - [perception_driver_audio/readme.md](perception_driver_audio/readme.md)
 
-### Algorithm Plugins
-
-- `AlgorithmBase` used to implement perception algorithms (e.g., face detection, object tracking).
-
-- [Perception Eye Gaze Detection](https://github.com/CollaborativeRoboticsLab/perception/blob/main/perception_detect_eye_gaze/readme.md) plugins required to interact with visual data
 
 ## Build the system 
 
@@ -51,7 +63,7 @@ Install dependencies
 ```sh
 cd ..
 sudo apt update
-sudo apt install libportaudio2 portaudio19-dev ros-humble-vision-opencv 
+sudo apt install libportaudio2 portaudio19-dev python3-pyaudio ros-humble-vision-opencv
 ```
 
 for any missing dependencies
@@ -66,20 +78,63 @@ colcon build
 
 ## Plugin configuration
 
-Set the bool `true` to use a type of a plugin and then give the name of the specific plugin to load it.
+The perception server reads parameters from [perception/config/config.yaml](perception/perception/config/config.yaml).
+
+At a high level:
+
+1. Enable the feature group with `use_*`.
+2. Pick the plugin class to load (e.g. `microphone_driver: perception::MicrophoneAudioDriver`).
+3. Configure the ROS interfaces under `interface.*`.
+4. Configure per-plugin parameters under `driver.*`.
 
 ```yaml
-  use_vision_driver: true
-  use_microphone_driver: false
-  use_speaker_driver: false
-  use_eye_gaze_algorithm: true
-  
-  # Uncomment the following lines to enable the respective drivers
-  vision_driver: perception::DefaultDriver              # Default ROS driver for vision
-  # vision_driver: perception::OpenCVDriver             # OpenCV driver for vision
-  microphone_driver: perception::MicrophoneAudioDriver  # Driver for microphone audio
-  speaker_driver: perception::SpeakerAudioDriver        # Driver for speaker audio
-  eye_gaze_algorithm: perception::GazeAlgorithm         # Algorithm for eye gaze detection
+  # Enable/disable plugin groups
+  use_microphone_driver: true
+  use_speaker_driver: true
+  use_transcription_driver: true
+  use_speech_driver: true
+  use_sentiment_driver: false
+  use_vision_driver: false
+
+  # Select which pluginlib classes to load
+  microphone_driver: perception::MicrophoneAudioDriver
+  speaker_driver: perception::SpeakerAudioDriver
+  transcription_driver: perception::OpenAIDriver
+  speech_synthesis_driver: perception::OpenAISpeechDriver
+  sentiment_driver: perception::SentimentDriver
+
+  # Server ROS interfaces
+  interface:
+    audio_input:
+      publish: true
+      topic: perception/microphone
+      frame_id: microphone_frame
+      frequency: 10
+    transcription:
+      provide_service: true
+      service: perception/transcription
+      buffer_duration: 10
+    speech:
+      provide_service: true
+      service_name: perception/speech
+    sentiment:
+      provide_service: false
+      service_name: perception/sentiment_analysis
+
+  # Per-plugin parameters (maps to dot-separated params)
+  driver:
+    audio:
+      MicrophoneAudioDriver:
+        device_name: default
+        sample_rate: 48000
+        channels: 2
+        chunk_size: 48000
+        buffer_time: 10
+    transcription:
+      OpenAIDriver:
+        model: whisper-1
+        rest:
+          uri: https://api.openai.com/v1/audio/transcriptions
 ```
 
 build the workspace to update the configuration
@@ -102,8 +157,8 @@ ros2 launch perception server.launch.py
 
 ## Writing Your Own Plugins
 
-1. Inherit from `perception::DriverBase` or `perception::AlgorithmBase`.
-2. Implement required methods (`initialize`, `start`, `stop`, `getData`, `getDataStream`, `setData`, `setDataStream`).
+1. Inherit from `perception::DriverBase` (or `perception::RestBase` for REST-backed drivers).
+2. Implement required methods (`initialize`, `deinitialize`) and whichever data methods you need (`getData*`, `setData*`).
 3. Register your plugin using `PLUGINLIB_EXPORT_CLASS`.
 4. Define a plugin XML manifest.
 

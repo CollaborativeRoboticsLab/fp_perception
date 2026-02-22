@@ -7,9 +7,8 @@
 #include <rclcpp/rclcpp.hpp>
 #include <std_msgs/msg/int16_multi_array.hpp>
 #include <perception_base/driver_base.hpp>
-#include <perception_base/utils/audio/structs.hpp>
-#include <perception_base/utils/audio/wav.hpp>
-#include <perception_msgs/msg/perception_audio.hpp>
+#include <perception_base/audio/structs.hpp>
+#include <perception_base/audio/wav.hpp>
 #include <perception_driver_audio/utils.hpp>
 
 namespace perception
@@ -63,8 +62,8 @@ public:
     node->declare_parameter("driver.audio.MicrophoneAudioDriver.buffer_time", 10);     // default device ID
 
     // Load parameters from the node
-    name = node->get_parameter("driver.audio.MicrophoneAudioDriver.name").as_string();
-    device_name = node->get_parameter("driver.audio.MicrophoneAudioDriver.device_name").as_string();
+    name_ = node->get_parameter("driver.audio.MicrophoneAudioDriver.name").as_string();
+    device_name_ = node->get_parameter("driver.audio.MicrophoneAudioDriver.device_name").as_string();
     chunk_size_ = node->get_parameter("driver.audio.MicrophoneAudioDriver.chunk_size").as_int();
     sample_rate_ = node->get_parameter("driver.audio.MicrophoneAudioDriver.sample_rate").as_int();
     channels_ = node->get_parameter("driver.audio.MicrophoneAudioDriver.channels").as_int();
@@ -86,32 +85,32 @@ public:
     // Get the device ID by name
     try
     {
-      device_id = perception::getDeviceIdByName(device_name);
-      RCLCPP_INFO(node_->get_logger(), "Device ID for name '%s' is %d", device_name.c_str(), device_id);
+      device_id_ = perception::getDeviceIdByName(device_name_);
+      RCLCPP_INFO(node_->get_logger(), "Device ID for name '%s' is %d", device_name_.c_str(), device_id_);
     }
     catch (const std::exception& e)
     {
-      RCLCPP_ERROR(node_->get_logger(), "Failed to get device ID for name '%s': %s", device_name.c_str(), e.what());
-      throw perception_exception("Failed to get device ID for name '" + device_name + "': " + e.what());
+      RCLCPP_ERROR(node_->get_logger(), "Failed to get device ID for name '%s': %s", device_name_.c_str(), e.what());
+      throw perception_exception("Failed to get device ID for name '" + device_name_ + "': " + e.what());
     }
 
     // Publish about the assigned driver parameters
-    RCLCPP_INFO(node_->get_logger(), "Assigned driver name: %s", name.c_str());
-    RCLCPP_INFO(node_->get_logger(), "Assigned driver device_name: %s", device_name.c_str());
-    RCLCPP_INFO(node_->get_logger(), "Assigned driver device_id: %d", device_id);
+    RCLCPP_INFO(node_->get_logger(), "Assigned driver name: %s", name_.c_str());
+    RCLCPP_INFO(node_->get_logger(), "Assigned driver device_name: %s", device_name_.c_str());
+    RCLCPP_INFO(node_->get_logger(), "Assigned driver device_id: %d", device_id_);
     RCLCPP_INFO(node_->get_logger(), "Assigned driver chunk_size: %d", chunk_size_);
     RCLCPP_INFO(node_->get_logger(), "Assigned driver sample_rate: %d", sample_rate_);
     RCLCPP_INFO(node_->get_logger(), "Assigned driver channels: %d", channels_);
     RCLCPP_INFO(node_->get_logger(), "Assigned driver buffer_time: %d", buffer_time_);
     RCLCPP_INFO(node_->get_logger(), "Assigned driver buffer size: %d", buffer_size_);
 
-    RCLCPP_INFO(node_->get_logger(), "starting on device %d", device_id);
+    RCLCPP_INFO(node_->get_logger(), "starting on device %d", device_id_);
 
     PaStreamParameters inputParams;
-    inputParams.device = device_id;
+    inputParams.device = device_id_;
     inputParams.channelCount = channels_;
     inputParams.sampleFormat = paInt16;
-    inputParams.suggestedLatency = Pa_GetDeviceInfo(device_id)->defaultLowInputLatency;
+    inputParams.suggestedLatency = Pa_GetDeviceInfo(device_id_)->defaultLowInputLatency;
     inputParams.hostApiSpecificStreamInfo = nullptr;
 
     err = Pa_OpenStream(&stream_, &inputParams, nullptr, sample_rate_, chunk_size_, paNoFlag, nullptr, nullptr);
@@ -260,7 +259,7 @@ public:
   }
 
 protected:
-  void driver_thread() override
+  void driver_thread()
   {
     while (rclcpp::ok() && is_running_)
     {
@@ -298,7 +297,7 @@ protected:
   PaError err = paNoError;
   std::deque<int16_t> audio_buffer_;
   std::mutex publish_mutex_;
-  int device_id;
+  int device_id_;             // Device ID for the microphone
   unsigned long chunk_size_;  // Default chunk size
   int sample_rate_;           // Default sample rate
   int channels_;              // Default number of channels

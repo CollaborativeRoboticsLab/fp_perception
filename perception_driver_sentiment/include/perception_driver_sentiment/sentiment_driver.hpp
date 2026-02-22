@@ -1,12 +1,11 @@
 #pragma once
 
 #include <any>
-#include <perception_base/rest_base.hpp>
-#include <perception_msgs/srv/perception_sentiment.hpp>
-#include <rclcpp/rclcpp.hpp>
 #include <string>
 #include <utility>
 #include <vector>
+#include <rclcpp/rclcpp.hpp>
+#include <perception_base/rest_base.hpp>
 
 namespace perception
 {
@@ -37,6 +36,7 @@ public:
    */
   ~SentimentDriver() override
   {
+    deinitialize();
   }
 
   /**
@@ -61,6 +61,18 @@ public:
 
     // Log that the driver has been initialized
     RCLCPP_INFO(node_->get_logger(), "Initialized");
+  }
+
+  /**
+   * @brief Deinitialize the driver
+   *
+   * Required by DriverBase. Clears cached response state and releases the node.
+   */
+  void deinitialize() override
+  {
+    response_ = perception::RESTResponse{};
+    name_.clear();
+    node_.reset();
   }
 
   /**
@@ -134,7 +146,7 @@ public:
     }
 
     RCLCPP_INFO(node_->get_logger(), "Test completed.");
-    }
+  }
 
 protected:
   /**

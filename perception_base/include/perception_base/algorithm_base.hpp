@@ -2,8 +2,8 @@
 
 #include <rclcpp/rclcpp.hpp>
 #include <string>
-#include <perception_base/utils/options.hpp>
-#include <perception_base/utils/exceptions.hpp>
+#include <perception_base/options.hpp>
+#include <perception_base/exceptions.hpp>
 #include <perception_base/driver_base.hpp>
 
 namespace perception

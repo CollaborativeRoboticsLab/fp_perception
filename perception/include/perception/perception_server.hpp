@@ -3,10 +3,21 @@
 #include <thread>
 #include <functional>
 #include <memory>
+
 #include <rclcpp/rclcpp.hpp>
 #include <pluginlib/class_loader.hpp>
+
+#include <opencv2/opencv.hpp>
+#include <cv_bridge/cv_bridge.h>
+
 #include <perception_base/driver_base.hpp>
-#include <perception_base/algorithm_base.hpp>
+#include <perception_base/audio/structs.hpp>
+
+#include <perception_msgs/msg/perception_audio.hpp>
+#include <perception_msgs/msg/perception_text.hpp>
+#include <perception_msgs/srv/perception_speech.hpp>
+#include <perception_msgs/srv/perception_transcribe.hpp>
+#include <perception_msgs/srv/perception_sentiment.hpp>
 
 namespace perception
 {
@@ -284,7 +295,7 @@ public:
 
     if (audio_output_subscribe_)
       audio_subscriber_ = this->create_subscription<Audio>(
-          audio_output_topic_, 10, std::bind(&SpeakerAudioDriver::audioCallback, this, std::placeholders::_1));
+          audio_output_topic_, 10, std::bind(&PerceptionServer::audioCallback, this, std::placeholders::_1));
 
     if (transcription_enabled_)
       transcription_ = this->create_service<Transcribe>(
@@ -312,8 +323,11 @@ protected:
 
     if (use_vision_driver_)
     {
-      RCLCPP_INFO(this->get_logger(), "Testing vision driver...");
-      vision_driver_->test();
+      RCLCPP_INFO(this->get_logger(), "Testing ros vision driver...");
+      ros_vision_driver_->test();
+
+      RCLCPP_INFO(this->get_logger(), "Testing non-ros vision driver...");
+      non_ros_vision_driver_->test();
     }
 
     if (use_microphone_driver_)
@@ -386,8 +400,11 @@ protected:
         size_t max_buffer_size = data.sample_rate * data.channels * transcription_buffer_duration_;
 
         if (transcription_buffer_.samples.size() > max_buffer_size)
+        {
+          const auto excess = transcription_buffer_.samples.size() - max_buffer_size;
           transcription_buffer_.samples.erase(transcription_buffer_.samples.begin(),
-                                              transcription_buffer_.samples.size() - max_buffer_size);
+                                              transcription_buffer_.samples.begin() + excess);
+        }
 
         // Update the chunk count based on the current buffer size
         transcription_buffer_.chunk_count = transcription_buffer_.samples.size() / (data.chunk_size * data.channels);
@@ -441,254 +458,254 @@ protected:
 
         // If publishing is enabled, publish the image
         auto msg = cv_bridge::CvImage(std_msgs::msg::Header(), "bgr8", frame).toImageMsg();
-        msg->header.stamp = node_->now();
+        msg->header.stamp = this->now();
         msg->header.frame_id = vision_input_frame_id_;
         image_publisher_->publish(*msg);
       }
 
       std::this_thread::sleep_for(std::chrono::milliseconds(int(1000 / vision_input_frequency_)));
     }
+  }
 
-    /**
-     * @brief Set the latest audio data to the driver from topic subscription.
-     * This function is called when new audio data is received from the subscribed topic.
-     *
-     * @param msg The audio data message received from the topic.
-     * @throws perception_exception if the stream is not active
-     */
-    void audioCallback(const Audio& msg)
+  /**
+   * @brief Set the latest audio data to the driver from topic subscription.
+   * This function is called when new audio data is received from the subscribed topic.
+   *
+   * @param msg The audio data message received from the topic.
+   * @throws perception_exception if the stream is not active
+   */
+  void audioCallback(const Audio& msg)
+  {
+    auto data = perception::msg_to_audio_data(msg);
+    speaker_driver_->setDataStream(data);
+  }
+
+  /**
+   * @brief Service callback for transcription requests
+   *
+   * This method handles incoming transcription requests and processes them.
+   *
+   * @param request The incoming transcription request
+   * @param response The response to be sent back
+   */
+  void transcribe_callback(const std::shared_ptr<Transcribe::Request> request,
+                           std::shared_ptr<Transcribe::Response> response)
+  {
+    RCLCPP_INFO(this->get_logger(), "Received transcription request.");
+
+    if (request->use_device_audio)
     {
-      auto data = perception::msg_to_audio_data(msg);
-      speaker_driver_->setDataStream(data);
+      transcription_driver_->setDataStream(transcription_buffer_);
+      RCLCPP_INFO(this->get_logger(), "Transcription with device audio : %d samples",
+                  transcription_buffer_.samples.size());
+    }
+    else
+    {
+      auto audio_data_input = perception::msg_to_audio_data(request->audio);
+      transcription_driver_->setDataStream(audio_data_input);
+      RCLCPP_INFO(this->get_logger(), "Transcription with external audio : %d samples",
+                  audio_data_input.samples.size());
     }
 
-    /**
-     * @brief Service callback for transcription requests
-     *
-     * This method handles incoming transcription requests and processes them.
-     *
-     * @param request The incoming transcription request
-     * @param response The response to be sent back
-     */
-    void transcribe_callback(const std::shared_ptr<Transcribe::Request> request,
-                             std::shared_ptr<Transcribe::Response> response)
-    {
-      RCLCPP_INFO(node_->get_logger(), "Received transcription request.");
+    auto result = transcription_driver_->getData();
 
+    if (result.has_value())
+    {
+      response->transcription = std::any_cast<std::string>(result);
+      response->success = true;
+      RCLCPP_INFO(this->get_logger(), "Transcription service processed request successfully.");
+    }
+    else
+    {
+      response->success = false;
+      response->transcription = "No transcription result received.";
+      RCLCPP_ERROR(this->get_logger(), "Transcription service failed to process request.");
+    }
+  }
+
+  /**
+   * @brief Service callback for the speech service
+   *
+   * This function is called when a request is made to the speech service.
+   *
+   * @param request The request message containing the audio data and options.
+   * @param response The response message to be filled with the transcription result.
+   */
+  void speech_callback(const std::shared_ptr<Speech::Request> request, std::shared_ptr<Speech::Response> response)
+  {
+    RCLCPP_INFO(this->get_logger(), "Received speech request with text: %s", request->input.text.c_str());
+
+    const auto& text_data = perception::msg_to_text_data(request->input);
+
+    speech_driver_->setDataStream(text_data);
+    auto result = speech_driver_->getData();
+
+    if (result.has_value())
+    {
       if (request->use_device_audio)
       {
-        transcription_driver_->setDataStream(transcription_buffer_);
-        RCLCPP_INFO(node_->get_logger(), "Transcription with device audio : %d samples",
-                    transcription_buffer_.samples.size());
+        RCLCPP_INFO(this->get_logger(), "Using device audio for speech output.");
+        speaker_driver_->setDataStream(result);
       }
       else
       {
-        auto audio_data_input = perception::msg_to_audio_data(request->audio);
-        transcription_driver_->setDataStream(audio_data_input);
-        RCLCPP_INFO(node_->get_logger(), "Transcription with external audio : %d samples",
-                    audio_data_input.samples.size());
-      }
-
-      auto result = transcription_driver_->getData();
-
-      if (result.has_value())
-      {
-        response->transcription = std::any_cast<std::string>(result);
-        response->success = true;
-        RCLCPP_INFO(node_->get_logger(), "Transcription service processed request successfully.");
-      }
-      else
-      {
-        response->success = false;
-        response->transcription = "No transcription result received.";
-        RCLCPP_ERROR(node_->get_logger(), "Transcription service failed to process request.");
+        RCLCPP_INFO(this->get_logger(), "Using external audio for speech output.");
+        response->audio = perception::audio_data_to_msg(std::any_cast<audio_data>(result));
       }
     }
-
-    /**
-     * @brief Service callback for the speech service
-     *
-     * This function is called when a request is made to the speech service.
-     *
-     * @param request The request message containing the audio data and options.
-     * @param response The response message to be filled with the transcription result.
-     */
-    void speech_callback(const std::shared_ptr<Speech::Request> request, std::shared_ptr<Speech::Response> response)
+    else
     {
-      RCLCPP_INFO(node_->get_logger(), "Received speech request with text: %s", request->input.text.c_str());
-
-      const auto& text_data = perception::msg_to_text_data(request->input);
-
-      speech_driver_->setDataStream(text_data);
-      auto result = speech_driver_->getData();
-
-      if (result.has_value())
-      {
-        if (request->use_device_audio)
-        {
-          RCLCPP_INFO(node_->get_logger(), "Using device audio for speech output.");
-          speaker_driver_->setDataStream(result);
-        }
-        else
-        {
-          RCLCPP_INFO(node_->get_logger(), "Using external audio for speech output.");
-          request->audio = perception::audio_data_to_msg(std::any_cast<audio_data>(result));
-        }
-      }
-      else
-      {
-        RCLCPP_ERROR(node_->get_logger(), "No speech synthesis result received.");
-      }
+      RCLCPP_ERROR(this->get_logger(), "No speech synthesis result received.");
     }
+  }
 
-    /**
-     * @brief Callback function for the sentiment analysis service
-     *
-     * This function is called when a request is received by the sentiment analysis service.
-     * It processes the request and sends back a response with the sentiment analysis results.
-     *
-     * @param request The request received from the client
-     * @param response The response to be sent back to the client
-     */
-    void sentiment_callback(const std::shared_ptr<Sentiment::Request> request,
-                            std::shared_ptr<Sentiment::Response> response)
+  /**
+   * @brief Callback function for the sentiment analysis service
+   *
+   * This function is called when a request is received by the sentiment analysis service.
+   * It processes the request and sends back a response with the sentiment analysis results.
+   *
+   * @param request The request received from the client
+   * @param response The response to be sent back to the client
+   */
+  void sentiment_callback(const std::shared_ptr<Sentiment::Request> request,
+                          std::shared_ptr<Sentiment::Response> response)
+  {
+    RCLCPP_INFO(this->get_logger(), "Received sentiment analysis request with text: %s", request->text.c_str());
+
+    if (request->use_device_audio)
     {
-      RCLCPP_INFO(node_->get_logger(), "Received sentiment analysis request with text: %s", request->text.c_str());
+      RCLCPP_INFO(this->get_logger(), "Using device audio for sentiment analysis.");
 
-      if (request->use_device_audio)
+      transcription_driver_->setDataStream(transcription_buffer_);
+      auto transcription_result = transcription_driver_->getData();
+
+      if (transcription_result.has_value())
       {
-        RCLCPP_INFO(node_->get_logger(), "Using device audio for sentiment analysis.");
-
-        transcription_driver_->setDataStream(transcription_buffer_);
-        auto transcription_result = transcription_driver_->getData();
-
-        if (transcription_result.has_value())
-        {
-          auto transcription_text = std::any_cast<std::string>(transcription_result);
-          RCLCPP_INFO(node_->get_logger(), "Transcription result for sentiment analysis: %s",
-                      transcription_text.c_str());
-          sentiment_driver_->setDataStream(transcription_text);
-        }
-        else
-        {
-          RCLCPP_ERROR(node_->get_logger(), "No transcription result available for sentiment analysis.");
-          response->label = "Error: No transcription result available for sentiment analysis.";
-          response->score = 0.0;
-          return;
-        }
+        auto transcription_text = std::any_cast<std::string>(transcription_result);
+        RCLCPP_INFO(this->get_logger(), "Transcription result for sentiment analysis: %s", transcription_text.c_str());
+        sentiment_driver_->setDataStream(transcription_text);
       }
       else
       {
-        RCLCPP_INFO(node_->get_logger(), "Using external text for sentiment analysis.");
-        sentiment_driver_->setDataStream(request->text);
-      }
-
-      auto result = getData();
-
-      if (result.has_value())
-      {
-        auto sentiment_result = std::any_cast<std::pair<std::string, double>>(result);
-
-        // Set the response data
-        response->label = sentiment_result.first;   // Example response
-        response->score = sentiment_result.second;  // Example confidence score
-      }
-      else
-      {
-        RCLCPP_ERROR(node_->get_logger(), "No sentiment analysis result available");
-        response->label = "Error: No sentiment analysis result available";
+        RCLCPP_ERROR(this->get_logger(), "No transcription result available for sentiment analysis.");
+        response->label = "Error: No transcription result available for sentiment analysis.";
         response->score = 0.0;
+        return;
       }
     }
+    else
+    {
+      RCLCPP_INFO(this->get_logger(), "Using external text for sentiment analysis.");
+      sentiment_driver_->setDataStream(request->text);
+    }
 
-    /** Run Tests */
-    bool run_tests_;
+    auto result = sentiment_driver_->getData();
 
-    bool use_vision_driver_;
-    bool use_microphone_driver_;
-    bool use_speaker_driver_;
-    bool use_transcription_driver_;
-    bool use_sentiment_driver_;
-    bool use_speech_driver_;
+    if (result.has_value())
+    {
+      auto sentiment_result = std::any_cast<std::pair<std::string, double>>(result);
 
-    // Audio inputtopic parameters
-    bool audio_input_publish_;
-    std::string audio_input_topic_;
-    std::string audio_input_frame_id_;
-    int audio_input_frequency_;
+      // Set the response data
+      response->label = sentiment_result.first;   // Example response
+      response->score = sentiment_result.second;  // Example confidence score
+    }
+    else
+    {
+      RCLCPP_ERROR(this->get_logger(), "No sentiment analysis result available");
+      response->label = "Error: No sentiment analysis result available";
+      response->score = 0.0;
+    }
+  }
 
-    // Audio output topic parameters
-    std::string audio_output_topic_;
-    bool audio_output_subscribe_;
+  /** Run Tests */
+  bool run_tests_;
 
-    // Transcription service parameters
-    bool transcription_enabled_;
-    std::string transcription_service_;
-    int transcription_buffer_duration_;
-    audio_data transcription_buffer_;
+  bool use_vision_driver_;
+  bool use_microphone_driver_;
+  bool use_speaker_driver_;
+  bool use_transcription_driver_;
+  bool use_sentiment_driver_;
+  bool use_speech_driver_;
 
-    // Speech synthesis service parameters
-    bool speech_enabled_;
-    std::string speech_service_name_;
+  // Audio inputtopic parameters
+  bool audio_input_publish_;
+  std::string audio_input_topic_;
+  std::string audio_input_frame_id_;
+  int audio_input_frequency_;
 
-    // Sentiment analysis service parameters
-    bool sentiment_enabled_;
-    std::string sentiment_service_name_;
+  // Audio output topic parameters
+  std::string audio_output_topic_;
+  bool audio_output_subscribe_;
 
-    // Vision input topic parameters
-    bool vision_input_publish_;
-    std::string vision_input_topic_;
-    std::string vision_input_frame_id_;
-    int vision_input_frequency_;
-    bool vision_input_non_ros_;
+  // Transcription service parameters
+  bool transcription_enabled_;
+  std::string transcription_service_;
+  int transcription_buffer_duration_;
+  audio_data transcription_buffer_;
 
-    /** plugin loader for drivers */
-    pluginlib::ClassLoader<perception::DriverBase> driver_loader_;
+  // Speech synthesis service parameters
+  bool speech_enabled_;
+  std::string speech_service_name_;
 
-    /** shared pointer for vision driver */
-    std::shared_ptr<perception::DriverBase> ros_vision_driver_;
+  // Sentiment analysis service parameters
+  bool sentiment_enabled_;
+  std::string sentiment_service_name_;
 
-    /** shared pointer for vision driver */
-    std::shared_ptr<perception::DriverBase> non_ros_vision_driver_;
+  // Vision input topic parameters
+  bool vision_input_publish_;
+  std::string vision_input_topic_;
+  std::string vision_input_frame_id_;
+  int vision_input_frequency_;
+  bool vision_input_non_ros_;
 
-    /** shared pointer for audio listener driver */
-    std::shared_ptr<perception::DriverBase> microphone_driver_;
+  /** plugin loader for drivers */
+  pluginlib::ClassLoader<perception::DriverBase> driver_loader_;
 
-    /** shared pointer for audio speaker driver */
-    std::shared_ptr<perception::DriverBase> speaker_driver_;
+  /** shared pointer for vision driver */
+  std::shared_ptr<perception::DriverBase> ros_vision_driver_;
 
-    /** shared pointer for transcription driver */
-    std::shared_ptr<perception::DriverBase> transcription_driver_;
+  /** shared pointer for vision driver */
+  std::shared_ptr<perception::DriverBase> non_ros_vision_driver_;
 
-    /** shared pointer for sentiment driver */
-    std::shared_ptr<perception::DriverBase> sentiment_driver_;
+  /** shared pointer for audio listener driver */
+  std::shared_ptr<perception::DriverBase> microphone_driver_;
 
-    /** shared pointer for speech synthesis driver */
-    std::shared_ptr<perception::DriverBase> speech_driver_;
+  /** shared pointer for audio speaker driver */
+  std::shared_ptr<perception::DriverBase> speaker_driver_;
 
-    // Publisher for audio data
-    rclcpp::Publisher<Audio>::SharedPtr audio_publisher_;
+  /** shared pointer for transcription driver */
+  std::shared_ptr<perception::DriverBase> transcription_driver_;
 
-    // Subscriber for audio data
-    rclcpp::Subscription<Audio>::SharedPtr audio_subscriber_;
+  /** shared pointer for sentiment driver */
+  std::shared_ptr<perception::DriverBase> sentiment_driver_;
 
-    // Service for transcription
-    rclcpp::Service<Transcribe>::SharedPtr transcription_;
+  /** shared pointer for speech synthesis driver */
+  std::shared_ptr<perception::DriverBase> speech_driver_;
 
-    // Service for speech synthesis
-    rclcpp::Service<Speech>::SharedPtr speech_service_;
+  // Publisher for audio data
+  rclcpp::Publisher<Audio>::SharedPtr audio_publisher_;
 
-    // Service for sentiment analysis
-    rclcpp::Service<Sentiment>::SharedPtr sentiment_service_;
+  // Subscriber for audio data
+  rclcpp::Subscription<Audio>::SharedPtr audio_subscriber_;
 
-    // Publisher for vision data
-    rclcpp::Publisher<sensor_msgs::msg::Image>::SharedPtr image_publisher_;
+  // Service for transcription
+  rclcpp::Service<Transcribe>::SharedPtr transcription_;
 
-    // Thread for publishing gathered data from the device
-    std::thread publish_audio_;
+  // Service for speech synthesis
+  rclcpp::Service<Speech>::SharedPtr speech_service_;
 
-    // Thread for publishing gathered data from the device
-    std::thread publish_vision_;
-  };
+  // Service for sentiment analysis
+  rclcpp::Service<Sentiment>::SharedPtr sentiment_service_;
+
+  // Publisher for vision data
+  rclcpp::Publisher<sensor_msgs::msg::Image>::SharedPtr image_publisher_;
+
+  // Thread for publishing gathered data from the device
+  std::thread publish_audio_;
+
+  // Thread for publishing gathered data from the device
+  std::thread publish_vision_;
+};
 
 }  // namespace perception

@@ -6,8 +6,8 @@
 #include <string>
 #include <cstring>
 #include <stdexcept>
-#include <perception_base/utils/exceptions.hpp>
-#include <perception_base/utils/audio/structs.hpp>
+#include <perception_base/exceptions.hpp>
+#include <perception_base/audio/structs.hpp>
 
 namespace perception
 {

@@ -16,8 +16,12 @@ find_package(rclcpp_components REQUIRED)
 find_package(pluginlib REQUIRED)
 find_package(perception_base REQUIRED)
 find_package(perception_msgs REQUIRED)
+find_package(OpenCV REQUIRED)
+find_package(cv_bridge REQUIRED)
+
 include_directories(
   include
+  ${OpenCV_INCLUDE_DIRS}
 )
 
 ############################################################################
@@ -28,11 +32,17 @@ add_executable(${PROJECT_NAME}_node
   src/server_node.cpp
 )
 
+# Link OpenCV explicitly
+target_link_libraries(${PROJECT_NAME}_node
+  ${OpenCV_LIBS}
+)
+
 ament_target_dependencies(${PROJECT_NAME}_node
   rclcpp
   pluginlib
   perception_base
   perception_msgs
+  cv_bridge
 )
 
 install(TARGETS ${PROJECT_NAME}_node
@@ -53,6 +63,7 @@ ament_target_dependencies(${PROJECT_NAME}_comp
   pluginlib
   perception_base
   perception_msgs
+  cv_bridge
 )
 
 # register component

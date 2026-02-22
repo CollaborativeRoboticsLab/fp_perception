@@ -8,7 +8,7 @@
 #include <atomic>
 
 #include <rclcpp/rclcpp.hpp>
-#include <perception_base/utils/exceptions.hpp>
+#include <perception_base/exceptions.hpp>
 
 namespace perception
 {

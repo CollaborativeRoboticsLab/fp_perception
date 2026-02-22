@@ -1,15 +1,12 @@
 #pragma once
 
-#include <perception_base/rest_base.hpp>
-#include <perception_base/utils/audio/structs.hpp>
-#include <perception_base/utils/audio/wav.hpp>
-#include <perception_base/utils/exceptions.hpp>
-#include <perception_msgs/msg/perception_audio.hpp>
-#include <perception_msgs/msg/perception_text.hpp>
-#include <perception_msgs/srv/perception_speech.hpp>
-#include <rclcpp/rclcpp.hpp>
 #include <string>
 #include <vector>
+#include <rclcpp/rclcpp.hpp>
+#include <perception_base/rest_base.hpp>
+#include <perception_base/audio/structs.hpp>
+#include <perception_base/audio/wav.hpp>
+#include <perception_base/exceptions.hpp>
 
 namespace perception
 {
@@ -28,6 +25,7 @@ public:
    */
   ~OpenAISpeechDriver() override
   {
+    deinitialize();
   }
   /**
    * @brief Initialize the driver
@@ -68,6 +66,24 @@ public:
 
     // Log the driver initialization
     RCLCPP_INFO(node_->get_logger(), "Initialized");
+  }
+
+  /**
+   * @brief Deinitialize the driver
+   *
+   * Required by DriverBase. This driver holds no long-running resources beyond
+   * cached state and the ROS node pointer.
+   */
+  void deinitialize() override
+  {
+    response_ = perception::RESTResponse{};
+    model_name_.clear();
+    test_text_.clear();
+    voice_.clear();
+    instructions_.clear();
+    test_file_path_.clear();
+    name_.clear();
+    node_.reset();
   }
 
   /**

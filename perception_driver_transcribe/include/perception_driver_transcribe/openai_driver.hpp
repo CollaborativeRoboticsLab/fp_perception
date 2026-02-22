@@ -1,13 +1,14 @@
 #pragma once
 
-#include <perception_base/rest_base.hpp>
-#include <perception_base/utils/audio/structs.hpp>
-#include <perception_base/utils/audio/wav.hpp>
-#include <perception_base/utils/exceptions.hpp>
-#include <perception_msgs/srv/perception_transcribe.hpp>
-#include <rclcpp/rclcpp.hpp>
 #include <string>
 #include <vector>
+
+#include <rclcpp/rclcpp.hpp>
+
+#include <perception_base/rest_base.hpp>
+#include <perception_base/audio/structs.hpp>
+#include <perception_base/audio/wav.hpp>
+#include <perception_base/exceptions.hpp>
 
 namespace perception
 {
@@ -29,6 +30,7 @@ public:
    */
   ~OpenAIDriver() override
   {
+    deinitialize();
   }
 
   /**
@@ -60,6 +62,21 @@ public:
 
     // Log that the driver has been initialized
     RCLCPP_INFO(node_->get_logger(), "Initialized");
+  }
+
+  /**
+   * @brief Deinitialize the driver
+   *
+   * This is required by DriverBase. For this driver, deinitialization primarily
+   * means releasing references to the ROS node and clearing cached response state.
+   */
+  void deinitialize() override
+  {
+    response_ = perception::RESTResponse{};
+    model_name_.clear();
+    test_file_path_.clear();
+    name_.clear();
+    node_.reset();
   }
 
   /**

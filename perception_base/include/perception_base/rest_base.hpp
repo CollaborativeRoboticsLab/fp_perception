@@ -5,9 +5,9 @@
 #include <nlohmann/json.hpp>
 #include <rclcpp/rclcpp.hpp>
 #include <perception_base/driver_base.hpp>
-#include <perception_base/utils/exceptions.hpp>
-#include <perception_base/utils/rest/structs.hpp>
-#include <perception_base/utils/rest/file_part_source.hpp>
+#include <perception_base/exceptions.hpp>
+#include <perception_base/rest/structs.hpp>
+#include <perception_base/rest/file_part_source.hpp>
 
 namespace perception
 {

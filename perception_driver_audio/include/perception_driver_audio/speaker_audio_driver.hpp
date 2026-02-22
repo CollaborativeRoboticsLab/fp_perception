@@ -7,9 +7,8 @@
 #include <map>
 #include <fstream>
 #include <perception_base/driver_base.hpp>
-#include <perception_base/utils/audio/structs.hpp>
-#include <perception_base/utils/audio/wav.hpp>
-#include <perception_msgs/msg/perception_audio.hpp>
+#include <perception_base/audio/structs.hpp>
+#include <perception_base/audio/wav.hpp>
 #include <perception_driver_audio/utils.hpp>
 
 namespace perception
@@ -150,10 +149,10 @@ public:
     if (stream_dict_.find(stream_key) == stream_dict_.end())
     {
       PaStreamParameters outputParameters;
-      outputParameters.device = config_.device_id;
+      outputParameters.device = device_id_;
       outputParameters.channelCount = channels_;
       outputParameters.sampleFormat = paInt16;
-      outputParameters.suggestedLatency = Pa_GetDeviceInfo(config_.device_id)->defaultLowOutputLatency;
+      outputParameters.suggestedLatency = Pa_GetDeviceInfo(device_id_)->defaultLowOutputLatency;
       outputParameters.hostApiSpecificStreamInfo = nullptr;
 
       // Open a new stream for this format
@@ -273,6 +272,7 @@ protected:
     }
   }
 
+  int device_id_;
   PaError err = paNoError;
   std::vector<int16_t> audio_queue_;
   int sample_rate_;  // Default sample rate

@@ -163,7 +163,42 @@ public:
 
     if (http_code != 200)
     {
-      throw perception::perception_exception("HTTP error: " + std::to_string(http_code));
+      std::string details;
+
+      // Try to extract a useful error message from JSON error payloads.
+      try
+      {
+        auto err_json = nlohmann::json::parse(response_data);
+        if (err_json.contains("error"))
+        {
+          const auto& err = err_json["error"];
+          if (err.is_object() && err.contains("message"))
+          {
+            if (err["message"].is_string())
+              details = err["message"].get<std::string>();
+            else
+              details = err["message"].dump();
+          }
+          else
+          {
+            details = err.dump();
+          }
+        }
+      }
+      catch (...) {}
+
+      // Fall back to a truncated raw body if parsing didn't work.
+      if (details.empty() && !response_data.empty())
+      {
+        constexpr size_t kMaxLen = 1024;
+        details = response_data.substr(0, std::min(kMaxLen, response_data.size()));
+      }
+
+      std::string msg = "HTTP error: " + std::to_string(http_code);
+      if (!details.empty())
+        msg += " - " + details;
+
+      throw perception::perception_exception(msg);
     }
 
     // Parse the JSON response

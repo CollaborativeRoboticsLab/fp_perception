@@ -42,21 +42,21 @@ public:
   void initialize(const rclcpp::Node::SharedPtr& node) override
   {
     // Confirm parameters for the node
-    node->declare_parameter("driver.image_analysis.OpenAIDriver.name", "OpenAIDriver");
-    node->declare_parameter("driver.image_analysis.OpenAIDriver.model", "gpt-4.1");
-    node->declare_parameter("driver.image_analysis.OpenAIDriver.test_file_path", "test/image.png");
-    node->declare_parameter("driver.image_analysis.OpenAIDriver.test_prompt", "Is there a cat in this image?");
-    node->declare_parameter("driver.image_analysis.OpenAIDriver.detail", "auto");
+    node->declare_parameter("driver.image_analysis.OpenAIImageAnalysisDriver.name", "OpenAIDriver");
+    node->declare_parameter("driver.image_analysis.OpenAIImageAnalysisDriver.model", "gpt-4.1");
+    node->declare_parameter("driver.image_analysis.OpenAIImageAnalysisDriver.test_file_path", "test/image.png");
+    node->declare_parameter("driver.image_analysis.OpenAIImageAnalysisDriver.test_prompt", "Is there a cat in this image?");
+    node->declare_parameter("driver.image_analysis.OpenAIImageAnalysisDriver.detail", "auto");
 
     // Get parameters from the node
-    name_ = node->get_parameter("driver.image_analysis.OpenAIDriver.name").as_string();
-    model_name_ = node->get_parameter("driver.image_analysis.OpenAIDriver.model").as_string();
-    test_file_path_ = node->get_parameter("driver.image_analysis.OpenAIDriver.test_file_path").as_string();
-    test_prompt_ = node->get_parameter("driver.image_analysis.OpenAIDriver.test_prompt").as_string();
-    detail_ = node->get_parameter("driver.image_analysis.OpenAIDriver.detail").as_string();
+    name_ = node->get_parameter("driver.image_analysis.OpenAIImageAnalysisDriver.name").as_string();
+    model_name_ = node->get_parameter("driver.image_analysis.OpenAIImageAnalysisDriver.model").as_string();
+    test_file_path_ = node->get_parameter("driver.image_analysis.OpenAIImageAnalysisDriver.test_file_path").as_string();
+    test_prompt_ = node->get_parameter("driver.image_analysis.OpenAIImageAnalysisDriver.test_prompt").as_string();
+    detail_ = node->get_parameter("driver.image_analysis.OpenAIImageAnalysisDriver.detail").as_string();
 
     // Initialize the REST base class
-    initialize_rest_base(node, "driver.image_analysis.OpenAIDriver", "OPENAI_API_KEY");
+    initialize_rest_base(node, "driver.image_analysis.OpenAIImageAnalysisDriver", "OPENAI_API_KEY");
 
     // Log the parameters
     RCLCPP_INFO(node_->get_logger(), "Assigned driver Name: %s", name_.c_str());
@@ -184,12 +184,31 @@ protected:
 
   static std::string extract_output_text(const nlohmann::json& object)
   {
-    if (object.contains("error"))
+    if (object.contains("error") && !object["error"].is_null())
     {
       try
       {
-        if (object["error"].contains("message"))
-          return std::string("OpenAI error: ") + object["error"]["message"].get<std::string>();
+        const auto& err = object["error"];
+
+        if (err.is_object())
+        {
+          if (err.contains("message"))
+          {
+            if (err["message"].is_string())
+              return std::string("OpenAI error: ") + err["message"].get<std::string>();
+            return std::string("OpenAI error: ") + err["message"].dump();
+          }
+
+          return std::string("OpenAI error: ") + err.dump();
+        }
+
+        if (err.is_string())
+          return std::string("OpenAI error: ") + err.get<std::string>();
+      }
+      catch (...) {}
+      try
+      {
+        return std::string("OpenAI error: ") + object["error"].dump();
       }
       catch (...) {}
       return "OpenAI error";
@@ -273,7 +292,8 @@ protected:
     perception::RESTResponse res;
 
     res.response = extract_output_text(object);
-    res.success = !res.response.empty();
+    const bool has_real_error = object.contains("error") && !object["error"].is_null();
+    res.success = !has_real_error && !res.response.empty();
 
     return res;
   }

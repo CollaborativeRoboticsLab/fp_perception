@@ -57,7 +57,7 @@ install(DIRECTORY include/
 )
 
 install(DIRECTORY test/
-  DESTINATION share/${PROJECT_NAME}/audio
+  DESTINATION share/${PROJECT_NAME}/image
 )
 
 

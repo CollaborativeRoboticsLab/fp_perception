@@ -5,11 +5,11 @@
 
     # Which plugin groups to load
     use_vision_driver: false
-    use_microphone_driver: true
-    use_speaker_driver: true
-    use_transcription_driver: true
-    use_sentiment_driver: true
-    use_speech_driver: true
+    use_microphone_driver: false
+    use_speaker_driver: false
+    use_transcription_driver: false
+    use_sentiment_driver: false
+    use_speech_driver: false
     use_image_analysis_driver: true
 
     # Pluginlib class selection
@@ -126,9 +126,10 @@
       image_analysis:
         OpenAIImageAnalysisDriver:
           name: OpenAIImageAnalysisDriver
-          model: gpt-4.1
-          test_file_path: install/perception_driver_image_analysis/share/perception_driver_image_analysis/test/image.png
+          model: gpt-5-mini
+          test_file_path: install/perception_driver_image_analysis/share/perception_driver_image_analysis/image/image.png
           test_prompt: "Does this image contain a cat?"
+          detail: low
           rest:
             uri: https://api.openai.com/v1/responses
             method: POST

@@ -1,0 +1,7 @@
+<library path="perception_driver_image_analysis">
+    <class type="perception::OpenAIImageAnalysisDriver" base_class_type="perception::DriverBase">
+        <description>
+            A plugin that provide image analysis service through OpenAI api.
+        </description>
+    </class>
+</library>

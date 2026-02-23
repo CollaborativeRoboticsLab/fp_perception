@@ -10,6 +10,7 @@
     use_transcription_driver: true
     use_sentiment_driver: true
     use_speech_driver: true
+    use_image_analysis_driver: true
 
     # Pluginlib class selection
     ros_vision_driver: perception::DefaultDriver
@@ -19,6 +20,7 @@
     transcription_driver: perception::OpenAIDriver
     sentiment_driver: perception::SentimentDriver
     speech_synthesis_driver: perception::OpenAISpeechDriver
+    image_analysis_driver: perception::OpenAIImageAnalysisDriver
 
     # ROS interface configuration
     interface:
@@ -51,6 +53,10 @@
         frame_id: camera_frame
         frequency: 10
         non_ros: false
+
+      image_analysis:
+        provide_service: false
+        service_name: perception/image_analysis
 
     # Plugin parameters (nested maps map to dot-separated ROS parameters)
     driver:
@@ -117,34 +123,14 @@
             auth_type: Bearer
             ssl_verify: true
 
-    algorithm:
-      GazeAlgorithm:
-        name: EyeGazeDetection
-        calibration:
-          time: 10.0
-          sample_size: 300
-          angle_tolerance: 15.0
-        detection:
-          attention_threshold: 0.5
-          pitch_threshold: 15.0
-          yaw_threshold: 20.0
-          history_size: 10
-          # model_path: facial_landmarks.pth  # overridden via launch file
-          debug_mode: true
-
-      ContextAlgorithm:
-        name: ContextIdentification
-        MFCCExtractor:
-          sample_rate: 44100
-          n_mfcc: 40
-          fft_size: 2048
-          hop_length: 512
-          fixed_length: 200
-        # AmbientDetector:
-        # model_path: ambient_model.pth # overridden via launch file
-
-        model_path: context_model.pth
-        detection:
-          confidence_threshold: 0.7
-          history_size: 5
-          debug_mode: true
+      image_analysis:
+        OpenAIImageAnalysisDriver:
+          name: OpenAIImageAnalysisDriver
+          model: gpt-4.1
+          test_file_path: install/perception_driver_image_analysis/share/perception_driver_image_analysis/test/image.png
+          test_prompt: "Does this image contain a cat?"
+          rest:
+            uri: https://api.openai.com/v1/responses
+            method: POST
+            auth_type: Bearer
+            ssl_verify: true

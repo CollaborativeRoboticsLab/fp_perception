@@ -1,4 +1,5 @@
 PerceptionText input
 bool use_device_audio
 ---
+bool success
 PerceptionAudio audio

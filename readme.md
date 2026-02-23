@@ -21,6 +21,7 @@ Drivers:
 - [Transcription Drivers](docs/transribe_drivers.md)
 - [Speech Drivers](docs/speech_drivers.md)
 - [Sentiment Drivers](docs/sentiment_drivers.md)
+- [Image Analysis Drivers](docs/image_analysis_drivers.md)
 
 
 ## Key Features
@@ -33,6 +34,7 @@ Drivers:
 * Designed with **HRI** in mind – enabling perception for social, assistive, and interactive robots.
 
 * Server exposes a small set of **ROS topics/services** for audio, vision, transcription, speech synthesis, and sentiment.
+* Server also exposes **image analysis** as a ROS service (optional).
 
 
 ## Plugins
@@ -95,6 +97,7 @@ At a high level:
   use_speech_driver: true
   use_sentiment_driver: false
   use_vision_driver: false
+  use_image_analysis_driver: false
 
   # Select which pluginlib classes to load
   microphone_driver: perception::MicrophoneAudioDriver
@@ -102,6 +105,7 @@ At a high level:
   transcription_driver: perception::OpenAIDriver
   speech_synthesis_driver: perception::OpenAISpeechDriver
   sentiment_driver: perception::SentimentDriver
+  image_analysis_driver: perception::OpenAIImageAnalysisDriver
 
   # Server ROS interfaces
   interface:
@@ -121,6 +125,10 @@ At a high level:
       provide_service: false
       service_name: perception/sentiment_analysis
 
+    image_analysis:
+      provide_service: false
+      service_name: perception/image_analysis
+
   # Per-plugin parameters (maps to dot-separated params)
   driver:
     audio:
@@ -135,6 +143,13 @@ At a high level:
         model: whisper-1
         rest:
           uri: https://api.openai.com/v1/audio/transcriptions
+
+    image_analysis:
+      OpenAIDriver:
+        model: gpt-4.1
+        detail: auto
+        rest:
+          uri: https://api.openai.com/v1/responses
 ```
 
 build the workspace to update the configuration

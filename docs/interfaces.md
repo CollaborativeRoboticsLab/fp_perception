@@ -45,6 +45,7 @@ Request:
 
 - `PerceptionAudio audio`
 - `bool use_device_audio`
+- `int32 device_buffer_time`
 
 Response:
 
@@ -53,6 +54,7 @@ Response:
 - `bool success`
 
 The server uses `use_device_audio` to decide whether to use its internal microphone buffer or the request-provided `audio`.
+When `use_device_audio=true`, `device_buffer_time` controls how many seconds of audio the server collects from its public ring buffer.
 
 ### `perception_msgs/srv/PerceptionSpeech`
 
@@ -63,6 +65,7 @@ Request:
 
 Response:
 
+- `bool success`
 - `PerceptionAudio audio`
 
 When `use_device_audio` is `true`, the server routes the synthesized audio to the speaker driver instead of returning it.
@@ -74,6 +77,7 @@ Request:
 - `std_msgs/Header header`
 - `string text`
 - `bool use_device_audio`
+- `int32 device_buffer_time`
 
 Response:
 
@@ -81,4 +85,19 @@ Response:
 - `float64 score`
 
 When `use_device_audio` is `true`, the server transcribes its microphone buffer first and then runs sentiment analysis on the transcribed text.
+
+### `perception_msgs/srv/PerceptionImageAnalysis`
+
+Request:
+
+- `std_msgs/Header header`
+- `sensor_msgs/Image image`
+- `string prompt`
+- `bool use_device_vision`
+
+Response:
+
+- `string response`
+
+When `use_device_vision` is `true`, the server pulls the latest frame from the configured vision driver instead of using the request-provided `image`.
 

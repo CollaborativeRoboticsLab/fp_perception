@@ -1,7 +1,7 @@
 
 # Server system
 
-The perception server (`perception::PerceptionServer`) is a ROS 2 node that loads perception "drivers" as pluginlib plugins and exposes a simple set of ROS interfaces (topics and services) for audio, vision, transcription, speech synthesis, and sentiment.
+The perception server (`perception::PerceptionServer`) is a ROS 2 node that loads perception "drivers" as pluginlib plugins and exposes a simple set of ROS interfaces (topics and services) for audio, vision, transcription, speech synthesis, sentiment, and image analysis.
 
 This document focuses on:
 
@@ -46,6 +46,7 @@ If enabled by parameters, the server provides:
 - transcription (`PerceptionTranscribe`)
 - speech synthesis (`PerceptionSpeech`)
 - sentiment analysis (`PerceptionSentiment`)
+- image analysis (`PerceptionImageAnalysis`)
 
 ## Parameters
 
@@ -59,6 +60,7 @@ The server uses boolean flags to decide which drivers to load:
 - `use_transcription_driver`
 - `use_speech_driver`
 - `use_sentiment_driver`
+- `use_image_analysis_driver`
 
 And:
 
@@ -75,6 +77,7 @@ These parameters select which pluginlib class gets loaded:
 - `transcription_driver` (default `perception::OpenAIDriver`)
 - `speech_synthesis_driver` (default `perception::OpenAISpeechDriver`)
 - `sentiment_driver` (default `perception::SentimentDriver`)
+- `image_analysis_driver` (default `perception::OpenAIImageAnalysisDriver`)
 
 Note: when `use_vision_driver=true`, the current server code loads **both** the ROS vision driver and the non-ROS vision driver; `interface.vision_input.non_ros` controls which one is used for publishing.
 
@@ -118,6 +121,11 @@ When the buffer exceeds this size, the server drops the oldest samples and keeps
 - `interface.sentiment.provide_service` (bool)
 - `interface.sentiment.service_name` (string)
 
+#### Image analysis service
+
+- `interface.image_analysis.provide_service` (bool)
+- `interface.image_analysis.service_name` (string)
+
 #### Vision publish
 
 - `interface.vision_input.publish` (bool)
@@ -149,4 +157,10 @@ If `non_ros=true`, the server publishes frames from the OpenCV driver; otherwise
 1. Client calls `PerceptionSentiment` with `use_device_audio=true`.
 2. Server transcribes the rolling audio buffer.
 3. Server runs sentiment on the transcription and returns `(label, score)`.
+
+### Device vision or external image -> image analysis
+
+1. Client calls `PerceptionImageAnalysis` with a `prompt`.
+2. If `use_device_vision=true`, server captures a frame from the configured vision driver; otherwise it uses the request-provided `sensor_msgs/Image`.
+3. Server calls the image analysis driver and returns the model output text.
 

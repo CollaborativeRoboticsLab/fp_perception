@@ -1,15 +1,16 @@
 /**:
   ros__parameters:
     # Server behavior
-    run_tests: true
+    run_tests: false
 
     # Which plugin groups to load
-    use_vision_driver: false
-    use_microphone_driver: false
-    use_speaker_driver: false
-    use_transcription_driver: false
+    use_ros_vision_driver: true
+    use_non_ros_vision_driver: false
+    use_microphone_driver: true
+    use_speaker_driver: true
+    use_transcription_driver: true
     use_sentiment_driver: false
-    use_speech_driver: false
+    use_speech_driver: true
     use_image_analysis_driver: true
 
     # Pluginlib class selection
@@ -52,7 +53,6 @@
         topic: perception/camera
         frame_id: camera_frame
         frequency: 10
-        non_ros: false
 
       image_analysis:
         provide_service: false
@@ -63,7 +63,7 @@
       vision:
         DefaultDriver:
           name: DefaultDriver
-          topic: /camera/raw
+          topic: /oakd/rgb/preview/image_raw
 
         OpenCVDriver:
           name: OpenCVDriver

@@ -68,7 +68,8 @@ public:
      * Identify what plugins to load
      ************************************************************************/
     // drivers
-    this->declare_parameter("use_vision_driver", false);
+    this->declare_parameter("use_ros_vision_driver", false);
+    this->declare_parameter("use_non_ros_vision_driver", false);
     this->declare_parameter("use_microphone_driver", false);
     this->declare_parameter("use_speaker_driver", false);
     this->declare_parameter("use_transcription_driver", false);
@@ -80,7 +81,8 @@ public:
     this->declare_parameter("run_tests", false);
 
     // drivers
-    use_vision_driver_ = this->get_parameter("use_vision_driver").as_bool();
+    use_ros_vision_driver_ = this->get_parameter("use_ros_vision_driver").as_bool();
+    use_non_ros_vision_driver_ = this->get_parameter("use_non_ros_vision_driver").as_bool();
     use_microphone_driver_ = this->get_parameter("use_microphone_driver").as_bool();
     use_speaker_driver_ = this->get_parameter("use_speaker_driver").as_bool();
     use_transcription_driver_ = this->get_parameter("use_transcription_driver").as_bool();
@@ -102,7 +104,6 @@ public:
     this->declare_parameter("interface.vision_input.frame_id", "camera_frame");
     this->declare_parameter("interface.vision_input.publish", false);
     this->declare_parameter("interface.vision_input.frequency", 10);
-    this->declare_parameter("interface.vision_input.non_ros", false);
 
     this->declare_parameter("interface.transcription.service", "perception/transcription");
     this->declare_parameter("interface.transcription.provide_service", false);
@@ -129,7 +130,6 @@ public:
     vision_input_topic_ = this->get_parameter("interface.vision_input.topic").as_string();
     vision_input_frame_id_ = this->get_parameter("interface.vision_input.frame_id").as_string();
     vision_input_frequency_ = this->get_parameter("interface.vision_input.frequency").as_int();
-    vision_input_non_ros_ = this->get_parameter("interface.vision_input.non_ros").as_bool();
 
     transcription_service_ = this->get_parameter("interface.transcription.service").as_string();
     transcription_enabled_ = this->get_parameter("interface.transcription.provide_service").as_bool();
@@ -155,7 +155,6 @@ public:
     RCLCPP_INFO(this->get_logger(), "Vision input topic: %s", vision_input_topic_.c_str());
     RCLCPP_INFO(this->get_logger(), "Vision input frame_id: %s", vision_input_frame_id_.c_str());
     RCLCPP_INFO(this->get_logger(), "Vision input frequency: %d", vision_input_frequency_);
-    RCLCPP_INFO(this->get_logger(), "Vision input non-ROS: %s", vision_input_non_ros_ ? "true" : "false");
 
     RCLCPP_INFO(this->get_logger(), "Transcription enabled: %s", transcription_enabled_ ? "true" : "false");
     RCLCPP_INFO(this->get_logger(), "Transcription service: %s", transcription_service_.c_str());
@@ -177,7 +176,7 @@ public:
      * vision driver plugin class loader and driver pointer
      ************************************************************************/
 
-    if (use_vision_driver_)
+    if (use_ros_vision_driver_)
     {
       this->declare_parameter("ros_vision_driver", "perception::DefaultDriver");
       std::string ros_vision_driver_name = this->get_parameter("ros_vision_driver").as_string();
@@ -190,7 +189,7 @@ public:
       RCLCPP_INFO(this->get_logger(), "Started vision driver plugin: %s", ros_vision_driver_name.c_str());
     }
 
-    if (use_vision_driver_)
+    if (use_non_ros_vision_driver_)
     {
       this->declare_parameter("non_ros_vision_driver", "perception::OpenCVDriver");
       std::string non_ros_vision_driver_name = this->get_parameter("non_ros_vision_driver").as_string();
@@ -358,11 +357,14 @@ protected:
   {
     RCLCPP_INFO(this->get_logger(), "Running tests for loaded plugins...");
 
-    if (use_vision_driver_)
+    if (use_ros_vision_driver_)
     {
       RCLCPP_INFO(this->get_logger(), "Testing ros vision driver...");
       ros_vision_driver_->test();
+    }
 
+    if (use_non_ros_vision_driver_)
+    {
       RCLCPP_INFO(this->get_logger(), "Testing non-ros vision driver...");
       non_ros_vision_driver_->test();
     }
@@ -478,7 +480,7 @@ protected:
   {
     while (rclcpp::ok())
     {
-      if (use_vision_driver_ and !vision_input_non_ros_)
+      if (use_ros_vision_driver_)
       {
         try
         {
@@ -496,7 +498,7 @@ protected:
         }
       }
 
-      if (use_vision_driver_ and vision_input_non_ros_)
+      if (use_non_ros_vision_driver_)
       {
         // Capture frame from the camera
         cv::Mat frame = std::any_cast<cv::Mat>(non_ros_vision_driver_->getData());
@@ -805,7 +807,7 @@ protected:
   }
 
   void image_analysis_callback(const std::shared_ptr<ImageAnalysis::Request> request,
-                             std::shared_ptr<ImageAnalysis::Response> response)
+                               std::shared_ptr<ImageAnalysis::Response> response)
   {
     RCLCPP_INFO(this->get_logger(), "Received image analysis request.");
 
@@ -823,14 +825,15 @@ protected:
     {
       if (request->use_device_vision)
       {
-        if (!use_vision_driver_)
+        if (!use_ros_vision_driver_ && !use_non_ros_vision_driver_)
           throw perception_exception("use_device_vision requested but no vision driver is loaded");
 
-        if (vision_input_non_ros_)
+        if (use_non_ros_vision_driver_)
         {
           frame = std::any_cast<cv::Mat>(non_ros_vision_driver_->getData());
         }
-        else
+        
+        if (use_ros_vision_driver_)
         {
           auto image = std::any_cast<sensor_msgs::msg::Image::ConstSharedPtr>(ros_vision_driver_->getData());
           auto cv_ptr = cv_bridge::toCvCopy(image, image->encoding);
@@ -878,7 +881,8 @@ protected:
   /** Run Tests */
   bool run_tests_;
 
-  bool use_vision_driver_;
+  bool use_ros_vision_driver_;
+  bool use_non_ros_vision_driver_;
   bool use_microphone_driver_;
   bool use_speaker_driver_;
   bool use_transcription_driver_;

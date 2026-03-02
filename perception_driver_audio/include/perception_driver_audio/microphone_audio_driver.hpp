@@ -62,6 +62,7 @@ public:
     node->declare_parameter("driver.audio.MicrophoneAudioDriver.sample_rate", 44100);  // default sample rate
     node->declare_parameter("driver.audio.MicrophoneAudioDriver.channels", 1);         // default number of channels
     node->declare_parameter("driver.audio.MicrophoneAudioDriver.buffer_time", 10);     // default buffer time in seconds
+    node->declare_parameter("driver.audio.MicrophoneAudioDriver.timeout_sec", -1);     // -1 waits indefinitely
     // Load parameters from the node
     name_ = node->get_parameter("driver.audio.MicrophoneAudioDriver.name").as_string();
     device_name_ = node->get_parameter("driver.audio.MicrophoneAudioDriver.device_name").as_string();
@@ -69,6 +70,7 @@ public:
     sample_rate_ = node->get_parameter("driver.audio.MicrophoneAudioDriver.sample_rate").as_int();
     channels_ = node->get_parameter("driver.audio.MicrophoneAudioDriver.channels").as_int();
     buffer_time_ = node->get_parameter("driver.audio.MicrophoneAudioDriver.buffer_time").as_int();
+    timeout_sec_ = node->get_parameter("driver.audio.MicrophoneAudioDriver.timeout_sec").as_int();
 
     // Initialize the base driver
     initialize_base(node);
@@ -101,6 +103,7 @@ public:
     RCLCPP_INFO(node_->get_logger(), "Assigned driver sample_rate: %d", sample_rate_);
     RCLCPP_INFO(node_->get_logger(), "Assigned driver channels: %d", channels_);
     RCLCPP_INFO(node_->get_logger(), "Assigned driver buffer_time: %d", buffer_time_);
+    RCLCPP_INFO(node_->get_logger(), "Assigned driver timeout_sec: %d", timeout_sec_);
     RCLCPP_INFO(node_->get_logger(), "Assigned driver buffer size: %d", buffer_size_);
 
     RCLCPP_INFO(node_->get_logger(), "starting on device %d", device_id_);
@@ -199,11 +202,17 @@ public:
 
     const size_t chunk_samples = static_cast<size_t>(chunk_size_) * static_cast<size_t>(std::max(1, channels_));
 
-    if (!buffer_cv_.wait_for(lock, std::chrono::seconds(5), [this, chunk_samples] {
-          return audio_buffer_.size() >= chunk_samples;
-        }))
+    const auto has_enough_audio = [this, chunk_samples] { return audio_buffer_.size() >= chunk_samples; };
+    if (timeout_sec_ < 0)
     {
-      throw perception_exception("Timeout waiting for audio data.");
+      buffer_cv_.wait(lock, has_enough_audio);
+    }
+    else
+    {
+      if (!buffer_cv_.wait_for(lock, std::chrono::seconds(timeout_sec_), has_enough_audio))
+      {
+        throw perception_exception("Timeout waiting for audio data.");
+      }
     }
 
     audio_data data;
@@ -381,6 +390,7 @@ protected:
   int capture_sample_rate_{ 0 };  // Actual device capture rate (may differ from sample_rate_)
   int channels_;              // Default number of channels
   int buffer_time_;           // Buffer time in seconds
+  int timeout_sec_{-1};       // Wait timeout for audio data (-1 waits indefinitely)
   int buffer_size_;           // Buffer size in samples
 };
 

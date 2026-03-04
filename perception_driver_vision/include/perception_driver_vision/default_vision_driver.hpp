@@ -3,7 +3,7 @@
 #include <mutex>
 #include <condition_variable>
 #include <opencv2/opencv.hpp>
-#include <cv_bridge/cv_bridge.h>
+#include <cv_bridge/cv_bridge.hpp>
 #include <perception_base/driver_base.hpp>
 #include <sensor_msgs/msg/image.hpp>
 #include <image_transport/image_transport.hpp>

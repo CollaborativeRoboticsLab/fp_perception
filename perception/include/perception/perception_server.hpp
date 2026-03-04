@@ -11,7 +11,7 @@
 #include <pluginlib/class_loader.hpp>
 
 #include <opencv2/opencv.hpp>
-#include <cv_bridge/cv_bridge.h>
+#include <cv_bridge/cv_bridge.hpp>
 
 #include <perception_base/driver_base.hpp>
 #include <perception_base/audio/structs.hpp>

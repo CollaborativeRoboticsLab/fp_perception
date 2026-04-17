@@ -9,7 +9,7 @@
     use_microphone_driver: true
     use_speaker_driver: true
     use_transcription_driver: true
-    use_sentiment_driver: false
+    use_sentiment_driver: true
     use_speech_driver: true
     use_image_analysis_driver: true
 
@@ -26,36 +26,36 @@
     # ROS interface configuration
     interface:
       audio_input:
-        publish: false
+        publish: true
         topic: perception/microphone
         frame_id: microphone_frame
         frequency: 10
 
       audio_output:
-        subscribe: false
+        subscribe: true
         topic: perception/speaker
 
       transcription:
-        provide_service: false
+        provide_service: true
         service: perception/transcription
         buffer_duration: 10
 
       speech:
-        provide_service: false
+        provide_service: true
         service_name: perception/speech
 
       sentiment:
-        provide_service: false
+        provide_service: true
         service_name: perception/sentiment_analysis
 
       vision_input:
-        publish: false
+        publish: true
         topic: perception/camera
         frame_id: camera_frame
         frequency: 10
 
       image_analysis:
-        provide_service: false
+        provide_service: true
         service_name: perception/image_analysis
 
     # Plugin parameters (nested maps map to dot-separated ROS parameters)

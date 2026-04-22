@@ -167,6 +167,8 @@ python3 src/perception/perception_driver_audio/find_devices.py
 
 ```sh
 source install/setup.bash
+export OPENAI_API_KEY=
+export HUGGINGFACE_API_KEY=
 ros2 launch perception server.launch.py
 ```
 

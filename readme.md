@@ -133,7 +133,8 @@ At a high level:
   driver:
     audio:
       MicrophoneAudioDriver:
-        device_name: default
+        # PortAudio device index (set via find_devices.py)
+        device_id: 0
         sample_rate: 48000
         channels: 2
         chunk_size: 48000

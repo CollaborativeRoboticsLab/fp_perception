@@ -15,14 +15,14 @@ Class: `perception::MicrophoneAudioDriver` (PortAudio input)
 
 ### Device acquisition
 
-- Parameter `driver.audio.MicrophoneAudioDriver.device_name` is resolved to a PortAudio device id via `getDeviceIdByName()`.
+- Device selection uses `driver.audio.MicrophoneAudioDriver.device_id` (PortAudio device index).
 - The driver opens and starts a PortAudio input stream.
 - A background thread captures audio into an internal buffer; `getDataStream()` waits until at least one chunk is available.
 
 ### Parameters
 
 - `driver.audio.MicrophoneAudioDriver.name` (string)
-- `driver.audio.MicrophoneAudioDriver.device_name` (string)
+- `driver.audio.MicrophoneAudioDriver.device_id` (int)
 - `driver.audio.MicrophoneAudioDriver.chunk_size` (int)
 - `driver.audio.MicrophoneAudioDriver.sample_rate` (int)
 - `driver.audio.MicrophoneAudioDriver.channels` (int)
@@ -39,13 +39,13 @@ Class: `perception::SpeakerAudioDriver` (PortAudio output)
 
 ### Device acquisition
 
-- Parameter `driver.audio.SpeakerAudioDriver.device_name` is resolved to a PortAudio device id via `getDeviceIdByName()`.
+- Device selection uses `driver.audio.SpeakerAudioDriver.device_id` (PortAudio device index).
 - The driver opens output streams on-demand keyed by sample format/rate/channels.
 
 ### Parameters
 
 - `driver.audio.SpeakerAudioDriver.name` (string)
-- `driver.audio.SpeakerAudioDriver.device_name` (string)
+- `driver.audio.SpeakerAudioDriver.device_id` (int)
 - `driver.audio.SpeakerAudioDriver.sample_rate` (int)
 - `driver.audio.SpeakerAudioDriver.channels` (int)
 - `driver.audio.SpeakerAudioDriver.test_file_path` (string)

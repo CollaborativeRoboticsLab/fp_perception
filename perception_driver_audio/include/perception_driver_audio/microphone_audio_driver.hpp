@@ -56,7 +56,7 @@ public:
   {
     // Configure parameters for the nodevision
     node->declare_parameter("driver.audio.MicrophoneAudioDriver.name", "MicrophoneAudioDriver");
-    node->declare_parameter("driver.audio.MicrophoneAudioDriver.device_name", "default");
+    node->declare_parameter("driver.audio.MicrophoneAudioDriver.device_id", 0);
     node->declare_parameter("driver.audio.MicrophoneAudioDriver.publish", false);
     node->declare_parameter("driver.audio.MicrophoneAudioDriver.chunk_size", 256);     // default chunk size
     node->declare_parameter("driver.audio.MicrophoneAudioDriver.sample_rate", 44100);  // default sample rate
@@ -65,7 +65,7 @@ public:
     node->declare_parameter("driver.audio.MicrophoneAudioDriver.timeout_sec", -1);     // -1 waits indefinitely
     // Load parameters from the node
     name_ = node->get_parameter("driver.audio.MicrophoneAudioDriver.name").as_string();
-    device_name_ = node->get_parameter("driver.audio.MicrophoneAudioDriver.device_name").as_string();
+    device_id_ = node->get_parameter("driver.audio.MicrophoneAudioDriver.device_id").as_int();
     chunk_size_ = node->get_parameter("driver.audio.MicrophoneAudioDriver.chunk_size").as_int();
     sample_rate_ = node->get_parameter("driver.audio.MicrophoneAudioDriver.sample_rate").as_int();
     channels_ = node->get_parameter("driver.audio.MicrophoneAudioDriver.channels").as_int();
@@ -83,21 +83,31 @@ public:
       throw perception_exception("PortAudio initialization failed: " + std::string(Pa_GetErrorText(err)));
     }
 
-    // Get the device ID by name
-    try
+    const int device_count = Pa_GetDeviceCount();
+    if (device_count < 0)
     {
-      device_id_ = perception::getDeviceIdByName(device_name_);
-      RCLCPP_INFO(node_->get_logger(), "Device ID for name '%s' is %d", device_name_.c_str(), device_id_);
+      RCLCPP_ERROR(node_->get_logger(), "Pa_GetDeviceCount failed: %s", Pa_GetErrorText(device_count));
+      throw perception_exception("PortAudio failed to enumerate devices");
     }
-    catch (const std::exception& e)
+    if (device_id_ < 0 || device_id_ >= device_count)
     {
-      RCLCPP_ERROR(node_->get_logger(), "Failed to get device ID for name '%s': %s", device_name_.c_str(), e.what());
-      throw perception_exception("Failed to get device ID for name '" + device_name_ + "': " + e.what());
+      throw perception_exception("Invalid microphone device_id " + std::to_string(device_id_) +
+                                 " (must be in [0," + std::to_string(std::max(0, device_count - 1)) + "])");
+    }
+
+    const PaDeviceInfo* device_info = Pa_GetDeviceInfo(device_id_);
+    if (!device_info)
+    {
+      throw perception_exception("PortAudio returned null device info for device_id " + std::to_string(device_id_));
+    }
+    if (device_info->maxInputChannels <= 0)
+    {
+      throw perception_exception("Selected device_id " + std::to_string(device_id_) + " ('" + device_info->name +
+                                 "') has no input channels");
     }
 
     // Publish about the assigned driver parameters
     RCLCPP_INFO(node_->get_logger(), "Assigned driver name: %s", name_.c_str());
-    RCLCPP_INFO(node_->get_logger(), "Assigned driver device_name: %s", device_name_.c_str());
     RCLCPP_INFO(node_->get_logger(), "Assigned driver device_id: %d", device_id_);
     RCLCPP_INFO(node_->get_logger(), "Assigned driver chunk_size: %d", chunk_size_);
     RCLCPP_INFO(node_->get_logger(), "Assigned driver sample_rate: %d", sample_rate_);
@@ -112,7 +122,7 @@ public:
     inputParams.device = device_id_;
     inputParams.channelCount = channels_;
     inputParams.sampleFormat = paInt16;
-    inputParams.suggestedLatency = Pa_GetDeviceInfo(device_id_)->defaultLowInputLatency;
+    inputParams.suggestedLatency = device_info->defaultLowInputLatency;
     inputParams.hostApiSpecificStreamInfo = nullptr;
 
     // Try to open with the configured sample rate first; if the device rejects it,
@@ -126,7 +136,7 @@ public:
       const int fallback_rate = info ? static_cast<int>(std::lround(info->defaultSampleRate)) : sample_rate_;
       RCLCPP_WARN(node_->get_logger(),
                   "Requested mic sample_rate (%d) not supported by device '%s'. Falling back to %d and resampling.",
-                  sample_rate_, device_name_.c_str(), fallback_rate);
+                  sample_rate_, (info && info->name) ? info->name : "unknown", fallback_rate);
 
       capture_sample_rate_ = fallback_rate;
       err = Pa_OpenStream(&stream_, &inputParams, nullptr, capture_sample_rate_, chunk_size_, paNoFlag, nullptr, nullptr);

@@ -158,11 +158,6 @@ protected:
   std::string name_;
 
   /**
-   * @brief Name of the device for the driver
-   */
-  std::string device_name_;
-
-  /**
    * @brief Mutex to protect access to the driver data
    *
    */

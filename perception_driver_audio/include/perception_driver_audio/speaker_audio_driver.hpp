@@ -57,7 +57,7 @@ public:
   {
     // Configure parameters for the nodevision
     node->declare_parameter("driver.audio.SpeakerAudioDriver.name", "SpeakerAudioDriver");
-    node->declare_parameter("driver.audio.SpeakerAudioDriver.device_name", "default");
+    node->declare_parameter("driver.audio.SpeakerAudioDriver.device_id", 0);
     node->declare_parameter("driver.audio.SpeakerAudioDriver.sample_rate", 44100);  // default sample rate
     node->declare_parameter("driver.audio.SpeakerAudioDriver.channels", 1);         // default number of channels
     node->declare_parameter("driver.audio.SpeakerAudioDriver.test_file_path",
@@ -65,7 +65,7 @@ public:
 
     // Load parameters from the node
     name_ = node->get_parameter("driver.audio.SpeakerAudioDriver.name").as_string();
-    device_name_ = node->get_parameter("driver.audio.SpeakerAudioDriver.device_name").as_string();
+    device_id_ = node->get_parameter("driver.audio.SpeakerAudioDriver.device_id").as_int();
     sample_rate_ = node->get_parameter("driver.audio.SpeakerAudioDriver.sample_rate").as_int();
     channels_ = node->get_parameter("driver.audio.SpeakerAudioDriver.channels").as_int();
     test_file_path_ = node->get_parameter("driver.audio.SpeakerAudioDriver.test_file_path").as_string();
@@ -81,21 +81,31 @@ public:
       throw perception_exception("PortAudio initialization failed: " + std::string(Pa_GetErrorText(err)));
     }
 
-    // get the device ID by name
-    try
+    const int device_count = Pa_GetDeviceCount();
+    if (device_count < 0)
     {
-      device_id_ = perception::getDeviceIdByName(device_name_);
-      RCLCPP_INFO(node_->get_logger(), "Device ID for name '%s' is %d", device_name_.c_str(), device_id_);
+      RCLCPP_ERROR(node_->get_logger(), "Pa_GetDeviceCount failed: %s", Pa_GetErrorText(device_count));
+      throw perception_exception("PortAudio failed to enumerate devices");
     }
-    catch (const std::exception& e)
+    if (device_id_ < 0 || device_id_ >= device_count)
     {
-      RCLCPP_ERROR(node_->get_logger(), "Failed to get device ID for name '%s': %s", device_name_.c_str(), e.what());
-      throw perception_exception("Failed to get device ID for name '" + device_name_ + "': " + e.what());
+      throw perception_exception("Invalid speaker device_id " + std::to_string(device_id_) + " (must be in [0," +
+                                 std::to_string(std::max(0, device_count - 1)) + "])");
+    }
+
+    const PaDeviceInfo* device_info = Pa_GetDeviceInfo(device_id_);
+    if (!device_info)
+    {
+      throw perception_exception("PortAudio returned null device info for device_id " + std::to_string(device_id_));
+    }
+    if (device_info->maxOutputChannels <= 0)
+    {
+      throw perception_exception("Selected device_id " + std::to_string(device_id_) + " ('" + device_info->name +
+                                 "') has no output channels");
     }
 
     // Publish about the assigned driver parameters
     RCLCPP_INFO(node_->get_logger(), "Assigned driver name: %s", name_.c_str());
-    RCLCPP_INFO(node_->get_logger(), "Assigned driver device_name: %s", device_name_.c_str());
     RCLCPP_INFO(node_->get_logger(), "Assigned driver device_id: %d", device_id_);
     RCLCPP_INFO(node_->get_logger(), "Assigned driver sample_rate: %d", sample_rate_);
     RCLCPP_INFO(node_->get_logger(), "Assigned driver channels: %d", channels_);

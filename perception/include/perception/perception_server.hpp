@@ -553,12 +553,25 @@ protected:
     response->header.stamp = this->now();
     response->header.frame_id = audio_input_frame_id_;
 
+    int duration = 0;
+
+    if (request->device_buffer_time > 0)
+    {
+      RCLCPP_INFO(this->get_logger(), "Transcription request provides device audio buffer time: %d seconds",
+                  request->device_buffer_time);
+      duration = request->device_buffer_time;
+    }
+    else
+    {
+      RCLCPP_INFO(this->get_logger(), "Buffer time not provided with request, using default buffer time: %d seconds",
+                  audio_input_buffer_duration_);
+      duration = audio_input_buffer_duration_;
+    }
+
     perception::audio_data audio_in;
 
     if (request->use_device_audio)
     {
-      const int duration = std::max(1, request->device_buffer_time);
-
       try
       {
         audio_in = wait_for_public_audio(duration);
@@ -665,6 +678,20 @@ protected:
     }
 
     std::string text;
+    int duration = 0;
+
+    if (request->device_buffer_time > 0)
+    {
+      RCLCPP_INFO(this->get_logger(), "Transcription request provides device audio buffer time: %d seconds",
+                  request->device_buffer_time);
+      duration = request->device_buffer_time;
+    }
+    else
+    {
+      RCLCPP_INFO(this->get_logger(), "Buffer time not provided with request, using default buffer time: %d seconds",
+                  audio_input_buffer_duration_);
+      duration = audio_input_buffer_duration_;
+    }
 
     if (request->use_device_audio)
     {
@@ -678,7 +705,7 @@ protected:
         return;
       }
 
-      const int duration = std::max(1, request->device_buffer_time);
+      const int duration = std::max(1, duration);
       perception::audio_data audio_in;
       try
       {
@@ -774,18 +801,10 @@ protected:
     if (public_buffer_.sample_rate <= 0 || public_buffer_.channels <= 0)
       throw perception_exception("public audio buffer not initialized");
 
-    const size_t max_samples = static_cast<size_t>(std::max(1, public_buffer_.sample_rate)) *
-                               static_cast<size_t>(std::max(1, public_buffer_.channels)) *
-                               static_cast<size_t>(std::max(1, audio_input_buffer_duration_));
-
     const size_t needed_samples = static_cast<size_t>(public_buffer_.sample_rate) *
                                   static_cast<size_t>(public_buffer_.channels) * static_cast<size_t>(duration_seconds);
 
-    if (needed_samples > max_samples)
-      throw perception_exception("requested device_buffer_time exceeds configured "
-                                 "interface.audio_input.buffer_duration");
-
-    const uint64_t start = public_buffer_total_samples_;
+    const uint64_t start = public_buffer_total_samples_; 
     const uint64_t needed_total = start + static_cast<uint64_t>(needed_samples);
 
     const auto timeout = std::chrono::seconds(duration_seconds + 10);
@@ -832,7 +851,7 @@ protected:
         {
           frame = std::any_cast<cv::Mat>(non_ros_vision_driver_->getData());
         }
-        
+
         if (use_ros_vision_driver_)
         {
           auto image = std::any_cast<sensor_msgs::msg::Image::ConstSharedPtr>(ros_vision_driver_->getData());

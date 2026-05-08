@@ -30,6 +30,7 @@
         topic: perception/microphone
         frame_id: microphone_frame
         frequency: 10
+        buffer_duration: 10
 
       audio_output:
         subscribe: true
@@ -63,7 +64,7 @@
       vision:
         DefaultDriver:
           name: DefaultDriver
-          topic: /oakd/rgb/preview/image_raw
+          topic: /camera/camera/color/image_raw
 
         OpenCVDriver:
           name: OpenCVDriver

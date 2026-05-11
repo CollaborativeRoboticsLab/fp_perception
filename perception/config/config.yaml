@@ -73,7 +73,7 @@
       audio:
         MicrophoneAudioDriver:
           name: MicrophoneAudioDriver
-          device_id: 6
+          device_id: 5
           chunk_size: 48000     # number of frames per audio buffer processing cycle.will give inputoverflowed error if too small
           sample_rate: 48000    # number of samples per second
           channels: 2           # number of audio channels
@@ -81,7 +81,7 @@
 
         SpeakerAudioDriver:
           name: SpeakerAudioDriver
-          device_id: 6
+          device_id: 5
           sample_rate: 48000
           channels: 2
           test_file_path: test/mic_test.wav

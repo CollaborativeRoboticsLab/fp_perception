@@ -406,9 +406,6 @@ protected:
     }
   }
 
-  /**
-   * @brief Driver thread function. need to be overridden in derived classesif used
-   */
   virtual void publishAudio()
   {
     while (rclcpp::ok())
@@ -801,27 +798,49 @@ protected:
     if (public_buffer_.sample_rate <= 0 || public_buffer_.channels <= 0)
       throw perception_exception("public audio buffer not initialized");
 
-    const size_t needed_samples = static_cast<size_t>(public_buffer_.sample_rate) *
-                                  static_cast<size_t>(public_buffer_.channels) * static_cast<size_t>(duration_seconds);
-
-    const uint64_t start = public_buffer_total_samples_; 
-    const uint64_t needed_total = start + static_cast<uint64_t>(needed_samples);
-
-    const auto timeout = std::chrono::seconds(duration_seconds + 10);
-    const bool ok = public_buffer_cv_.wait_for(
-        lock, timeout, [this, needed_total] { return public_buffer_total_samples_ >= needed_total; });
-
-    if (!ok)
-      throw perception_exception("timeout waiting for device audio buffer to fill");
-
-    if (public_buffer_.samples.size() < needed_samples)
-      throw perception_exception("buffer underflow for requested duration");
+    const int sample_rate = public_buffer_.sample_rate;
+    const int channels = std::max(1, public_buffer_.channels);
+    const size_t needed_samples =
+        static_cast<size_t>(sample_rate) * static_cast<size_t>(channels) * static_cast<size_t>(duration_seconds);
 
     perception::audio_data out = public_buffer_;
-    out.samples.assign(public_buffer_.samples.end() - static_cast<std::ptrdiff_t>(needed_samples),
-                       public_buffer_.samples.end());
+    out.sample_rate = sample_rate;
+    out.channels = channels;
+    out.samples.clear();
     out.chunk_count = 1;
-    out.chunk_size = static_cast<int>(needed_samples / static_cast<size_t>(std::max(1, out.channels)));
+    out.chunk_size = static_cast<int>(needed_samples / static_cast<size_t>(channels));
+
+    uint64_t next_cursor = public_buffer_total_samples_;
+    const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(duration_seconds + 10);
+
+    while (out.samples.size() < needed_samples)
+    {
+      const bool ok = public_buffer_cv_.wait_until(
+          lock, deadline, [this, next_cursor] { return public_buffer_total_samples_ > next_cursor; });
+
+      if (!ok)
+        throw perception_exception("timeout waiting for device audio buffer to fill");
+
+      if (public_buffer_.sample_rate != sample_rate || public_buffer_.channels != channels)
+        throw perception_exception("public audio buffer format changed during capture");
+
+      const uint64_t available_end = public_buffer_total_samples_;
+      const uint64_t available_begin = available_end - static_cast<uint64_t>(public_buffer_.samples.size());
+
+      if (next_cursor < available_begin)
+        throw perception_exception("device audio capture overflowed request buffer");
+
+      const size_t start_index = static_cast<size_t>(next_cursor - available_begin);
+      const size_t available_samples = public_buffer_.samples.size() - start_index;
+      const size_t remaining_samples = needed_samples - out.samples.size();
+      const size_t samples_to_copy = std::min(available_samples, remaining_samples);
+
+      out.samples.insert(out.samples.end(), public_buffer_.samples.begin() + static_cast<std::ptrdiff_t>(start_index),
+                         public_buffer_.samples.begin() +
+                             static_cast<std::ptrdiff_t>(start_index + samples_to_copy));
+      next_cursor += static_cast<uint64_t>(samples_to_copy);
+    }
+
     return out;
   }
 

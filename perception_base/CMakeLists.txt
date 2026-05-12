@@ -16,6 +16,7 @@ find_package(pluginlib REQUIRED)
 find_package(perception_msgs REQUIRED)
 find_package(CURL REQUIRED)
 find_package(nlohmann_json REQUIRED)
+find_package(OpenCV REQUIRED)
 
 include_directories(
   include
@@ -27,4 +28,5 @@ install(DIRECTORY include/
 )
 
 ament_export_include_directories(include)
+ament_export_dependencies(OpenCV)
 ament_package()

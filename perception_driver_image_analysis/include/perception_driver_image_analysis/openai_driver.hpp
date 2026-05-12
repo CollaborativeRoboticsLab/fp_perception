@@ -7,6 +7,7 @@
 
 #include <rclcpp/rclcpp.hpp>
 
+#include <perception_base/image_analysis/structs.hpp>
 #include <perception_base/rest_base.hpp>
 #include <perception_base/exceptions.hpp>
 
@@ -95,7 +96,10 @@ public:
    */
   std::any getData() override
   {
-    return response_.response;
+    image_analysis_result result;
+    result.response = response_.response;
+    result.success = !response_.response.empty();
+    return result;
   }
 
   /**
@@ -108,10 +112,10 @@ public:
    */
   void setDataStream(const std::any& input) override
   {
-    const auto& payload = std::any_cast<const std::pair<cv::Mat, std::string>&>(input);
+    const auto& request_data = std::any_cast<const image_analysis_request&>(input);
 
-    const cv::Mat& frame = payload.first;
-    const std::string& prompt = payload.second;
+    const cv::Mat& frame = request_data.frame.image;
+    const std::string& prompt = request_data.prompt;
 
     if (frame.empty())
       throw perception_exception("OpenAIImageAnalysisDriver received an empty image frame");
@@ -144,12 +148,17 @@ public:
     if (image.empty())
       throw perception_exception("Failed to read test image file: " + filepath.string());
 
-    setDataStream(std::make_pair(image, test_prompt_));
+    image_analysis_request request;
+    request.frame.image = image;
+    request.prompt = test_prompt_;
+
+    setDataStream(request);
 
     auto result = getData();
     if (result.has_value())
     {
-      RCLCPP_INFO(node_->get_logger(), "Image analysis result: %s", std::any_cast<std::string>(result).c_str());
+      const auto analysis = std::any_cast<image_analysis_result>(result);
+      RCLCPP_INFO(node_->get_logger(), "Image analysis result: %s", analysis.response.c_str());
     }
     else
     {

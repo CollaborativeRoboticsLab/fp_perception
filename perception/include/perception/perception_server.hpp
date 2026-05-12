@@ -15,6 +15,10 @@
 
 #include <perception_base/driver_base.hpp>
 #include <perception_base/audio/structs.hpp>
+#include <perception_base/transcription/structs.hpp>
+#include <perception_base/sentiment/structs.hpp>
+#include <perception_base/vision/structs.hpp>
+#include <perception_base/image_analysis/structs.hpp>
 
 #include <perception_msgs/msg/perception_audio.hpp>
 #include <perception_msgs/msg/perception_text.hpp>
@@ -550,28 +554,28 @@ protected:
     response->header.stamp = this->now();
     response->header.frame_id = audio_input_frame_id_;
 
-    int duration = 0;
+    transcription_request transcription_request_data;
 
     if (request->device_buffer_time > 0)
     {
       RCLCPP_INFO(this->get_logger(), "Transcription request provides device audio buffer time: %d seconds",
                   request->device_buffer_time);
-      duration = request->device_buffer_time;
+      transcription_request_data.device_buffer_time = request->device_buffer_time;
     }
     else
     {
       RCLCPP_INFO(this->get_logger(), "Buffer time not provided with request, using default buffer time: %d seconds",
                   audio_input_buffer_duration_);
-      duration = audio_input_buffer_duration_;
+      transcription_request_data.device_buffer_time = audio_input_buffer_duration_;
     }
 
-    perception::audio_data audio_in;
+    transcription_request_data.use_device_audio = request->use_device_audio;
 
     if (request->use_device_audio)
     {
       try
       {
-        audio_in = wait_for_public_audio(duration);
+        transcription_request_data.audio = wait_for_public_audio(transcription_request_data.device_buffer_time);
       }
       catch (const std::exception& e)
       {
@@ -581,29 +585,35 @@ protected:
         return;
       }
 
-      RCLCPP_INFO(this->get_logger(), "Transcription with device audio: %zu samples", audio_in.samples.size());
+      RCLCPP_INFO(this->get_logger(), "Transcription with device audio: %zu samples",
+                  transcription_request_data.audio.samples.size());
     }
     else
     {
-      audio_in = perception::msg_to_audio_data(request->audio);
+      transcription_request_data.audio = perception::msg_to_audio_data(request->audio);
       response->header = request->audio.header;
-      RCLCPP_INFO(this->get_logger(), "Transcription with external audio: %zu samples", audio_in.samples.size());
+      RCLCPP_INFO(this->get_logger(), "Transcription with external audio: %zu samples",
+                  transcription_request_data.audio.samples.size());
     }
 
     {
       std::lock_guard<std::mutex> lock(transcription_driver_mutex_);
-      transcription_driver_->setDataStream(audio_in);
+      transcription_driver_->setDataStream(transcription_request_data);
     }
 
-    std::any result;
+    transcription_result transcription_result_data;
     {
       std::lock_guard<std::mutex> lock(transcription_driver_mutex_);
-      result = transcription_driver_->getData();
+      auto result = transcription_driver_->getData();
+      if (result.has_value())
+      {
+        transcription_result_data = std::any_cast<transcription_result>(result);
+      }
     }
 
-    if (result.has_value())
+    if (transcription_result_data.success)
     {
-      response->transcription = std::any_cast<std::string>(result);
+      response->transcription = transcription_result_data.text;
       response->success = true;
       RCLCPP_INFO(this->get_logger(), "Transcription service processed request successfully.");
     }
@@ -674,21 +684,22 @@ protected:
       return;
     }
 
-    std::string text;
-    int duration = 0;
+    sentiment_request sentiment_request_data;
 
     if (request->device_buffer_time > 0)
     {
       RCLCPP_INFO(this->get_logger(), "Transcription request provides device audio buffer time: %d seconds",
                   request->device_buffer_time);
-      duration = request->device_buffer_time;
+      sentiment_request_data.device_buffer_time = request->device_buffer_time;
     }
     else
     {
       RCLCPP_INFO(this->get_logger(), "Buffer time not provided with request, using default buffer time: %d seconds",
                   audio_input_buffer_duration_);
-      duration = audio_input_buffer_duration_;
+      sentiment_request_data.device_buffer_time = audio_input_buffer_duration_;
     }
+
+    sentiment_request_data.use_device_audio = request->use_device_audio;
 
     if (request->use_device_audio)
     {
@@ -702,11 +713,10 @@ protected:
         return;
       }
 
-      const int duration = std::max(1, duration);
       perception::audio_data audio_in;
       try
       {
-        audio_in = wait_for_public_audio(duration);
+        audio_in = wait_for_public_audio(sentiment_request_data.device_buffer_time);
       }
       catch (const std::exception& e)
       {
@@ -716,18 +726,23 @@ protected:
         return;
       }
 
-      std::any transcription_result;
+      std::any transcription_any_result;
       {
         std::lock_guard<std::mutex> lock(transcription_driver_mutex_);
-        transcription_driver_->setDataStream(audio_in);
-        transcription_result = transcription_driver_->getData();
+        transcription_request transcription_request_data;
+        transcription_request_data.audio = audio_in;
+        transcription_request_data.use_device_audio = true;
+        transcription_request_data.device_buffer_time = sentiment_request_data.device_buffer_time;
+
+        transcription_driver_->setDataStream(transcription_request_data);
+        transcription_any_result = transcription_driver_->getData();
       }
 
-      if (transcription_result.has_value())
+      if (transcription_any_result.has_value())
       {
         try
         {
-          text = std::any_cast<std::string>(transcription_result);
+          sentiment_request_data.text = std::any_cast<transcription_result>(transcription_any_result).text;
         }
         catch (const std::bad_any_cast&)
         {
@@ -736,8 +751,8 @@ protected:
           response->score = 0.0;
           return;
         }
-
-        RCLCPP_INFO(this->get_logger(), "Transcription result for sentiment analysis: %s", text.c_str());
+        RCLCPP_INFO(this->get_logger(), "Transcription result for sentiment analysis: %s",
+                    sentiment_request_data.text.c_str());
       }
       else
       {
@@ -750,28 +765,29 @@ protected:
     else
     {
       RCLCPP_INFO(this->get_logger(), "Received sentiment analysis request with text: %s", request->text.c_str());
-      text = request->text;
+      sentiment_request_data.text = request->text;
     }
 
     RCLCPP_INFO(this->get_logger(), "Using text for sentiment analysis.");
     {
       std::lock_guard<std::mutex> lock(sentiment_driver_mutex_);
-      sentiment_driver_->setDataStream(text);
+      sentiment_driver_->setDataStream(sentiment_request_data);
     }
 
-    std::any result;
+    sentiment_result sentiment_result_data;
     {
       std::lock_guard<std::mutex> lock(sentiment_driver_mutex_);
-      result = sentiment_driver_->getData();
+      auto result = sentiment_driver_->getData();
+      if (result.has_value())
+      {
+        sentiment_result_data = std::any_cast<sentiment_result>(result);
+      }
     }
 
-    if (result.has_value())
+    if (sentiment_result_data.success)
     {
-      auto sentiment_result = std::any_cast<std::pair<std::string, double>>(result);
-
-      // Set the response data
-      response->label = sentiment_result.first;   // Example response
-      response->score = sentiment_result.second;  // Example confidence score
+      response->label = sentiment_result_data.label;
+      response->score = sentiment_result_data.score;
     }
     else
     {
@@ -800,45 +816,33 @@ protected:
 
     const int sample_rate = public_buffer_.sample_rate;
     const int channels = std::max(1, public_buffer_.channels);
-    const size_t needed_samples =
+    const size_t requested_samples =
         static_cast<size_t>(sample_rate) * static_cast<size_t>(channels) * static_cast<size_t>(duration_seconds);
 
     perception::audio_data out = public_buffer_;
     out.sample_rate = sample_rate;
     out.channels = channels;
-    out.samples.clear();
     out.chunk_count = 1;
-    out.chunk_size = static_cast<int>(needed_samples / static_cast<size_t>(channels));
+    const size_t available_samples = public_buffer_.samples.size();
 
-    uint64_t next_cursor = public_buffer_total_samples_;
-    const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(duration_seconds + 10);
+    if (available_samples == 0)
+      throw perception_exception("public audio buffer is empty");
 
-    while (out.samples.size() < needed_samples)
+    const size_t samples_to_copy = std::min(requested_samples, available_samples);
+    const size_t start_index = available_samples - samples_to_copy;
+
+    out.samples.assign(public_buffer_.samples.begin() + static_cast<std::ptrdiff_t>(start_index),
+                       public_buffer_.samples.end());
+    out.chunk_size = static_cast<int>(samples_to_copy / static_cast<size_t>(channels));
+
+    if (samples_to_copy < requested_samples)
     {
-      const bool ok = public_buffer_cv_.wait_until(
-          lock, deadline, [this, next_cursor] { return public_buffer_total_samples_ > next_cursor; });
-
-      if (!ok)
-        throw perception_exception("timeout waiting for device audio buffer to fill");
-
-      if (public_buffer_.sample_rate != sample_rate || public_buffer_.channels != channels)
-        throw perception_exception("public audio buffer format changed during capture");
-
-      const uint64_t available_end = public_buffer_total_samples_;
-      const uint64_t available_begin = available_end - static_cast<uint64_t>(public_buffer_.samples.size());
-
-      if (next_cursor < available_begin)
-        throw perception_exception("device audio capture overflowed request buffer");
-
-      const size_t start_index = static_cast<size_t>(next_cursor - available_begin);
-      const size_t available_samples = public_buffer_.samples.size() - start_index;
-      const size_t remaining_samples = needed_samples - out.samples.size();
-      const size_t samples_to_copy = std::min(available_samples, remaining_samples);
-
-      out.samples.insert(out.samples.end(), public_buffer_.samples.begin() + static_cast<std::ptrdiff_t>(start_index),
-                         public_buffer_.samples.begin() +
-                             static_cast<std::ptrdiff_t>(start_index + samples_to_copy));
-      next_cursor += static_cast<uint64_t>(samples_to_copy);
+      const double buffered_seconds = static_cast<double>(samples_to_copy) /
+                                      static_cast<double>(sample_rate * channels);
+      RCLCPP_WARN(this->get_logger(),
+                  "Requested %d seconds of device audio, but only %.2f seconds are buffered. Transcribing latest "
+                  "available audio.",
+                  duration_seconds, buffered_seconds);
     }
 
     return out;
@@ -856,9 +860,10 @@ protected:
       return;
     }
 
-    const std::string prompt = request->prompt.empty() ? std::string("What's in this image?") : request->prompt;
+    image_analysis_request image_request;
+    image_request.use_device_vision = request->use_device_vision;
+    image_request.prompt = request->prompt.empty() ? std::string("What's in this image?") : request->prompt;
 
-    cv::Mat frame;
     try
     {
       if (request->use_device_vision)
@@ -868,21 +873,27 @@ protected:
 
         if (use_non_ros_vision_driver_)
         {
-          frame = std::any_cast<cv::Mat>(non_ros_vision_driver_->getData());
+          image_request.frame.image = std::any_cast<cv::Mat>(non_ros_vision_driver_->getData());
+          image_request.frame.frame_id = vision_input_frame_id_;
+          image_request.frame.stamp = this->now();
         }
 
         if (use_ros_vision_driver_)
         {
           auto image = std::any_cast<sensor_msgs::msg::Image::ConstSharedPtr>(ros_vision_driver_->getData());
           auto cv_ptr = cv_bridge::toCvCopy(image, image->encoding);
-          frame = cv_ptr->image;
+          image_request.frame.image = cv_ptr->image;
+          image_request.frame.frame_id = image->header.frame_id;
+          image_request.frame.stamp = image->header.stamp;
         }
       }
       else
       {
         const auto& image_msg = request->image;
         auto cv_ptr = cv_bridge::toCvCopy(image_msg, image_msg.encoding);
-        frame = cv_ptr->image;
+        image_request.frame.image = cv_ptr->image;
+        image_request.frame.frame_id = image_msg.header.frame_id;
+        image_request.frame.stamp = image_msg.header.stamp;
       }
     }
     catch (const std::exception& e)
@@ -894,12 +905,13 @@ protected:
 
     try
     {
-      image_analysis_driver_->setDataStream(std::make_pair(frame, prompt));
+      image_analysis_driver_->setDataStream(image_request);
       auto result = image_analysis_driver_->getData();
 
       if (result.has_value())
       {
-        response->response = std::any_cast<std::string>(result);
+        const auto analysis = std::any_cast<image_analysis_result>(result);
+        response->response = analysis.response;
         RCLCPP_INFO(this->get_logger(), "Image analysis service processed request successfully.");
       }
       else

@@ -6,9 +6,9 @@
 #include <rclcpp/rclcpp.hpp>
 
 #include <perception_base/rest_base.hpp>
-#include <perception_base/audio/structs.hpp>
 #include <perception_base/audio/wav.hpp>
 #include <perception_base/exceptions.hpp>
+#include <perception_base/transcription/structs.hpp>
 
 namespace perception
 {
@@ -89,7 +89,10 @@ public:
    */
   std::any getData() override
   {
-    return response_.response;
+    transcription_result result;
+    result.text = response_.response;
+    result.success = !response_.response.empty();
+    return result;
   }
 
   /**
@@ -102,7 +105,8 @@ public:
    */
   void setDataStream(const std::any& input) override
   {
-    const auto& new_audio = std::any_cast<const perception::audio_data&>(input);
+    const auto& request_data = std::any_cast<const perception::transcription_request&>(input);
+    const auto& new_audio = request_data.audio;
 
     // create perception::RESTRequest object
     perception::RESTRequest request;
@@ -150,7 +154,10 @@ public:
     RCLCPP_INFO(node_->get_logger(), "Test audio file read successfully, size: %d", data.samples.size());
 
     // Convert the audio data to the expected format
-    setDataStream(data);
+    transcription_request request;
+    request.audio = data;
+
+    setDataStream(request);
 
     RCLCPP_INFO(node_->get_logger(), "Transcription service called with test audio data. waiting for response...");
 
@@ -158,7 +165,8 @@ public:
 
     if (result.has_value())
     {
-      RCLCPP_INFO(node_->get_logger(), "Transcription result: %s", std::any_cast<std::string>(result).c_str());
+      const auto transcription = std::any_cast<transcription_result>(result);
+      RCLCPP_INFO(node_->get_logger(), "Transcription result: %s", transcription.text.c_str());
     }
     else
     {

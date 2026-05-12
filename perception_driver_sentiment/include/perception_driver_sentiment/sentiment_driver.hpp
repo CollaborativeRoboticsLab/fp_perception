@@ -2,10 +2,10 @@
 
 #include <any>
 #include <string>
-#include <utility>
 #include <vector>
 #include <rclcpp/rclcpp.hpp>
 #include <perception_base/rest_base.hpp>
+#include <perception_base/sentiment/structs.hpp>
 
 namespace perception
 {
@@ -86,19 +86,18 @@ public:
    */
   std::any getData() override
   {
-    std::pair<std::string, double> sentiment_result;
+    sentiment_result result;
 
     if (response_.response.empty())
     {
       throw perception_exception("No response received from sentiment analysis service");
     }
-    else
-    {
-      sentiment_result.first = response_.response;     // The sentiment label
-      sentiment_result.second = response_.confidence;  // The confidence score
-    }
 
-    return sentiment_result;
+    result.label = response_.response;
+    result.score = response_.confidence;
+    result.success = true;
+
+    return result;
   }
   /**
    * @brief Set data to the driver
@@ -110,10 +109,10 @@ public:
    */
   void setDataStream(const std::any& input) override
   {
-    const auto& text = std::any_cast<const std::string>(input);
+    const auto& request_data = std::any_cast<const sentiment_request&>(input);
 
     perception::RESTRequest request;
-    request.prompt = text;
+    request.prompt = request_data.text;
 
     response_ = call(request);
   }
@@ -128,21 +127,22 @@ public:
     RCLCPP_INFO(node_->get_logger(), "Testing SentimentDriver with model: %s", uri_.c_str());
 
     // Example test input
-    std::string test_text = "I love programming!";
+    sentiment_request request;
+    request.text = "I love programming!";
 
     // Wait for the service to process the request
-    RCLCPP_INFO(node_->get_logger(), "Initiated Sentiment analysis for text: %s", test_text.c_str());
+    RCLCPP_INFO(node_->get_logger(), "Initiated Sentiment analysis for text: %s", request.text.c_str());
 
-    setDataStream(test_text);
+    setDataStream(request);
 
     auto result = getData();
 
     if (result.has_value())
     {
-      auto sentiment_result = std::any_cast<std::pair<std::string, double>>(result);
+      auto sentiment = std::any_cast<sentiment_result>(result);
 
       RCLCPP_INFO(node_->get_logger(), "Analysis results with sentiment: %s and confidence: %f",
-                  sentiment_result.first.c_str(), sentiment_result.second);
+                  sentiment.label.c_str(), sentiment.score);
     }
 
     RCLCPP_INFO(node_->get_logger(), "Test completed.");

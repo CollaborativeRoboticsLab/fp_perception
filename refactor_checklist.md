@@ -1,0 +1,340 @@
+# Perception Refactor Implementation Checklist
+
+This checklist turns the refactor plan into concrete file-by-file implementation work. The order is designed to keep the system compiling after each small batch of changes.
+
+## Working Rules
+
+- Keep ROS message and service definitions stable until internal typed workflows are in place.
+- Keep `DriverBase` temporarily during migration so existing plugin exports continue to work.
+- Prefer additive changes first, then cut over call sites, then remove legacy code.
+- Validate after each phase with a focused build of touched packages.
+
+## Phase 1. Add Shared Types
+
+### `perception_base/include/perception_base/audio/structs.hpp`
+
+- [x] Keep `audio_data` and `text_data` unchanged unless a missing field is required.
+- [x] Decide whether this file should remain the shared type home or only audio/text should stay here.
+- [x] If splitting by domain, reduce this file to audio/text only and include the new headers where needed.
+
+### `perception_base/include/perception_base/transcription/structs.hpp`
+
+- [x] Create the file if choosing domain-specific headers.
+- [x] Add `transcription_request`.
+- [x] Add `transcription_result`.
+- [x] Keep the types independent from ROS service request/response classes.
+
+### `perception_base/include/perception_base/sentiment/structs.hpp`
+
+- [x] Create `sentiment_request`.
+- [x] Create `sentiment_result`.
+- [x] Replace the implicit `std::string` and `std::pair<std::string, double>` boundary with these types.
+
+### `perception_base/include/perception_base/vision/structs.hpp`
+
+- [x] Create `vision_frame`.
+- [x] Add image metadata fields actually needed by the server and plugins.
+- [x] Keep ownership simple; start with `cv::Mat` by value unless copy pressure proves problematic.
+
+### `perception_base/include/perception_base/image_analysis/structs.hpp`
+
+- [x] Create `image_analysis_request`.
+- [x] Create `image_analysis_result`.
+- [x] Replace the implicit `std::pair<cv::Mat, std::string>` contract.
+
+### `perception_base/CMakeLists.txt`
+
+- [x] Export any new include paths or headers if needed.
+- [x] Add OpenCV include requirements here only if the new shared headers require them.
+- [x] Confirm no package dependency changes are needed beyond what `perception_base` already exposes.
+
+### `perception_base/package.xml`
+
+- [x] Add any new dependencies only if the new shared headers require them.
+- [x] Avoid adding runtime dependencies that are only needed in downstream packages.
+
+### Cutover tasks for Phase 1
+
+- [x] Update include statements in the server and plugins to use the new typed headers.
+- [x] Replace internal server locals that currently use raw strings, pairs, or ad hoc payloads.
+- [x] Do not remove `std::any` interfaces yet; only improve the types flowing through them.
+
+### Phase 1 status
+
+- [x] Shared structs added for transcription, sentiment, vision, and image analysis.
+- [x] Sentiment, image analysis, and transcription internals now use the shared structs.
+- [x] Existing ROS service interfaces remain unchanged.
+- [x] Existing `std::any` driver interfaces remain in place for later phases.
+- [x] Focused builds passed for `perception_base`, `perception`, `perception_driver_sentiment`, `perception_driver_image_analysis`, and `perception_driver_transcribe`.
+
+## Phase 2. Extract Audio Buffering
+
+### `perception/include/perception/audio_buffer.hpp`
+
+- [ ] Create an `AudioBuffer` class.
+- [ ] Move rolling sample storage here.
+- [ ] Move mutex and condition variable ownership here.
+- [ ] Add append logic for new `audio_data` chunks.
+- [ ] Add format reset logic when sample rate or channel count changes.
+- [ ] Add trim logic for max buffered duration.
+- [ ] Add `waitForAudio()` or equivalent initialization guard.
+- [ ] Add `readLatest(duration_seconds)` to fetch the newest buffered audio.
+
+### `perception/perception/include/perception/perception_server.hpp`
+
+- [ ] Remove `public_buffer_`, `public_buffer_mutex_`, `public_buffer_cv_`, and `public_buffer_total_samples_`.
+- [ ] Add an `AudioBuffer` member.
+- [ ] Change `publishAudio()` to append microphone chunks through `AudioBuffer`.
+- [ ] Change transcription device-audio reads to use `AudioBuffer`.
+- [ ] Change sentiment device-audio reads to use `AudioBuffer`.
+- [ ] Remove `wait_for_public_audio()` once all call sites are migrated.
+
+### Optional alternative: `perception_driver_audio/include/perception_driver_audio/microphone_audio_driver.hpp`
+
+- [ ] If buffering is moved into the microphone plugin instead of a shared helper, add typed read methods here.
+- [ ] Ensure the server no longer knows buffer details such as trimming and duration slicing.
+
+### Phase 2 validation
+
+- [ ] Build `perception` and `perception_driver_audio`.
+- [ ] Verify `use_device_audio` still works for transcription.
+- [ ] Verify `use_device_audio` still works for sentiment.
+
+## Phase 3. Add Typed Driver Interfaces
+
+### `perception_base/include/perception_base/driver_base.hpp`
+
+- [ ] Keep lifecycle helpers and shared utilities only.
+- [ ] Do not add more untyped virtual methods.
+- [ ] If needed, deprecate generic methods in comments while migration is in progress.
+
+### `perception_base/include/perception_base/audio/audio_source_driver.hpp`
+
+- [ ] Create a typed interface for microphone-like sources.
+- [ ] Add `readChunk()`.
+- [ ] Add `readBufferedAudio()` if buffering is owned by the source.
+
+### `perception_base/include/perception_base/audio/audio_sink_driver.hpp`
+
+- [ ] Create a typed interface for speaker-like sinks.
+- [ ] Add a method such as `play(const audio_data&)`.
+
+### `perception_base/include/perception_base/transcription/transcription_driver.hpp`
+
+- [ ] Create a typed transcription interface.
+- [ ] Add `transcribe(const transcription_request&)`.
+
+### `perception_base/include/perception_base/speech/speech_synthesis_driver.hpp`
+
+- [ ] Create a typed speech synthesis interface.
+- [ ] Add a method such as `synthesize(const text_data&)` returning `audio_data`.
+
+### `perception_base/include/perception_base/sentiment/sentiment_analysis_driver.hpp`
+
+- [ ] Create a typed sentiment interface.
+- [ ] Add `analyze(const sentiment_request&)`.
+
+### `perception_base/include/perception_base/vision/vision_source_driver.hpp`
+
+- [ ] Create a typed vision source interface.
+- [ ] Add a method such as `captureFrame()` returning `vision_frame`.
+
+### `perception_base/include/perception_base/image_analysis/image_analysis_driver.hpp`
+
+- [ ] Create a typed image analysis interface.
+- [ ] Add `analyze(const image_analysis_request&)`.
+
+### `perception_driver_audio/include/perception_driver_audio/microphone_audio_driver.hpp`
+
+- [ ] Make the microphone driver implement `AudioSourceDriver`.
+- [ ] Keep legacy `getDataStream()` temporarily if needed.
+- [ ] Add a typed adapter method that the server or pipeline can use immediately.
+
+### `perception_driver_audio/include/perception_driver_audio/speaker_audio_driver.hpp`
+
+- [ ] Make the speaker driver implement `AudioSinkDriver`.
+- [ ] Add a typed `play()` wrapper around the current stream write path.
+- [ ] Keep `setDataStream()` temporarily for backward compatibility if needed.
+
+### `perception_driver_transcribe/include/perception_driver_transcribe/openai_driver.hpp`
+
+- [ ] Make the driver implement `TranscriptionDriver`.
+- [ ] Add a typed `transcribe()` method that internally reuses the current REST logic.
+- [ ] Keep `setDataStream()` and `getData()` only until server call sites are migrated.
+
+### `perception_driver_speech/include/perception_driver_speech/openai_driver.hpp`
+
+- [ ] Make the driver implement `SpeechSynthesisDriver`.
+- [ ] Add a typed `synthesize(const text_data&)` method.
+- [ ] Return `audio_data` directly from the typed method.
+
+### `perception_driver_sentiment/include/perception_driver_sentiment/sentiment_driver.hpp`
+
+- [ ] Make the driver implement `SentimentAnalysisDriver`.
+- [ ] Replace typed boundary assumptions based on `std::string` input and `std::pair` output.
+- [ ] Add a typed `analyze(const sentiment_request&)` method.
+
+### `perception_driver_image_analysis/include/perception_driver_image_analysis/openai_driver.hpp`
+
+- [ ] Make the driver implement `ImageAnalysisDriver`.
+- [ ] Replace the `std::pair<cv::Mat, std::string>` payload with `image_analysis_request`.
+- [ ] Return `image_analysis_result` from the typed method.
+
+### `perception_driver_vision/include/perception_driver_vision/default_vision_driver.hpp`
+
+- [ ] Evaluate whether this plugin should implement `VisionSourceDriver` directly.
+- [ ] Add a typed frame-returning method if the plugin remains part of the refactor target.
+
+### `perception_driver_vision/include/perception_driver_vision/opencv_vision_driver.hpp`
+
+- [ ] Add the same typed `VisionSourceDriver` support for the non-ROS vision plugin.
+
+### Phase 3 cutover tasks
+
+- [ ] Change server-held pointers from generic `DriverBase` where practical.
+- [ ] Keep pluginlib exports stable while changing inheritance chains.
+- [ ] Remove server-side `std::any_cast` calls only after typed APIs are wired.
+
+## Phase 4. Extract Workflows From `PerceptionServer`
+
+### `perception/include/perception/transcription_pipeline.hpp`
+
+- [ ] Create the pipeline class.
+- [ ] Accept typed dependencies needed for transcription.
+- [ ] Accept `transcription_request`.
+- [ ] Return `transcription_result`.
+- [ ] Own device-audio fallback and validation logic currently in the callback.
+
+### `perception/include/perception/speech_pipeline.hpp`
+
+- [ ] Create the pipeline class.
+- [ ] Accept speech and optional speaker dependencies.
+- [ ] Handle `use_device_audio` routing.
+- [ ] Return a typed result that the ROS callback can map easily.
+
+### `perception/include/perception/sentiment_pipeline.hpp`
+
+- [ ] Create the pipeline class.
+- [ ] Accept sentiment and optional transcription dependencies.
+- [ ] Handle the device-audio -> transcription -> sentiment chain.
+- [ ] Return `sentiment_result`.
+
+### `perception/include/perception/image_analysis_pipeline.hpp`
+
+- [ ] Create the pipeline class.
+- [ ] Accept image-analysis and vision-source dependencies.
+- [ ] Handle `use_device_vision` source selection.
+- [ ] Return `image_analysis_result`.
+
+### `perception/perception/include/perception/perception_server.hpp`
+
+- [ ] Add pipeline members or construct them during initialization.
+- [ ] Shrink `transcribe_callback()` to request mapping plus pipeline call.
+- [ ] Shrink `speech_callback()` to request mapping plus pipeline call.
+- [ ] Shrink `sentiment_callback()` to request mapping plus pipeline call.
+- [ ] Shrink `image_analysis_callback()` to request mapping plus pipeline call.
+- [ ] Keep ROS message/service conversion only.
+
+### Phase 4 validation
+
+- [ ] Build `perception` and all touched driver packages.
+- [ ] Smoke test each service path.
+- [ ] Verify error responses remain equivalent or intentionally improved.
+
+## Phase 5. Simplify Plugin Loading
+
+### `perception/include/perception/driver_manager.hpp`
+
+- [ ] Create a small driver manager or loader helper.
+- [ ] Centralize declare/load/initialize/test behavior.
+- [ ] Keep plugin name strings and parameter keys in one place.
+
+### `perception/perception/include/perception/perception_server.hpp`
+
+- [ ] Replace repeated plugin loading blocks with helper calls.
+- [ ] Move plugin-test invocation behind the manager if it reduces repetition.
+- [ ] Group interface configuration separately from driver loading.
+
+### `perception/perception/src/server_node.cpp`
+
+- [ ] Check whether node construction needs to change to support explicit post-construction initialization.
+- [ ] If constructor-based initialization remains fragile, move startup to a safer lifecycle point.
+
+### `perception/perception/src/server_component.cpp`
+
+- [ ] Mirror any startup changes made for the standalone node path.
+- [ ] Keep component registration behavior unchanged.
+
+### Phase 5 validation
+
+- [ ] Build `perception`.
+- [ ] Verify plugins still load from parameters.
+- [ ] Verify `run_tests` still reaches loaded plugins.
+
+## Phase 6. Remove Legacy Untyped Paths
+
+### `perception/perception/include/perception/perception_server.hpp`
+
+- [ ] Remove remaining `std::any_cast` usage.
+- [ ] Remove legacy helper code that only existed for untyped flows.
+- [ ] Remove dead members left over from the old plugin loading pattern.
+
+### `perception_base/include/perception_base/driver_base.hpp`
+
+- [ ] Remove generic data methods only when all plugins and server call sites are migrated.
+- [ ] If full removal is too disruptive, mark them as legacy and stop using them internally.
+
+### Driver headers in all plugin packages
+
+- [ ] Remove compatibility wrappers that were kept only for migration.
+- [ ] Ensure typed interfaces are the only code paths used by `PerceptionServer` and pipelines.
+
+### Phase 6 validation
+
+- [ ] Full build of all perception-related packages.
+- [ ] Focused runtime smoke tests for microphone, speaker, transcription, sentiment, speech, and image analysis.
+
+## Suggested Build and Verification Sequence
+
+### After Phase 1
+
+- [ ] Build `perception_base`.
+- [ ] Build `perception`.
+- [ ] Build affected driver packages.
+
+### After Phase 2
+
+- [ ] Run a focused build for `perception` and `perception_driver_audio`.
+- [ ] Verify buffered device audio behavior still matches expectations.
+
+### After Phase 3 and Phase 4
+
+- [ ] Build all touched packages together.
+- [ ] Exercise each ROS service path once.
+
+### After Phase 5 and Phase 6
+
+- [ ] Run a full workspace build for the perception stack.
+- [ ] Review remaining warnings before removing migration shims.
+
+## Practical Implementation Order
+
+Use this as the execution order if working in small PRs or commits:
+
+1. `perception_base` shared structs.
+2. `perception` audio buffer extraction.
+3. `perception_driver_sentiment` typed request/result cutover.
+4. `perception_driver_image_analysis` typed request/result cutover.
+5. `perception` pipeline extraction.
+6. typed interface rollout across all driver packages.
+7. `perception` driver manager cleanup.
+8. legacy untyped API removal.
+
+## Definition of Progress
+
+You are meaningfully done with each phase when:
+
+- the touched packages build
+- the new abstractions are used by the server
+- old compatibility code remains only where still needed by an unmigrated phase
+- no new duplication is introduced while migrating

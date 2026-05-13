@@ -2,7 +2,8 @@
 
 #include <opencv2/opencv.hpp>
 #include <cv_bridge/cv_bridge.hpp>
-#include <perception_base/driver_base.hpp>
+#include <perception_base/vision/vision_source_driver.hpp>
+#include <perception_base/vision/structs.hpp>
 
 namespace perception
 {
@@ -13,7 +14,7 @@ namespace perception
  * It provides methods to start and stop the video stream, as well as retrieve image data.
  */
 
-class OpenCVDriver : public DriverBase
+class OpenCVDriver : public VisionSourceDriver
 {
 public:
   OpenCVDriver()
@@ -89,7 +90,7 @@ public:
    * @return std::any The latest data from the driver of type cv::Mat
    * @throws perception_exception if not implemented in derived classes
    */
-  std::any getData() override
+  vision_frame captureFrame() override
   {
     if (!capture_device.isOpened())
       throw perception_exception("Camera device is not opened");
@@ -102,7 +103,17 @@ public:
     if (frame.empty())
       throw perception_exception("Captured empty frame from camera");
 
-    return frame;
+    vision_frame vision;
+    vision.image = frame;
+    vision.frame_id = name_;
+    vision.stamp = node_->now();
+
+    return vision;
+  }
+
+  std::any getData() override
+  {
+    return captureFrame().image;
   }
 
   /**
@@ -117,8 +128,7 @@ public:
     DriverBase::check_directory("test");
 
     // Save image to the "test" folder
-    cv::Mat frame = std::any_cast<cv::Mat>(getData());
-    cv::imwrite("test/opencv_vision_image.jpg", frame);
+    cv::imwrite("test/opencv_vision_image.jpg", captureFrame().image);
 
     RCLCPP_INFO(node_->get_logger(), "OpenCVDriver test image saved to 'test/opencv_vision_image.jpg'. Test "
                                      "completed.");

@@ -4,14 +4,16 @@
 #include <condition_variable>
 #include <opencv2/opencv.hpp>
 #include <cv_bridge/cv_bridge.hpp>
-#include <perception_base/driver_base.hpp>
+#include <perception_base/vision/vision_source_driver.hpp>
+#include <perception_base/exceptions.hpp>
+#include <perception_base/vision/structs.hpp>
 #include <sensor_msgs/msg/image.hpp>
 #include <image_transport/image_transport.hpp>
 
 namespace perception
 {
 
-class DefaultDriver : public DriverBase
+class DefaultDriver : public VisionSourceDriver
 {
 public:
   DefaultDriver() = default;
@@ -71,12 +73,31 @@ public:
    * @return std::any The latest data from the driver of type cv::Mat
    * @throws perception_exception if not implemented in derived classes
    */
-  std::any getData() override
+  vision_frame captureFrame() override
   {
     // Wait for the latest image to be available
     std::unique_lock<std::mutex> lock(buffer_mutex_);
     buffer_cv_.wait(lock, [this] { return latest_image_ != nullptr; });
 
+    vision_frame frame;
+    frame.frame_id = latest_image_->header.frame_id;
+    frame.stamp = latest_image_->header.stamp;
+
+    try
+    {
+      auto cv_ptr = cv_bridge::toCvCopy(latest_image_, latest_image_->encoding);
+      frame.image = cv_ptr->image.clone();
+    }
+    catch (const cv_bridge::Exception& e)
+    {
+      throw perception_exception("cv_bridge conversion failed: " + std::string(e.what()));
+    }
+
+    return frame;
+  }
+
+  std::any getData() override
+  {
     return latest_image_;
   }
 
@@ -92,11 +113,7 @@ public:
 
     try
     {
-      // Convert sensor_msgs::Image to OpenCV Mat
-      auto image = std::any_cast<sensor_msgs::msg::Image::ConstSharedPtr>(getData());
-      auto cv_ptr = cv_bridge::toCvCopy(image, image->encoding);
-      cv::Mat frame = cv_ptr->image.clone();
-      cv::imwrite("test/default_vision_image.jpg", frame);
+      cv::imwrite("test/default_vision_image.jpg", captureFrame().image);
     }
     catch (const cv_bridge::Exception& e)
     {

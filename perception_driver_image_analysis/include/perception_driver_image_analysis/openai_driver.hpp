@@ -8,13 +8,14 @@
 #include <rclcpp/rclcpp.hpp>
 
 #include <perception_base/image_analysis/structs.hpp>
+#include <perception_base/image_analysis/image_analysis_driver.hpp>
 #include <perception_base/rest_base.hpp>
 #include <perception_base/exceptions.hpp>
 
 namespace perception
 {
 
-class OpenAIImageAnalysisDriver : public RestBase
+class OpenAIImageAnalysisDriver : public RestBase, public ImageAnalysisDriver
 {
 public:
   /**
@@ -96,10 +97,7 @@ public:
    */
   std::any getData() override
   {
-    image_analysis_result result;
-    result.response = response_.response;
-    result.success = !response_.response.empty();
-    return result;
+    return last_result_;
   }
 
   /**
@@ -110,10 +108,8 @@ public:
    *
    * @param input The latest data from the driver.
    */
-  void setDataStream(const std::any& input) override
+  image_analysis_result analyze(const image_analysis_request& request_data) override
   {
-    const auto& request_data = std::any_cast<const image_analysis_request&>(input);
-
     const cv::Mat& frame = request_data.frame.image;
     const std::string& prompt = request_data.prompt;
 
@@ -131,6 +127,20 @@ public:
                                reinterpret_cast<const char*>(png_bytes.data()) + png_bytes.size());
 
     response_ = call(request);
+
+    image_analysis_result result;
+    result.response = response_.response;
+    result.success = !response_.response.empty();
+    if (!result.success)
+      result.error = "No image analysis result received.";
+
+    last_result_ = result;
+    return last_result_;
+  }
+
+  void setDataStream(const std::any& input) override
+  {
+    analyze(std::any_cast<const image_analysis_request&>(input));
   }
 
   /**
@@ -152,17 +162,14 @@ public:
     request.frame.image = image;
     request.prompt = test_prompt_;
 
-    setDataStream(request);
-
-    auto result = getData();
-    if (result.has_value())
+    const auto analysis = analyze(request);
+    if (analysis.success)
     {
-      const auto analysis = std::any_cast<image_analysis_result>(result);
       RCLCPP_INFO(node_->get_logger(), "Image analysis result: %s", analysis.response.c_str());
     }
     else
     {
-      throw perception_exception("No image analysis result received.");
+      throw perception_exception(analysis.error.empty() ? "No image analysis result received." : analysis.error);
     }
   }
 
@@ -308,6 +315,7 @@ protected:
   }
 
   perception::RESTResponse response_;
+  image_analysis_result last_result_;
 
   std::string model_name_;
   std::string test_file_path_;

@@ -1,20 +1,23 @@
 #include <perception/perception_server.hpp>
 
+#include <cstdio>
+
 int main(int argc, char* argv[])
 {
-  // Initialize the ROS 2 C++ client library
   rclcpp::init(argc, argv);
 
-  // Create a shared pointer to the CapabilitiesFabricClient
-  auto node = std::make_shared<perception::PerceptionServer>();
-  
-  // Initialize the node
-  node->initialize();  // Call initialize after construction
-
-  // Spin the node to process callbacks
-  rclcpp::spin(node);
-
-  rclcpp::shutdown();
-
-  return 0;
+  try
+  {
+    auto node = std::make_shared<perception::PerceptionServer>();
+    node->initialize();
+    rclcpp::spin(node);
+    rclcpp::shutdown();
+    return 0;
+  }
+  catch (const std::exception& e)
+  {
+    std::fprintf(stderr, "PerceptionServer startup failed: %s\n", e.what());
+    rclcpp::shutdown();
+    return 1;
+  }
 }

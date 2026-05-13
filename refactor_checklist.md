@@ -131,18 +131,18 @@ This checklist turns the refactor plan into concrete file-by-file implementation
 
 ### `perception_base/include/perception_base/sentiment/sentiment_analysis_driver.hpp`
 
-- [ ] Create a typed sentiment interface.
-- [ ] Add `analyze(const sentiment_request&)`.
+- [x] Create a typed sentiment interface.
+- [x] Add `analyze(const sentiment_request&)`.
 
 ### `perception_base/include/perception_base/vision/vision_source_driver.hpp`
 
-- [ ] Create a typed vision source interface.
-- [ ] Add a method such as `captureFrame()` returning `vision_frame`.
+- [x] Create a typed vision source interface.
+- [x] Add a method such as `captureFrame()` returning `vision_frame`.
 
 ### `perception_base/include/perception_base/image_analysis/image_analysis_driver.hpp`
 
-- [ ] Create a typed image analysis interface.
-- [ ] Add `analyze(const image_analysis_request&)`.
+- [x] Create a typed image analysis interface.
+- [x] Add `analyze(const image_analysis_request&)`.
 
 ### `perception_driver_audio/include/perception_driver_audio/microphone_audio_driver.hpp`
 
@@ -170,74 +170,74 @@ This checklist turns the refactor plan into concrete file-by-file implementation
 
 ### `perception_driver_sentiment/include/perception_driver_sentiment/sentiment_driver.hpp`
 
-- [ ] Make the driver implement `SentimentAnalysisDriver`.
-- [ ] Replace typed boundary assumptions based on `std::string` input and `std::pair` output.
-- [ ] Add a typed `analyze(const sentiment_request&)` method.
+- [x] Make the driver implement `SentimentAnalysisDriver`.
+- [x] Replace typed boundary assumptions based on `std::string` input and `std::pair` output.
+- [x] Add a typed `analyze(const sentiment_request&)` method.
 
 ### `perception_driver_image_analysis/include/perception_driver_image_analysis/openai_driver.hpp`
 
-- [ ] Make the driver implement `ImageAnalysisDriver`.
-- [ ] Replace the `std::pair<cv::Mat, std::string>` payload with `image_analysis_request`.
-- [ ] Return `image_analysis_result` from the typed method.
+- [x] Make the driver implement `ImageAnalysisDriver`.
+- [x] Replace the `std::pair<cv::Mat, std::string>` payload with `image_analysis_request`.
+- [x] Return `image_analysis_result` from the typed method.
 
 ### `perception_driver_vision/include/perception_driver_vision/default_vision_driver.hpp`
 
-- [ ] Evaluate whether this plugin should implement `VisionSourceDriver` directly.
-- [ ] Add a typed frame-returning method if the plugin remains part of the refactor target.
+- [x] Evaluate whether this plugin should implement `VisionSourceDriver` directly.
+- [x] Add a typed frame-returning method if the plugin remains part of the refactor target.
 
 ### `perception_driver_vision/include/perception_driver_vision/opencv_vision_driver.hpp`
 
-- [ ] Add the same typed `VisionSourceDriver` support for the non-ROS vision plugin.
+- [x] Add the same typed `VisionSourceDriver` support for the non-ROS vision plugin.
 
 ### Phase 3 cutover tasks
 
-- [ ] Change server-held pointers from generic `DriverBase` where practical.
-- [ ] Keep pluginlib exports stable while changing inheritance chains.
-- [ ] Remove server-side `std::any_cast` calls only after typed APIs are wired.
+- [x] Change server-held pointers from generic `DriverBase` where practical.
+- [x] Keep pluginlib exports stable while changing inheritance chains.
+- [x] Remove server-side `std::any_cast` calls only after typed APIs are wired.
 
 ## Phase 4. Extract Workflows From `PerceptionServer`
 
 ### `perception/include/perception/transcription_pipeline.hpp`
 
-- [ ] Create the pipeline class.
-- [ ] Accept typed dependencies needed for transcription.
-- [ ] Accept `transcription_request`.
-- [ ] Return `transcription_result`.
-- [ ] Own device-audio fallback and validation logic currently in the callback.
+- [x] Create the pipeline class.
+- [x] Accept typed dependencies needed for transcription.
+- [x] Accept `transcription_request`.
+- [x] Return `transcription_result`.
+- [x] Own device-audio fallback and validation logic currently in the callback.
 
 ### `perception/include/perception/speech_pipeline.hpp`
 
-- [ ] Create the pipeline class.
-- [ ] Accept speech and optional speaker dependencies.
-- [ ] Handle `use_device_audio` routing.
-- [ ] Return a typed result that the ROS callback can map easily.
+- [x] Create the pipeline class.
+- [x] Accept speech and optional speaker dependencies.
+- [x] Handle `use_device_audio` routing.
+- [x] Return a typed result that the ROS callback can map easily.
 
 ### `perception/include/perception/sentiment_pipeline.hpp`
 
-- [ ] Create the pipeline class.
-- [ ] Accept sentiment and optional transcription dependencies.
-- [ ] Handle the device-audio -> transcription -> sentiment chain.
-- [ ] Return `sentiment_result`.
+- [x] Create the pipeline class.
+- [x] Accept sentiment and optional transcription dependencies.
+- [x] Handle the device-audio -> transcription -> sentiment chain.
+- [x] Return `sentiment_result`.
 
 ### `perception/include/perception/image_analysis_pipeline.hpp`
 
-- [ ] Create the pipeline class.
-- [ ] Accept image-analysis and vision-source dependencies.
-- [ ] Handle `use_device_vision` source selection.
-- [ ] Return `image_analysis_result`.
+- [x] Create the pipeline class.
+- [x] Accept image-analysis and vision-source dependencies.
+- [x] Handle `use_device_vision` source selection.
+- [x] Return `image_analysis_result`.
 
 ### `perception/perception/include/perception/perception_server.hpp`
 
-- [ ] Add pipeline members or construct them during initialization.
-- [ ] Shrink `transcribe_callback()` to request mapping plus pipeline call.
-- [ ] Shrink `speech_callback()` to request mapping plus pipeline call.
-- [ ] Shrink `sentiment_callback()` to request mapping plus pipeline call.
-- [ ] Shrink `image_analysis_callback()` to request mapping plus pipeline call.
-- [ ] Keep ROS message/service conversion only.
+- [x] Add pipeline members or construct them during initialization.
+- [x] Shrink `transcribe_callback()` to request mapping plus pipeline call.
+- [x] Shrink `speech_callback()` to request mapping plus pipeline call.
+- [x] Shrink `sentiment_callback()` to request mapping plus pipeline call.
+- [x] Shrink `image_analysis_callback()` to request mapping plus pipeline call.
+- [x] Keep ROS message/service conversion only.
 
 ### Phase 4 validation
 
-- [ ] Build `perception` and all touched driver packages.
+- [x] Build `perception` and all touched driver packages.
 - [ ] Smoke test each service path.
 - [ ] Verify error responses remain equivalent or intentionally improved.
 
@@ -245,29 +245,29 @@ This checklist turns the refactor plan into concrete file-by-file implementation
 
 ### `perception/include/perception/driver_manager.hpp`
 
-- [ ] Create a small driver manager or loader helper.
-- [ ] Centralize declare/load/initialize/test behavior.
-- [ ] Keep plugin name strings and parameter keys in one place.
+- [x] Create a small driver manager or loader helper.
+- [x] Centralize declare/load/initialize/test behavior.
+- [x] Keep plugin name strings and parameter keys in one place.
 
 ### `perception/perception/include/perception/perception_server.hpp`
 
-- [ ] Replace repeated plugin loading blocks with helper calls.
-- [ ] Move plugin-test invocation behind the manager if it reduces repetition.
-- [ ] Group interface configuration separately from driver loading.
+- [x] Replace repeated plugin loading blocks with helper calls.
+- [x] Move plugin-test invocation behind the manager if it reduces repetition.
+- [x] Group interface configuration separately from driver loading.
 
 ### `perception/perception/src/server_node.cpp`
 
-- [ ] Check whether node construction needs to change to support explicit post-construction initialization.
-- [ ] If constructor-based initialization remains fragile, move startup to a safer lifecycle point.
+- [x] Check whether node construction needs to change to support explicit post-construction initialization.
+- [x] If constructor-based initialization remains fragile, move startup to a safer lifecycle point.
 
 ### `perception/perception/src/server_component.cpp`
 
-- [ ] Mirror any startup changes made for the standalone node path.
-- [ ] Keep component registration behavior unchanged.
+- [x] Mirror any startup changes made for the standalone node path.
+- [x] Keep component registration behavior unchanged.
 
 ### Phase 5 validation
 
-- [ ] Build `perception`.
+- [x] Build `perception`.
 - [ ] Verify plugins still load from parameters.
 - [ ] Verify `run_tests` still reaches loaded plugins.
 

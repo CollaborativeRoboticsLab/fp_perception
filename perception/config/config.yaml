@@ -1,10 +1,10 @@
 /**:
   ros__parameters:
     # Server behavior
-    run_tests: false
+    run_tests: true
 
     # Which plugin groups to load
-    use_ros_vision_driver: true
+    use_ros_vision_driver: false
     use_non_ros_vision_driver: false
     use_microphone_driver: true
     use_speaker_driver: true

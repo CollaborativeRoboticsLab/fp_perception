@@ -91,8 +91,8 @@ public:
     }
     if (device_id_ < 0 || device_id_ >= device_count)
     {
-      throw perception_exception("Invalid microphone device_id " + std::to_string(device_id_) +
-                                 " (must be in [0," + std::to_string(std::max(0, device_count - 1)) + "])");
+      throw perception_exception("Invalid microphone device_id " + std::to_string(device_id_) + " (must be in [0," +
+                                 std::to_string(std::max(0, device_count - 1)) + "])");
     }
 
     const PaDeviceInfo* device_info = Pa_GetDeviceInfo(device_id_);
@@ -139,7 +139,8 @@ public:
                   sample_rate_, (info && info->name) ? info->name : "unknown", fallback_rate);
 
       capture_sample_rate_ = fallback_rate;
-      err = Pa_OpenStream(&stream_, &inputParams, nullptr, capture_sample_rate_, chunk_size_, paNoFlag, nullptr, nullptr);
+      err =
+          Pa_OpenStream(&stream_, &inputParams, nullptr, capture_sample_rate_, chunk_size_, paNoFlag, nullptr, nullptr);
     }
 
     if (err != paNoError)
@@ -251,25 +252,21 @@ public:
     {
       data.samples = resample_linear_interleaved(captured, channels_, capture_sample_rate_, sample_rate_);
       data.sample_rate = sample_rate_;
-      data.chunk_size = std::max<int>(1, static_cast<int>(data.samples.size() / static_cast<size_t>(std::max(1, channels_))));
+      data.chunk_size =
+          std::max<int>(1, static_cast<int>(data.samples.size() / static_cast<size_t>(std::max(1, channels_))));
       data.chunk_count = 1;
     }
     else
     {
       data.samples = std::move(captured);
       data.sample_rate = capture_sample_rate_;
-      data.chunk_size = std::max<int>(1, static_cast<int>(data.samples.size() / static_cast<size_t>(std::max(1, channels_))));
+      data.chunk_size =
+          std::max<int>(1, static_cast<int>(data.samples.size() / static_cast<size_t>(std::max(1, channels_))));
       data.chunk_count = 1;
     }
 
     return data;
   }
-
-  std::any getDataStream() override
-  {
-    return readChunk();
-  }
-
   /**
    * @brief Test the driver
    *
@@ -278,7 +275,7 @@ public:
   void test() override
   {
     RCLCPP_INFO(node_->get_logger(), "Testing started. Please speak into the microphone. waiting 5 seconds...");
-    
+
     // amount of frames required for 5 seconds of audio
     unsigned long frames_to_capture = sample_rate_ * channels_ * 5;  // 5 seconds of audio
     unsigned long frames_captured = 0;
@@ -399,14 +396,14 @@ protected:
   PaError err = paNoError;
   std::deque<int16_t> audio_buffer_;
   std::mutex publish_mutex_;
-  int device_id_;             // Device ID for the microphone
-  unsigned long chunk_size_;  // Default chunk size
-  int sample_rate_;           // Default sample rate
+  int device_id_;                 // Device ID for the microphone
+  unsigned long chunk_size_;      // Default chunk size
+  int sample_rate_;               // Default sample rate
   int capture_sample_rate_{ 0 };  // Actual device capture rate (may differ from sample_rate_)
-  int channels_;              // Default number of channels
-  int buffer_time_;           // Buffer time in seconds
-  int timeout_sec_{-1};       // Wait timeout for audio data (-1 waits indefinitely)
-  int buffer_size_;           // Buffer size in samples
+  int channels_;                  // Default number of channels
+  int buffer_time_;               // Buffer time in seconds
+  int timeout_sec_{ -1 };         // Wait timeout for audio data (-1 waits indefinitely)
+  int buffer_size_;               // Buffer size in samples
 };
 
 }  // namespace perception

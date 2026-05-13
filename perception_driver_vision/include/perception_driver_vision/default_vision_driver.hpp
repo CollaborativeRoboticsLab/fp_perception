@@ -95,12 +95,6 @@ public:
 
     return frame;
   }
-
-  std::any getData() override
-  {
-    return latest_image_;
-  }
-
   /**
    * @brief Test function to check the driver functionality by writing the image to a file
    */

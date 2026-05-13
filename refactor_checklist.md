@@ -275,19 +275,19 @@ This checklist turns the refactor plan into concrete file-by-file implementation
 
 ### `perception/perception/include/perception/perception_server.hpp`
 
-- [ ] Remove remaining `std::any_cast` usage.
+- [x] Remove remaining `std::any_cast` usage.
 - [ ] Remove legacy helper code that only existed for untyped flows.
 - [ ] Remove dead members left over from the old plugin loading pattern.
 
 ### `perception_base/include/perception_base/driver_base.hpp`
 
 - [ ] Remove generic data methods only when all plugins and server call sites are migrated.
-- [ ] If full removal is too disruptive, mark them as legacy and stop using them internally.
+- [x] If full removal is too disruptive, mark them as legacy and stop using them internally.
 
 ### Driver headers in all plugin packages
 
-- [ ] Remove compatibility wrappers that were kept only for migration.
-- [ ] Ensure typed interfaces are the only code paths used by `PerceptionServer` and pipelines.
+- [x] Remove compatibility wrappers that were kept only for migration.
+- [x] Ensure typed interfaces are the only code paths used by `PerceptionServer` and pipelines.
 
 ### Phase 6 validation
 

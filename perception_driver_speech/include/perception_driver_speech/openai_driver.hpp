@@ -1,13 +1,13 @@
 #pragma once
 
-#include <string>
-#include <vector>
-#include <rclcpp/rclcpp.hpp>
-#include <perception_base/rest_base.hpp>
 #include <perception_base/audio/structs.hpp>
-#include <perception_base/speech/speech_synthesis_driver.hpp>
 #include <perception_base/audio/wav.hpp>
 #include <perception_base/exceptions.hpp>
+#include <perception_base/rest_base.hpp>
+#include <perception_base/speech/speech_synthesis_driver.hpp>
+#include <rclcpp/rclcpp.hpp>
+#include <string>
+#include <vector>
 
 namespace perception
 {
@@ -87,18 +87,6 @@ public:
     node_.reset();
   }
 
-  /**
-   * @brief Get latest data from the driver
-   *
-   * This function should be overridden in derived classes to provide specific data retrieval logic.
-   *
-   * @return std::any containing the audio data
-   */
-  std::any getData() override
-  {
-    return last_audio_;
-  }
-
   audio_data synthesize(const text_data& new_text) override
   {
     // create perception::RESTRequest object
@@ -162,12 +150,6 @@ public:
     last_audio_ = data;
     return last_audio_;
   }
-
-  void setDataStream(const std::any& input) override
-  {
-    synthesize(std::any_cast<const perception::text_data&>(input));
-  }
-
   /**
    * @brief Test method for the driver
    *

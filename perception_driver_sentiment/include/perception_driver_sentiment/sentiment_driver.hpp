@@ -1,12 +1,11 @@
 #pragma once
 
-#include <any>
-#include <string>
-#include <vector>
-#include <rclcpp/rclcpp.hpp>
 #include <perception_base/rest_base.hpp>
 #include <perception_base/sentiment/sentiment_analysis_driver.hpp>
 #include <perception_base/sentiment/structs.hpp>
+#include <rclcpp/rclcpp.hpp>
+#include <string>
+#include <vector>
 
 namespace perception
 {
@@ -77,19 +76,6 @@ public:
   }
 
   /**
-   * @brief Get latest data from the driver
-   *
-   * This function waits for the sentiment analysis service to complete and retrieves the latest sentiment analysis
-   * data.
-   *
-   * @return std::any containing the latest sentiment analysis data, which is a std::pair<std::string, double>
-   * @throws perception_exception if not implemented in derived classes
-   */
-  std::any getData() override
-  {
-    return last_result_;
-  }
-  /**
    * @brief Set data to the driver
    *
    * This function sends the latest audio data to the transcription service. It expects the input to be a vector of
@@ -114,12 +100,6 @@ public:
     last_result_ = result;
     return last_result_;
   }
-
-  void setDataStream(const std::any& input) override
-  {
-    analyze(std::any_cast<const sentiment_request&>(input));
-  }
-
   /**
    * @brief Test method for the driver
    *
@@ -145,8 +125,8 @@ public:
     }
     else
     {
-      throw perception_exception(sentiment.error.empty() ? "No response received from sentiment analysis service"
-                                                         : sentiment.error);
+      throw perception_exception(sentiment.error.empty() ? "No response received from sentiment analysis service" :
+                                                           sentiment.error);
     }
 
     RCLCPP_INFO(node_->get_logger(), "Test completed.");

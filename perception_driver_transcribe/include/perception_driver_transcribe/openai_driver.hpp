@@ -1,15 +1,13 @@
 #pragma once
 
-#include <string>
-#include <vector>
-
-#include <rclcpp/rclcpp.hpp>
-
-#include <perception_base/rest_base.hpp>
 #include <perception_base/audio/wav.hpp>
 #include <perception_base/exceptions.hpp>
-#include <perception_base/transcription/transcription_driver.hpp>
+#include <perception_base/rest_base.hpp>
 #include <perception_base/transcription/structs.hpp>
+#include <perception_base/transcription/transcription_driver.hpp>
+#include <rclcpp/rclcpp.hpp>
+#include <string>
+#include <vector>
 
 namespace perception
 {
@@ -81,19 +79,6 @@ public:
   }
 
   /**
-   * @brief Get latest data from the driver
-   *
-   * This function waits for the transcription service to complete and retrieves the latest transcription data.
-   *
-   * @return std::any The latest transcription data in the form of std::string
-   * @throws perception_exception if not implemented in derived classes
-   */
-  std::any getData() override
-  {
-    return last_result_;
-  }
-
-  /**
    * @brief Set data to the driver
    *
    * This function sends the latest audio data to the transcription service. It expects the input to be a vector of
@@ -134,12 +119,6 @@ public:
     last_result_ = result;
     return last_result_;
   }
-
-  void setDataStream(const std::any& input) override
-  {
-    transcribe(std::any_cast<const perception::transcription_request&>(input));
-  }
-
   /**
    * @brief Test method for the driver
    *
@@ -179,7 +158,8 @@ public:
     else
     {
       RCLCPP_ERROR(node_->get_logger(), "%s", transcription.error.c_str());
-      throw perception_exception(transcription.error.empty() ? "No transcription result received." : transcription.error);
+      throw perception_exception(transcription.error.empty() ? "No transcription result received." :
+                                                               transcription.error);
     }
 
     RCLCPP_INFO(node_->get_logger(), "Test completed.");

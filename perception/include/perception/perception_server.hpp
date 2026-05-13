@@ -102,36 +102,15 @@ public:
     RCLCPP_INFO(this->get_logger(), "Initializing PerceptionServer...");
     DriverManager driver_manager(shared_from_this(), driver_loader_);
 
-    /*************************************************************************
-     * Identify what plugins to load
-     ************************************************************************/
-    // drivers
-    this->declare_parameter("use_ros_vision_driver", false);
-    this->declare_parameter("use_non_ros_vision_driver", false);
-    this->declare_parameter("use_microphone_driver", false);
-    this->declare_parameter("use_speaker_driver", false);
-    this->declare_parameter("use_transcription_driver", false);
-    this->declare_parameter("use_sentiment_driver", false);
-    this->declare_parameter("use_speech_driver", false);
-    this->declare_parameter("use_image_analysis_driver", false);
-
-    // mischellaneous
-    this->declare_parameter("run_tests", false);
-
-    // drivers
-    use_ros_vision_driver_ = this->get_parameter("use_ros_vision_driver").as_bool();
-    use_non_ros_vision_driver_ = this->get_parameter("use_non_ros_vision_driver").as_bool();
-    use_microphone_driver_ = this->get_parameter("use_microphone_driver").as_bool();
-    use_speaker_driver_ = this->get_parameter("use_speaker_driver").as_bool();
-    use_transcription_driver_ = this->get_parameter("use_transcription_driver").as_bool();
-    use_sentiment_driver_ = this->get_parameter("use_sentiment_driver").as_bool();
-    use_speech_driver_ = this->get_parameter("use_speech_driver").as_bool();
-    use_image_analysis_driver_ = this->get_parameter("use_image_analysis_driver").as_bool();
-
     // ROS Interface
     configure_driver_selection();
     configure_interfaces();
     load_drivers(driver_manager);
+    initialize_pipelines();
+
+    if (run_tests_)
+      run_tests();
+
     audio_subscriber_ = this->create_subscription<Audio>(
         audio_output_topic_, 10, std::bind(&PerceptionServer::audioCallback, this, std::placeholders::_1));
 

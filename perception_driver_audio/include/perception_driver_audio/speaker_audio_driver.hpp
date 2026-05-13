@@ -225,12 +225,6 @@ public:
       throw;
     }
   }
-
-  void setDataStream(const std::any& input) override
-  {
-    play(std::any_cast<const perception::audio_data&>(input));
-  }
-
   /**
    * @brief Read test/mic_test.wav and play it through the speaker.
    */
@@ -331,8 +325,8 @@ protected:
     }
 
     // Make sure chunk size is correct for frames (not samples)
-    const size_t required_samples = static_cast<size_t>(std::max(1, input_data.chunk_size)) *
-                                    static_cast<size_t>(std::max(1, channels_));
+    const size_t required_samples =
+        static_cast<size_t>(std::max(1, input_data.chunk_size)) * static_cast<size_t>(std::max(1, channels_));
 
     if (data.size() < required_samples)
     {

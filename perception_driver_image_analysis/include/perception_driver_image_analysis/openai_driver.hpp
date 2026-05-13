@@ -1,16 +1,13 @@
 #pragma once
 
+#include <opencv2/opencv.hpp>
+#include <perception_base/exceptions.hpp>
+#include <perception_base/image_analysis/image_analysis_driver.hpp>
+#include <perception_base/image_analysis/structs.hpp>
+#include <perception_base/rest_base.hpp>
+#include <rclcpp/rclcpp.hpp>
 #include <string>
 #include <vector>
-
-#include <opencv2/opencv.hpp>
-
-#include <rclcpp/rclcpp.hpp>
-
-#include <perception_base/image_analysis/structs.hpp>
-#include <perception_base/image_analysis/image_analysis_driver.hpp>
-#include <perception_base/rest_base.hpp>
-#include <perception_base/exceptions.hpp>
 
 namespace perception
 {
@@ -47,7 +44,8 @@ public:
     node->declare_parameter("driver.image_analysis.OpenAIImageAnalysisDriver.name", "OpenAIDriver");
     node->declare_parameter("driver.image_analysis.OpenAIImageAnalysisDriver.model", "gpt-4.1");
     node->declare_parameter("driver.image_analysis.OpenAIImageAnalysisDriver.test_file_path", "test/image.png");
-    node->declare_parameter("driver.image_analysis.OpenAIImageAnalysisDriver.test_prompt", "Is there a cat in this image?");
+    node->declare_parameter("driver.image_analysis.OpenAIImageAnalysisDriver.test_prompt", "Is there a cat in this "
+                                                                                           "image?");
     node->declare_parameter("driver.image_analysis.OpenAIImageAnalysisDriver.detail", "auto");
 
     // Get parameters from the node
@@ -88,19 +86,6 @@ public:
   }
 
   /**
-   * @brief Get latest data from the driver
-   *
-   * This function waits for the transcription service to complete and retrieves the latest transcription data.
-   *
-   * @return std::any The latest transcription data in the form of std::string
-   * @throws perception_exception if not implemented in derived classes
-   */
-  std::any getData() override
-  {
-    return last_result_;
-  }
-
-  /**
    * @brief Set data to the driver
    *
    * This function sends the latest audio data to the transcription service. It expects the input to be a vector of
@@ -137,12 +122,6 @@ public:
     last_result_ = result;
     return last_result_;
   }
-
-  void setDataStream(const std::any& input) override
-  {
-    analyze(std::any_cast<const image_analysis_request&>(input));
-  }
-
   /**
    * @brief Test method for the driver
    *
@@ -176,8 +155,7 @@ public:
 protected:
   static std::string base64_encode(const unsigned char* data, size_t len)
   {
-    static const char* kTable =
-        "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+    static const char* kTable = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
     std::string out;
     out.reserve(((len + 2) / 3) * 4);
 
@@ -221,12 +199,16 @@ protected:
         if (err.is_string())
           return std::string("OpenAI error: ") + err.get<std::string>();
       }
-      catch (...) {}
+      catch (...)
+      {
+      }
       try
       {
         return std::string("OpenAI error: ") + object["error"].dump();
       }
-      catch (...) {}
+      catch (...)
+      {
+      }
       return "OpenAI error";
     }
 
@@ -272,8 +254,8 @@ protected:
     if (request.file_stream.empty())
       throw perception_exception("Image analysis request missing image payload");
 
-    const auto base64_image = base64_encode(
-        reinterpret_cast<const unsigned char*>(request.file_stream.data()), request.file_stream.size());
+    const auto base64_image =
+        base64_encode(reinterpret_cast<const unsigned char*>(request.file_stream.data()), request.file_stream.size());
     const std::string mime = request.file_type.empty() ? std::string("image/png") : request.file_type;
     const std::string data_url = "data:" + mime + ";base64," + base64_image;
 
@@ -288,8 +270,7 @@ protected:
       image_obj["detail"] = detail_;
     content.push_back(image_obj);
 
-    body["input"] = nlohmann::json::array(
-        { { { "role", "user" }, { "content", content } } });
+    body["input"] = nlohmann::json::array({ { { "role", "user" }, { "content", content } } });
 
     return body;
   }

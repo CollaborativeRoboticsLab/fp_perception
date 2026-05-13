@@ -37,9 +37,9 @@ public:
   virtual void deinitialize() = 0;
 
   /**
-   * @brief Get latest data from the driver
+   * @brief Legacy untyped data pull hook kept for compatibility during migration.
    *
-   * This function should be overridden in derived classes to provide specific data.
+   * Prefer typed driver interfaces in new code.
    *
    * @return std::any The latest data from the driver.
    * @throws perception_exception if not implemented in derived classes
@@ -50,9 +50,9 @@ public:
   }
 
   /**
-   * @brief Set data to the driver
+   * @brief Legacy untyped data push hook kept for compatibility during migration.
    *
-   * This function should be overridden in derived classes to provide specific data.
+   * Prefer typed driver interfaces in new code.
    *
    * @param  input The latest data from the driver.
    * @throws perception_exception if not implemented in derived classes
@@ -64,9 +64,9 @@ public:
   }
 
   /**
-   * @brief Get latest data from the driver as a stream
+   * @brief Legacy untyped stream pull hook kept for compatibility during migration.
    *
-   * This function should be overridden in derived classes to provide specific data.
+   * Prefer typed driver interfaces in new code.
    *
    * @return std::any The latest data from the driver.
    * @throws perception_exception if not implemented in derived classes
@@ -77,9 +77,9 @@ public:
   }
 
   /**
-   * @brief Set data to the driver as a stream
+   * @brief Legacy untyped stream push hook kept for compatibility during migration.
    *
-   * This function should be overridden in derived classes to provide specific data.
+   * Prefer typed driver interfaces in new code.
    *
    * @return std::any The latest data from the driver.
    * @throws perception_exception if not implemented in derived classes

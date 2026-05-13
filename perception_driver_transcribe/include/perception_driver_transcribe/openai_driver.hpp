@@ -8,12 +8,13 @@
 #include <perception_base/rest_base.hpp>
 #include <perception_base/audio/wav.hpp>
 #include <perception_base/exceptions.hpp>
+#include <perception_base/transcription/transcription_driver.hpp>
 #include <perception_base/transcription/structs.hpp>
 
 namespace perception
 {
 
-class OpenAIDriver : public RestBase
+class OpenAIDriver : public RestBase, public TranscriptionDriver
 {
 public:
   /**
@@ -89,10 +90,7 @@ public:
    */
   std::any getData() override
   {
-    transcription_result result;
-    result.text = response_.response;
-    result.success = !response_.response.empty();
-    return result;
+    return last_result_;
   }
 
   /**
@@ -103,9 +101,8 @@ public:
    *
    * @param input The latest data from the driver.
    */
-  void setDataStream(const std::any& input) override
+  transcription_result transcribe(const transcription_request& request_data) override
   {
-    const auto& request_data = std::any_cast<const perception::transcription_request&>(input);
     const auto& new_audio = request_data.audio;
 
     // create perception::RESTRequest object
@@ -127,6 +124,20 @@ public:
     request.options.push_back(model_option2);
 
     response_ = call_audio(request);
+
+    transcription_result result;
+    result.text = response_.response;
+    result.success = !response_.response.empty();
+    if (!result.success)
+      result.error = "No transcription result received.";
+
+    last_result_ = result;
+    return last_result_;
+  }
+
+  void setDataStream(const std::any& input) override
+  {
+    transcribe(std::any_cast<const perception::transcription_request&>(input));
   }
 
   /**
@@ -157,21 +168,18 @@ public:
     transcription_request request;
     request.audio = data;
 
-    setDataStream(request);
+    const auto transcription = transcribe(request);
 
     RCLCPP_INFO(node_->get_logger(), "Transcription service called with test audio data. waiting for response...");
 
-    auto result = getData();
-
-    if (result.has_value())
+    if (transcription.success)
     {
-      const auto transcription = std::any_cast<transcription_result>(result);
       RCLCPP_INFO(node_->get_logger(), "Transcription result: %s", transcription.text.c_str());
     }
     else
     {
-      RCLCPP_ERROR(node_->get_logger(), "No transcription result received.");
-      throw perception_exception("No transcription result received.");
+      RCLCPP_ERROR(node_->get_logger(), "%s", transcription.error.c_str());
+      throw perception_exception(transcription.error.empty() ? "No transcription result received." : transcription.error);
     }
 
     RCLCPP_INFO(node_->get_logger(), "Test completed.");
@@ -215,6 +223,7 @@ protected:
   }
 
   perception::RESTResponse response_;
+  transcription_result last_result_;
 
   std::string model_name_;
   std::string test_file_path_;

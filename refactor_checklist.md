@@ -71,23 +71,23 @@ This checklist turns the refactor plan into concrete file-by-file implementation
 
 ### `perception/include/perception/audio_buffer.hpp`
 
-- [ ] Create an `AudioBuffer` class.
-- [ ] Move rolling sample storage here.
-- [ ] Move mutex and condition variable ownership here.
-- [ ] Add append logic for new `audio_data` chunks.
-- [ ] Add format reset logic when sample rate or channel count changes.
-- [ ] Add trim logic for max buffered duration.
-- [ ] Add `waitForAudio()` or equivalent initialization guard.
-- [ ] Add `readLatest(duration_seconds)` to fetch the newest buffered audio.
+- [x] Create an `AudioBuffer` class.
+- [x] Move rolling sample storage here.
+- [x] Move mutex and condition variable ownership here.
+- [x] Add append logic for new `audio_data` chunks.
+- [x] Add format reset logic when sample rate or channel count changes.
+- [x] Add trim logic for max buffered duration.
+- [x] Add `waitForAudio()` or equivalent initialization guard.
+- [x] Add `readLatest(duration_seconds)` to fetch the newest buffered audio.
 
 ### `perception/perception/include/perception/perception_server.hpp`
 
-- [ ] Remove `public_buffer_`, `public_buffer_mutex_`, `public_buffer_cv_`, and `public_buffer_total_samples_`.
-- [ ] Add an `AudioBuffer` member.
-- [ ] Change `publishAudio()` to append microphone chunks through `AudioBuffer`.
-- [ ] Change transcription device-audio reads to use `AudioBuffer`.
-- [ ] Change sentiment device-audio reads to use `AudioBuffer`.
-- [ ] Remove `wait_for_public_audio()` once all call sites are migrated.
+- [x] Remove `public_buffer_`, `public_buffer_mutex_`, `public_buffer_cv_`, and `public_buffer_total_samples_`.
+- [x] Add an `AudioBuffer` member.
+- [x] Change `publishAudio()` to append microphone chunks through `AudioBuffer`.
+- [x] Change transcription device-audio reads to use `AudioBuffer`.
+- [x] Change sentiment device-audio reads to use `AudioBuffer`.
+- [x] Remove `wait_for_public_audio()` once all call sites are migrated.
 
 ### Optional alternative: `perception_driver_audio/include/perception_driver_audio/microphone_audio_driver.hpp`
 
@@ -96,7 +96,7 @@ This checklist turns the refactor plan into concrete file-by-file implementation
 
 ### Phase 2 validation
 
-- [ ] Build `perception` and `perception_driver_audio`.
+- [x] Build `perception` and `perception_driver_audio`.
 - [ ] Verify `use_device_audio` still works for transcription.
 - [ ] Verify `use_device_audio` still works for sentiment.
 
@@ -105,29 +105,29 @@ This checklist turns the refactor plan into concrete file-by-file implementation
 ### `perception_base/include/perception_base/driver_base.hpp`
 
 - [ ] Keep lifecycle helpers and shared utilities only.
-- [ ] Do not add more untyped virtual methods.
+- [x] Do not add more untyped virtual methods.
 - [ ] If needed, deprecate generic methods in comments while migration is in progress.
 
 ### `perception_base/include/perception_base/audio/audio_source_driver.hpp`
 
-- [ ] Create a typed interface for microphone-like sources.
-- [ ] Add `readChunk()`.
+- [x] Create a typed interface for microphone-like sources.
+- [x] Add `readChunk()`.
 - [ ] Add `readBufferedAudio()` if buffering is owned by the source.
 
 ### `perception_base/include/perception_base/audio/audio_sink_driver.hpp`
 
-- [ ] Create a typed interface for speaker-like sinks.
-- [ ] Add a method such as `play(const audio_data&)`.
+- [x] Create a typed interface for speaker-like sinks.
+- [x] Add a method such as `play(const audio_data&)`.
 
 ### `perception_base/include/perception_base/transcription/transcription_driver.hpp`
 
-- [ ] Create a typed transcription interface.
-- [ ] Add `transcribe(const transcription_request&)`.
+- [x] Create a typed transcription interface.
+- [x] Add `transcribe(const transcription_request&)`.
 
 ### `perception_base/include/perception_base/speech/speech_synthesis_driver.hpp`
 
-- [ ] Create a typed speech synthesis interface.
-- [ ] Add a method such as `synthesize(const text_data&)` returning `audio_data`.
+- [x] Create a typed speech synthesis interface.
+- [x] Add a method such as `synthesize(const text_data&)` returning `audio_data`.
 
 ### `perception_base/include/perception_base/sentiment/sentiment_analysis_driver.hpp`
 
@@ -146,27 +146,27 @@ This checklist turns the refactor plan into concrete file-by-file implementation
 
 ### `perception_driver_audio/include/perception_driver_audio/microphone_audio_driver.hpp`
 
-- [ ] Make the microphone driver implement `AudioSourceDriver`.
-- [ ] Keep legacy `getDataStream()` temporarily if needed.
-- [ ] Add a typed adapter method that the server or pipeline can use immediately.
+- [x] Make the microphone driver implement `AudioSourceDriver`.
+- [x] Keep legacy `getDataStream()` temporarily if needed.
+- [x] Add a typed adapter method that the server or pipeline can use immediately.
 
 ### `perception_driver_audio/include/perception_driver_audio/speaker_audio_driver.hpp`
 
-- [ ] Make the speaker driver implement `AudioSinkDriver`.
-- [ ] Add a typed `play()` wrapper around the current stream write path.
-- [ ] Keep `setDataStream()` temporarily for backward compatibility if needed.
+- [x] Make the speaker driver implement `AudioSinkDriver`.
+- [x] Add a typed `play()` wrapper around the current stream write path.
+- [x] Keep `setDataStream()` temporarily for backward compatibility if needed.
 
 ### `perception_driver_transcribe/include/perception_driver_transcribe/openai_driver.hpp`
 
-- [ ] Make the driver implement `TranscriptionDriver`.
-- [ ] Add a typed `transcribe()` method that internally reuses the current REST logic.
-- [ ] Keep `setDataStream()` and `getData()` only until server call sites are migrated.
+- [x] Make the driver implement `TranscriptionDriver`.
+- [x] Add a typed `transcribe()` method that internally reuses the current REST logic.
+- [x] Keep `setDataStream()` and `getData()` only until server call sites are migrated.
 
 ### `perception_driver_speech/include/perception_driver_speech/openai_driver.hpp`
 
-- [ ] Make the driver implement `SpeechSynthesisDriver`.
-- [ ] Add a typed `synthesize(const text_data&)` method.
-- [ ] Return `audio_data` directly from the typed method.
+- [x] Make the driver implement `SpeechSynthesisDriver`.
+- [x] Add a typed `synthesize(const text_data&)` method.
+- [x] Return `audio_data` directly from the typed method.
 
 ### `perception_driver_sentiment/include/perception_driver_sentiment/sentiment_driver.hpp`
 

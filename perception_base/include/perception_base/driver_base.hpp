@@ -59,6 +59,7 @@ public:
    */
   virtual void setData(const std::any& input)
   {
+    (void)input;
     throw perception_exception("setData() not implemented for this driver.");
   }
 
@@ -85,6 +86,7 @@ public:
    */
   virtual void setDataStream(const std::any& input)
   {
+    (void)input;
     throw perception_exception("setDataStream() not implemented for this driver.");
   }
 

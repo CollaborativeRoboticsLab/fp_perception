@@ -18,7 +18,7 @@ namespace perception
  * It provides a common interface for sending requests and receiving responses.
  */
 
-class RestBase : public DriverBase
+class RestBase : public virtual DriverBase
 {
 public:
   /**

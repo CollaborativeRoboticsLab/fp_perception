@@ -8,7 +8,7 @@
 #include <cmath>
 #include <rclcpp/rclcpp.hpp>
 #include <std_msgs/msg/int16_multi_array.hpp>
-#include <perception_base/driver_base.hpp>
+#include <perception_base/audio/audio_source_driver.hpp>
 #include <perception_base/audio/structs.hpp>
 #include <perception_base/audio/wav.hpp>
 #include <perception_driver_audio/utils.hpp>
@@ -22,7 +22,7 @@ namespace perception
  * This class is responsible for managing the audio input from a microphone using PortAudio.
  * It provides methods to start and stop the audio stream, as well as retrieve audio data.
  */
-class MicrophoneAudioDriver : public DriverBase
+class MicrophoneAudioDriver : public AudioSourceDriver
 {
 public:
   /**
@@ -109,7 +109,7 @@ public:
     // Publish about the assigned driver parameters
     RCLCPP_INFO(node_->get_logger(), "Assigned driver name: %s", name_.c_str());
     RCLCPP_INFO(node_->get_logger(), "Assigned driver device_id: %d", device_id_);
-    RCLCPP_INFO(node_->get_logger(), "Assigned driver chunk_size: %d", chunk_size_);
+    RCLCPP_INFO(node_->get_logger(), "Assigned driver chunk_size: %lu", chunk_size_);
     RCLCPP_INFO(node_->get_logger(), "Assigned driver sample_rate: %d", sample_rate_);
     RCLCPP_INFO(node_->get_logger(), "Assigned driver channels: %d", channels_);
     RCLCPP_INFO(node_->get_logger(), "Assigned driver buffer_time: %d", buffer_time_);
@@ -205,7 +205,7 @@ public:
    * @return std::any The latest audio data from the driver as type `perception::audio_data`
    * @throws perception_exception if the stream is not active
    */
-  std::any getDataStream() override
+  audio_data readChunk() override
   {
     // Check if the audio buffer is empty and proceed only if it has enough data
     std::unique_lock<std::mutex> lock(buffer_mutex_);
@@ -265,6 +265,11 @@ public:
     return data;
   }
 
+  std::any getDataStream() override
+  {
+    return readChunk();
+  }
+
   /**
    * @brief Test the driver
    *
@@ -285,7 +290,7 @@ public:
     {
       try
       {
-        auto data = std::any_cast<audio_data>(getDataStream());
+        auto data = readChunk();
 
         frames_captured += (data.chunk_size * data.chunk_count);
 
@@ -378,7 +383,7 @@ protected:
       // Add the read samples to the audio buffer
       audio_buffer_.insert(audio_buffer_.end(), buffer.begin(), buffer.end());
 
-      if (audio_buffer_.size() > buffer_size_)
+      if (audio_buffer_.size() > static_cast<size_t>(std::max(0, buffer_size_)))
       {
         // If the buffer exceeds the maximum size, remove the 2s oldest samples
         audio_buffer_.erase(audio_buffer_.begin(), audio_buffer_.begin() + chunk_size_);

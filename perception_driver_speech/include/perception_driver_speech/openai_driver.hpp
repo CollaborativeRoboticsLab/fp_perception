@@ -5,12 +5,13 @@
 #include <rclcpp/rclcpp.hpp>
 #include <perception_base/rest_base.hpp>
 #include <perception_base/audio/structs.hpp>
+#include <perception_base/speech/speech_synthesis_driver.hpp>
 #include <perception_base/audio/wav.hpp>
 #include <perception_base/exceptions.hpp>
 
 namespace perception
 {
-class OpenAISpeechDriver : public RestBase
+class OpenAISpeechDriver : public RestBase, public SpeechSynthesisDriver
 {
 public:
   /**
@@ -95,22 +96,11 @@ public:
    */
   std::any getData() override
   {
-    audio_data data;
-
-    if (!response_.audio_stream.empty())
-    {
-      data.samples = std::any_cast<std::vector<int16_t>>(response_.audio_stream);
-      data.sample_rate = 24000;  // Assuming a sample rate of 24kHz
-      data.channels = 1;         // Assuming mono audio
-    }
-
-    return data;
+    return last_audio_;
   }
 
-  void setDataStream(const std::any& input) override
+  audio_data synthesize(const text_data& new_text) override
   {
-    const auto& new_text = std::any_cast<const perception::text_data&>(input);
-
     // create perception::RESTRequest object
     perception::RESTRequest request;
     request.prompt = new_text.text;
@@ -159,6 +149,23 @@ public:
     request.options.push_back(model_option4);
 
     response_ = call_tts(request);
+
+    audio_data data;
+
+    if (!response_.audio_stream.empty())
+    {
+      data.samples = std::any_cast<std::vector<int16_t>>(response_.audio_stream);
+      data.sample_rate = 24000;
+      data.channels = 1;
+    }
+
+    last_audio_ = data;
+    return last_audio_;
+  }
+
+  void setDataStream(const std::any& input) override
+  {
+    synthesize(std::any_cast<const perception::text_data&>(input));
   }
 
   /**
@@ -178,15 +185,12 @@ public:
     new_text.instructions = instructions_;
 
     // Convert the audio data to the expected format
-    setDataStream(new_text);
+    const auto data = synthesize(new_text);
 
     RCLCPP_INFO(node_->get_logger(), "Speech service called with test text data. waiting for response...");
 
-    auto result = getData();
-
-    if (result.has_value())
+    if (!data.samples.empty())
     {
-      audio_data data = std::any_cast<audio_data>(result);
       writeWavFile(test_file_path_, data);
       RCLCPP_INFO(node_->get_logger(), "Speech synthesis result received and saved to %s", test_file_path_.c_str());
     }
@@ -236,6 +240,7 @@ protected:
    */
   virtual perception::RESTResponse fromJson(const nlohmann::json& object)
   {
+    (void)object;
     throw perception_exception("fromJson() not implemented for this driver.");
   }
 
@@ -246,5 +251,6 @@ protected:
   std::string test_file_path_ = "test_audio.wav";  // Path to the test audio file
 
   perception::RESTResponse response_;
+  audio_data last_audio_;
 };
 }  // namespace perception

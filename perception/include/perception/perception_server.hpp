@@ -13,6 +13,7 @@
 #include <opencv2/opencv.hpp>
 #include <cv_bridge/cv_bridge.hpp>
 
+#include <perception/audio_buffer.hpp>
 #include <perception_base/driver_base.hpp>
 #include <perception_base/audio/structs.hpp>
 #include <perception_base/transcription/structs.hpp>
@@ -419,44 +420,8 @@ protected:
       if (use_microphone_driver_ and microphone_driver_)
         data = std::any_cast<audio_data>(microphone_driver_->getDataStream());
 
-      // Producer: append to public buffer (protected by mutex/cv)
       if (use_microphone_driver_ && microphone_driver_ && !data.samples.empty())
-      {
-        std::unique_lock<std::mutex> lock(public_buffer_mutex_);
-
-        // If format changes, reset buffer and counters.
-        if (public_buffer_.sample_rate != data.sample_rate || public_buffer_.channels != data.channels)
-        {
-          public_buffer_.samples.clear();
-          public_buffer_total_samples_ = 0;
-        }
-
-        public_buffer_.sample_rate = data.sample_rate;
-        public_buffer_.channels = data.channels;
-        public_buffer_.chunk_size = data.chunk_size;
-        public_buffer_.chunk_count = data.chunk_count;
-
-        public_buffer_.samples.insert(public_buffer_.samples.end(), data.samples.begin(), data.samples.end());
-        public_buffer_total_samples_ += static_cast<uint64_t>(data.samples.size());
-
-        const size_t max_buffer_size = static_cast<size_t>(std::max(1, data.sample_rate)) *
-                                       static_cast<size_t>(std::max(1, data.channels)) *
-                                       static_cast<size_t>(std::max(1, audio_input_buffer_duration_));
-
-        if (public_buffer_.samples.size() > max_buffer_size)
-        {
-          const auto excess = public_buffer_.samples.size() - max_buffer_size;
-          public_buffer_.samples.erase(public_buffer_.samples.begin(), public_buffer_.samples.begin() + excess);
-        }
-
-        // Update chunk count based on current buffer size
-        const size_t denom =
-            static_cast<size_t>(std::max(1, data.chunk_size)) * static_cast<size_t>(std::max(1, data.channels));
-        public_buffer_.chunk_count = denom ? (public_buffer_.samples.size() / denom) : 0;
-
-        lock.unlock();
-        public_buffer_cv_.notify_all();
-      }
+        public_audio_buffer_.append(data, audio_input_buffer_duration_);
 
       if (audio_input_publish_ && audio_publisher_)
       {
@@ -575,7 +540,7 @@ protected:
     {
       try
       {
-        transcription_request_data.audio = wait_for_public_audio(transcription_request_data.device_buffer_time);
+        transcription_request_data.audio = read_latest_public_audio(transcription_request_data.device_buffer_time);
       }
       catch (const std::exception& e)
       {
@@ -716,7 +681,7 @@ protected:
       perception::audio_data audio_in;
       try
       {
-        audio_in = wait_for_public_audio(sentiment_request_data.device_buffer_time);
+        audio_in = read_latest_public_audio(sentiment_request_data.device_buffer_time);
       }
       catch (const std::exception& e)
       {
@@ -797,43 +762,17 @@ protected:
     }
   }
 
-  perception::audio_data wait_for_public_audio(int duration_seconds)
+  perception::audio_data read_latest_public_audio(int duration_seconds)
   {
     duration_seconds = std::max(1, duration_seconds);
 
-    std::unique_lock<std::mutex> lock(public_buffer_mutex_);
+    perception::audio_data out = public_audio_buffer_.readLatest(duration_seconds);
 
-    // Wait until we have at least one chunk and can determine sample format.
-    if (public_buffer_.sample_rate <= 0 || public_buffer_.channels <= 0)
-    {
-      public_buffer_cv_.wait_for(lock, std::chrono::seconds(5), [this] {
-        return public_buffer_.sample_rate > 0 && public_buffer_.channels > 0 && !public_buffer_.samples.empty();
-      });
-    }
-
-    if (public_buffer_.sample_rate <= 0 || public_buffer_.channels <= 0)
-      throw perception_exception("public audio buffer not initialized");
-
-    const int sample_rate = public_buffer_.sample_rate;
-    const int channels = std::max(1, public_buffer_.channels);
+    const int sample_rate = std::max(1, out.sample_rate);
+    const int channels = std::max(1, out.channels);
     const size_t requested_samples =
         static_cast<size_t>(sample_rate) * static_cast<size_t>(channels) * static_cast<size_t>(duration_seconds);
-
-    perception::audio_data out = public_buffer_;
-    out.sample_rate = sample_rate;
-    out.channels = channels;
-    out.chunk_count = 1;
-    const size_t available_samples = public_buffer_.samples.size();
-
-    if (available_samples == 0)
-      throw perception_exception("public audio buffer is empty");
-
-    const size_t samples_to_copy = std::min(requested_samples, available_samples);
-    const size_t start_index = available_samples - samples_to_copy;
-
-    out.samples.assign(public_buffer_.samples.begin() + static_cast<std::ptrdiff_t>(start_index),
-                       public_buffer_.samples.end());
-    out.chunk_size = static_cast<int>(samples_to_copy / static_cast<size_t>(channels));
+    const size_t samples_to_copy = out.samples.size();
 
     if (samples_to_copy < requested_samples)
     {
@@ -940,11 +879,7 @@ protected:
   bool use_speech_driver_;
   bool use_image_analysis_driver_;
 
-  // Buffer to store audio data for other drivers when using device audio
-  audio_data public_buffer_;
-  std::mutex public_buffer_mutex_;
-  std::condition_variable public_buffer_cv_;
-  uint64_t public_buffer_total_samples_{ 0 };
+  AudioBuffer public_audio_buffer_;
 
   std::mutex transcription_driver_mutex_;
   std::mutex sentiment_driver_mutex_;

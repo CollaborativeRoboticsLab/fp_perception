@@ -9,7 +9,7 @@
 #include <algorithm>
 #include <cmath>
 #include <cstdint>
-#include <perception_base/driver_base.hpp>
+#include <perception_base/audio/audio_sink_driver.hpp>
 #include <perception_base/audio/structs.hpp>
 #include <perception_base/audio/wav.hpp>
 #include <perception_driver_audio/utils.hpp>
@@ -23,7 +23,7 @@ namespace perception
  * This class is responsible for managing the audio output to a speaker using PortAudio.
  * It provides methods to start and stop the audio stream, as well as play audio data.
  */
-class SpeakerAudioDriver : public DriverBase
+class SpeakerAudioDriver : public AudioSinkDriver
 {
 public:
   /**
@@ -146,10 +146,9 @@ public:
    * @param input The latest audio data to the driver in the form of `const std::vector<std::vector<int16_t>>&`.
    * @throws perception_exception if not implemented in derived classes
    */
-  void setDataStream(const std::any& input) override
+  void play(const audio_data& input_data) override
   {
-    // convert std::any to audio_data
-    auto data = std::any_cast<const perception::audio_data&>(input);
+    auto data = input_data;
 
     if (data.samples.empty())
     {
@@ -227,6 +226,11 @@ public:
     }
   }
 
+  void setDataStream(const std::any& input) override
+  {
+    play(std::any_cast<const perception::audio_data&>(input));
+  }
+
   /**
    * @brief Read test/mic_test.wav and play it through the speaker.
    */
@@ -243,7 +247,7 @@ public:
       RCLCPP_INFO(node_->get_logger(), "Read audio data from %s with %zu samples, %d Hz, %d channels.",
                   filepath.string().c_str(), audio_data.samples.size(), audio_data.sample_rate, audio_data.channels);
 
-      setDataStream(audio_data);
+      play(audio_data);
     }
     catch (const perception_exception& e)
     {
@@ -327,10 +331,13 @@ protected:
     }
 
     // Make sure chunk size is correct for frames (not samples)
-    if (data.size() < input_data.chunk_size * channels_)
+    const size_t required_samples = static_cast<size_t>(std::max(1, input_data.chunk_size)) *
+                                    static_cast<size_t>(std::max(1, channels_));
+
+    if (data.size() < required_samples)
     {
       throw perception_exception("Insufficient data" + std::to_string(data.size()) + " for requested chunk size " +
-                                 std::to_string(input_data.chunk_size * channels_));
+                                 std::to_string(required_samples));
     }
 
     // Write to PortAudio stream

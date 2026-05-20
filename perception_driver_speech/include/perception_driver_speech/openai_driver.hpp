@@ -142,7 +142,7 @@ public:
 
     if (!response_.audio_stream.empty())
     {
-      data.samples = std::any_cast<std::vector<int16_t>>(response_.audio_stream);
+      data.samples = response_.audio_stream;
       data.sample_rate = 24000;
       data.channels = 1;
     }

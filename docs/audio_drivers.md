@@ -7,7 +7,7 @@ This page documents the audio input/output plugins in `perception_driver_audio`.
 
 - Audio data is represented as `perception::audio_data` (used inside drivers) and `perception_msgs/msg/PerceptionAudio` (used on ROS topics/services).
 - Device acquisition uses PortAudio.
-- Plugins are loaded by the perception server using pluginlib and interact through the `DriverBase` interface.
+- Plugins are loaded by the perception server using pluginlib and used through typed audio interfaces.
 
 ## MicrophoneAudioDriver
 
@@ -18,7 +18,7 @@ Class: `perception::MicrophoneAudioDriver` (PortAudio input)
 - Device selection uses `driver.audio.MicrophoneAudioDriver.device_name` first.
 - `driver.audio.MicrophoneAudioDriver.device_id` is an optional fallback PortAudio device index; leave it unset for name-based or default-device selection.
 - The driver opens and starts a PortAudio input stream.
-- A PortAudio callback captures audio into an internal buffer; `getDataStream()` waits until at least one chunk is available.
+- A PortAudio callback captures audio into an internal buffer; `readChunk()` waits until at least one chunk is available.
 
 ### Parameters
 
@@ -32,7 +32,7 @@ Class: `perception::MicrophoneAudioDriver` (PortAudio input)
 
 ### Typical usage
 
-- The perception server calls `getDataStream()` repeatedly to build a continuous audio feed.
+- The perception server calls `readChunk()` repeatedly to build a continuous audio feed.
 - If transcription is enabled, the server also keeps an internal rolling buffer for a configurable duration.
 
 ## SpeakerAudioDriver

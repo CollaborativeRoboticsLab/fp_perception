@@ -117,10 +117,34 @@ Default service name is typically `perception/transcription`.
 
 This reads from the server's public audio buffer for `device_buffer_time` seconds and transcribes it. Speak into the microphone immediately before or during the call.
 
+Latest-buffer smoke test:
+
 ```bash
 ros2 service call /perception/transcription perception_msgs/srv/PerceptionTranscribe "{
 	audio: {
 		header: {stamp: {sec: 0, nanosec: 0}, frame_id: ''},
+		sample_rate: 0,
+		channels: 0,
+		chunk_size: 0,
+		chunk_count: 0,
+		samples: []
+	},
+	use_device_audio: true,
+	device_buffer_time: 3
+}"
+```
+
+Timestamp-window smoke test:
+
+```bash
+STAMP_SEC=$(date +%s)
+STAMP_NSEC=$(date +%N)
+echo "Speak for the next 3 seconds..."
+sleep 3
+
+ros2 service call /perception/transcription perception_msgs/srv/PerceptionTranscribe "{
+	audio: {
+		header: {stamp: {sec: ${STAMP_SEC}, nanosec: ${STAMP_NSEC}}, frame_id: ''},
 		sample_rate: 0,
 		channels: 0,
 		chunk_size: 0,
@@ -137,6 +161,8 @@ Notes:
 - `audio` is ignored when `use_device_audio: true`, but it must still be present to satisfy the request type.
 - `device_buffer_time` must be **≤** the configured server ring buffer duration (`interface.audio_input.buffer_duration`).
 - If the request header stamp is zero, the server uses the latest buffered audio window.
+- If the timestamped window is only partially available, the server returns the available overlap and logs a warning.
+- If the timestamped window has no overlap with the ring buffer, the server logs a warning and falls back to the latest buffered audio instead of failing the node.
 
 ## Sentiment service (device audio)
 
@@ -148,9 +174,27 @@ If `use_device_audio: true`, the server will:
 2) transcribe it
 3) run sentiment on the transcribed text
 
+Latest-buffer smoke test:
+
 ```bash
 ros2 service call /perception/sentiment_analysis perception_msgs/srv/PerceptionSentiment "{
 	header: {stamp: {sec: 0, nanosec: 0}, frame_id: ''},
+	text: '',
+	use_device_audio: true,
+	device_buffer_time: 3
+}"
+```
+
+Timestamp-window smoke test:
+
+```bash
+STAMP_SEC=$(date +%s)
+STAMP_NSEC=$(date +%N)
+echo "Speak with a positive or negative phrase for the next 3 seconds..."
+sleep 3
+
+ros2 service call /perception/sentiment_analysis perception_msgs/srv/PerceptionSentiment "{
+	header: {stamp: {sec: ${STAMP_SEC}, nanosec: ${STAMP_NSEC}}, frame_id: ''},
 	text: '',
 	use_device_audio: true,
 	device_buffer_time: 3
@@ -162,6 +206,8 @@ ros2 service call /perception/sentiment_analysis perception_msgs/srv/PerceptionS
 Default service name is typically `perception/speech`.
 
 If `use_device_audio: true`, the server will synthesize speech and play it through the configured speaker driver.
+
+Device-playback smoke test:
 
 ```bash
 ros2 service call /perception/speech perception_msgs/srv/PerceptionSpeech "{
@@ -175,7 +221,13 @@ ros2 service call /perception/speech perception_msgs/srv/PerceptionSpeech "{
 }"
 ```
 
-The response should also contain audio data. If the service succeeds but playback is unclear, save or inspect the generated `test/speech.wav` from startup tests and replay it with `aplay` as shown above.
+With `use_device_audio: true`, the main success signal is audible playback through the configured speaker. If playback is unclear, inspect the startup-generated `test/speech.wav` and replay it with `aplay` as shown above.
+
+Expected outcome for these three service smoke tests:
+
+- transcription returns `success: true` and a non-empty `transcription`
+- sentiment returns a label such as `POSITIVE` or `NEGATIVE` with a confidence score
+- speech returns `success: true` and audible playback through the configured speaker
 
 ## Troubleshooting
 

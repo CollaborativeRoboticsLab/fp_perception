@@ -12,7 +12,7 @@ This package abstracts vision input devices so they can be easily plugged into a
 - Plugin-based driver loading
 - ROS topic-based and direct camera support
 - Thread-safe access to latest image frame
-- Unified data interface** (`getData()`) returning `sensor_msgs::msg::Image::SharedPtr`
+- Typed `VisionSourceDriver` interface returning `perception::vision_frame`
 
 
 ## Available Drivers
@@ -42,20 +42,22 @@ driver:
 
 ## Using as a Plugin
 
-Both drivers implement the `DriverBase` interface from the `perception` core package. To load one via pluginlib:
+Both drivers are pluginlib plugins with `DriverBase` as the plugin base and `VisionSourceDriver` as the typed runtime interface. To load one via pluginlib:
 
 ```cpp
 pluginlib::ClassLoader<perception::DriverBase> loader("perception_driver_vision", "perception::DriverBase");
-auto driver = loader.createSharedInstance("perception::OpenCVVisionDriver");
-driver->start(node, config);
+auto driver_base = loader.createSharedInstance("perception::OpenCVDriver");
+auto driver = std::dynamic_pointer_cast<perception::VisionSourceDriver>(driver_base);
+driver->initialize(node);
 ```
 
 ## Example Usage
 
-Call `getData()` to retrieve the latest image from any loaded driver:
+Call `captureFrame()` to retrieve the latest image from any loaded driver:
 
 ```cpp
-cv::Mat img = std::any_cast<cv::Mat>(driver->getData());
+perception::vision_frame frame = driver->captureFrame();
+cv::Mat img = frame.image;
 // Use image for processing or visualization
 ```
 

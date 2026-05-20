@@ -645,15 +645,34 @@ protected:
       try
       {
         auto out = public_audio_buffer_.readWindow(request.start_time, duration_seconds);
-        RCLCPP_INFO(this->get_logger(), "Using timestamped device audio window: start=%.9f duration=%d seconds frames=%d",
-                    request.start_time.seconds(), duration_seconds, out.chunk_size);
+        const auto requested_end_time = request.start_time + rclcpp::Duration::from_seconds(duration_seconds);
+        const auto buffered_start_time = public_audio_buffer_.startTime();
+        const auto buffered_end_time = public_audio_buffer_.endTime();
+        const double returned_seconds =
+          static_cast<double>(out.chunk_size) / static_cast<double>(std::max(1, out.sample_rate));
+
+        if (returned_seconds + 0.001 < static_cast<double>(duration_seconds))
+        {
+          RCLCPP_WARN(this->get_logger(),
+                      "Timestamped device audio window was partially buffered. Requested [%.9f, %.9f], buffered "
+                      "[%.9f, %.9f], returning %.3f seconds of available overlap.",
+                      request.start_time.seconds(), requested_end_time.seconds(), buffered_start_time.seconds(),
+                      buffered_end_time.seconds(), returned_seconds);
+        }
+        else
+        {
+          RCLCPP_INFO(this->get_logger(),
+                      "Using timestamped device audio window: start=%.9f duration=%d seconds frames=%d",
+                      request.start_time.seconds(), duration_seconds, out.chunk_size);
+        }
         return out;
       }
       catch (const std::exception& e)
       {
         RCLCPP_WARN(this->get_logger(),
-                    "Timestamped device audio window unavailable (%s). Falling back to latest %d seconds.", e.what(),
-                    duration_seconds);
+                    "Timestamped device audio window unavailable (%s). Falling back to latest %d seconds instead of "
+                    "failing the request.",
+                    e.what(), duration_seconds);
       }
     }
 

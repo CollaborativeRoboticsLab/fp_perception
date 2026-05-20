@@ -1,7 +1,7 @@
 
 # Base classes
 
-This package is built around a small set of base classes that make it easy to load perception "drivers" as plugins and exchange data through a uniform interface.
+This package is built around a small set of base classes and typed role interfaces that make it easy to load perception "drivers" as plugins.
 
 ## DriverBase
 
@@ -13,14 +13,21 @@ This package is built around a small set of base classes that make it easy to lo
 - `deinitialize()`: **pure virtual** and must be implemented by every driver.
 - `test()`: optional; default logs the driver name.
 
-### Data exchange
+### Typed role interfaces
 
-Drivers exchange data through `std::any` to keep the base interface generic:
+New server and pipeline code should use typed interfaces instead of the legacy untyped hooks:
 
-- `getData()` / `setData(const std::any&)`: single-shot data pull/push.
-- `getDataStream()` / `setDataStream(const std::any&)`: stream-style pull/push.
+- `AudioSourceDriver`: microphone-like sources returning `audio_data` chunks.
+- `AudioSinkDriver`: speaker-like sinks accepting `audio_data` playback.
+- `TranscriptionDriver`: transcription providers accepting `transcription_request`.
+- `SpeechSynthesisDriver`: TTS providers accepting `text_data` and returning `audio_data`.
+- `SentimentAnalysisDriver`: sentiment providers accepting `sentiment_request`.
+- `VisionSourceDriver`: camera-like sources returning `vision_frame`.
+- `ImageAnalysisDriver`: image-analysis providers accepting `image_analysis_request`.
 
-Individual drivers define what types they expect inside the `std::any` (for example `perception::audio_data`, `perception::text_data`, `cv::Mat`, etc.).
+### Legacy untyped hooks
+
+`DriverBase` still exposes `getData()`, `setData(const std::any&)`, `getDataStream()`, and `setDataStream(const std::any&)` as compatibility hooks for old callers. They are not used by the current perception server workflows.
 
 ### Common utilities
 

@@ -16,11 +16,13 @@ This document focuses on:
 - Drivers implement `perception::DriverBase`.
 - The server loads drivers at runtime using `pluginlib::ClassLoader<perception::DriverBase>`.
 - Each driver is selected by a fully-qualified class name parameter (for example `perception::MicrophoneAudioDriver`).
+- Loaded plugins are cast to typed role interfaces such as `AudioSourceDriver`, `AudioSinkDriver`, `TranscriptionDriver`, `SpeechSynthesisDriver`, `SentimentAnalysisDriver`, `VisionSourceDriver`, and `ImageAnalysisDriver`.
 
-### Uniform data exchange
+### Typed data exchange
 
-- Drivers exchange data through the `DriverBase` methods using `std::any`.
-- The server converts between ROS messages (`perception_msgs/*`) and internal structs (`perception::audio_data`, `perception::text_data`).
+- Runtime workflows use typed interfaces and shared structs such as `perception::audio_data`, `perception::text_data`, `transcription_request`, `sentiment_request`, and `image_analysis_request`.
+- `DriverBase` remains the pluginlib base and lifecycle surface; its legacy untyped data hooks are kept only for compatibility with old callers.
+- The server converts between ROS messages (`perception_msgs/*`, `sensor_msgs/*`) and internal typed structs at the node boundary.
 
 ### Device acquisition lives in the plugins
 

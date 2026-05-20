@@ -16,7 +16,7 @@ namespace perception
 class SentimentPipeline
 {
 public:
-  using AudioReader = std::function<audio_data(int)>;
+  using AudioReader = std::function<audio_data(const audio_buffer_request&)>;
 
   SentimentPipeline(std::shared_ptr<SentimentAnalysisDriver> sentiment_driver,
                     std::shared_ptr<TranscriptionDriver> transcription_driver,
@@ -41,9 +41,15 @@ public:
         throw perception_exception("Device audio reader is not available.");
 
       transcription_request transcription_request_data;
-      transcription_request_data.audio = read_device_audio_(request.device_buffer_time);
+      audio_buffer_request audio_request;
+      audio_request.duration_seconds = request.device_buffer_time;
+      audio_request.use_time_window = request.use_device_audio_time_window;
+      audio_request.start_time = request.device_audio_start_time;
+      transcription_request_data.audio = read_device_audio_(audio_request);
       transcription_request_data.use_device_audio = true;
       transcription_request_data.device_buffer_time = request.device_buffer_time;
+      transcription_request_data.use_device_audio_time_window = request.use_device_audio_time_window;
+      transcription_request_data.device_audio_start_time = request.device_audio_start_time;
 
       const auto transcription_result_data = transcription_driver_->transcribe(transcription_request_data);
       if (!transcription_result_data.success)

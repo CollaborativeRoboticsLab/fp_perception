@@ -88,17 +88,69 @@ This checklist turns the refactor plan into concrete file-by-file implementation
 - [x] Change transcription device-audio reads to use `AudioBuffer`.
 - [x] Change sentiment device-audio reads to use `AudioBuffer`.
 - [x] Remove `wait_for_public_audio()` once all call sites are migrated.
+- [ ] Change transcription device-audio reads from latest-N-seconds to timestamp-window extraction when request headers provide timing.
+- [ ] Change sentiment device-audio reads to use the same timestamp-window extraction through the transcription path.
+- [ ] Keep latest-N-seconds behavior only as a fallback when no useful request timestamp is available.
 
 ### Optional alternative: `perception_driver_audio/include/perception_driver_audio/microphone_audio_driver.hpp`
 
 - [ ] If buffering is moved into the microphone plugin instead of a shared helper, add typed read methods here.
 - [ ] Ensure the server no longer knows buffer details such as trimming and duration slicing.
+- [ ] If production audio buffering moves into the plugin, implement timestamped ring-buffer ownership here.
+- [ ] Add typed APIs such as `readLatest(duration)` and `readWindow(start, duration)`.
 
 ### Phase 2 validation
 
 - [x] Build `perception` and `perception_driver_audio`.
 - [ ] Verify `use_device_audio` still works for transcription.
 - [ ] Verify `use_device_audio` still works for sentiment.
+- [ ] Verify a request with `(header stamp, duration)` extracts the expected audio interval.
+- [ ] Verify old audio outside the ring-buffer window returns a clear error.
+- [ ] Verify partial-window behavior is intentional and documented.
+
+## Phase 2b. Add Real-Time Audio Backend
+
+### Architecture decision
+
+- [x] For the robot use case, prefer PortAudio callbacks plus ring buffers over direct blocking `Pa_ReadStream()` / `Pa_WriteStream()` as the production path.
+- [ ] Keep the blocking implementation only as a fallback, diagnostic mode, or temporary migration path.
+- [ ] Decide whether to use separate input/output streams or a single full-duplex stream for tighter input/output timing.
+
+### `perception_driver_audio/include/perception_driver_audio/microphone_audio_driver.hpp`
+
+- [ ] Replace production capture loop based on `Pa_ReadStream()` with a PortAudio input callback.
+- [ ] Pass `this` as callback user data and keep callback work real-time safe.
+- [ ] Append captured frames into a preallocated timestamped ring buffer.
+- [ ] Avoid ROS logging, heap allocation, network calls, and blocking waits inside the callback.
+- [ ] Move publishing/ROS-facing work to a normal thread that drains callback-produced chunks.
+- [ ] Add input overflow/underflow counters readable from non-real-time code.
+
+### `perception_driver_audio/include/perception_driver_audio/speaker_audio_driver.hpp`
+
+- [ ] Replace production playback based on direct `Pa_WriteStream()` with a PortAudio output callback.
+- [ ] Add a playback queue/ring buffer filled by `play()` / `enqueuePlayback()`.
+- [ ] Add streaming TTS support where chunks can be queued while previous chunks are still playing.
+- [ ] Fill underrun output with silence and count underruns.
+- [ ] Add `stopPlayback()` / queue clear support for robot interruption behavior.
+- [ ] Avoid ROS logging, heap allocation, and blocking waits inside the callback.
+
+### `perception_base/include/perception_base/audio/audio_source_driver.hpp`
+
+- [ ] Add typed `readLatest(duration)` or `readBufferedAudio(duration)` once ownership is decided.
+- [ ] Add typed `readWindow(start, duration)` for timestamped STT requests.
+
+### `perception_base/include/perception_base/audio/audio_sink_driver.hpp`
+
+- [ ] Add `enqueuePlayback(const audio_data&)` or define `play()` as queueing/non-blocking for streaming playback.
+- [ ] Add optional `stopPlayback()` and queue status methods.
+
+### Phase 2b validation
+
+- [ ] Confirm microphone can capture continuously for several minutes without buffer overrun crashes.
+- [ ] Confirm speaker can play a WAV through the plugin without gaps.
+- [ ] Confirm streaming TTS chunks play continuously when enqueued incrementally.
+- [ ] Confirm microphone capture continues while speaker playback is active.
+- [ ] Confirm callback underrun/overflow counters remain acceptable during normal robot interaction.
 
 ## Phase 3. Add Typed Driver Interfaces
 
@@ -113,11 +165,14 @@ This checklist turns the refactor plan into concrete file-by-file implementation
 - [x] Create a typed interface for microphone-like sources.
 - [x] Add `readChunk()`.
 - [ ] Add `readBufferedAudio()` if buffering is owned by the source.
+- [ ] Add timestamp-window read methods when request-time extraction is implemented.
 
 ### `perception_base/include/perception_base/audio/audio_sink_driver.hpp`
 
 - [x] Create a typed interface for speaker-like sinks.
 - [x] Add a method such as `play(const audio_data&)`.
+- [ ] Decide whether `play()` should block until accepted/played or enqueue and return quickly.
+- [ ] Add streaming/queueing methods if `play()` remains blocking for compatibility.
 
 ### `perception_base/include/perception_base/transcription/transcription_driver.hpp`
 
@@ -149,12 +204,16 @@ This checklist turns the refactor plan into concrete file-by-file implementation
 - [x] Make the microphone driver implement `AudioSourceDriver`.
 - [x] Keep legacy `getDataStream()` temporarily if needed.
 - [x] Add a typed adapter method that the server or pipeline can use immediately.
+- [ ] Convert production mode to callback-driven capture for always-on robot listening.
+- [ ] Store capture timestamps for audio-window extraction.
 
 ### `perception_driver_audio/include/perception_driver_audio/speaker_audio_driver.hpp`
 
 - [x] Make the speaker driver implement `AudioSinkDriver`.
 - [x] Add a typed `play()` wrapper around the current stream write path.
 - [x] Keep `setDataStream()` temporarily for backward compatibility if needed.
+- [ ] Convert production mode to callback-driven queued playback for low-latency streaming TTS.
+- [ ] Support gapless chunk enqueueing and controlled interruption.
 
 ### `perception_driver_transcribe/include/perception_driver_transcribe/openai_driver.hpp`
 
@@ -293,6 +352,9 @@ This checklist turns the refactor plan into concrete file-by-file implementation
 
 - [ ] Full build of all perception-related packages.
 - [ ] Focused runtime smoke tests for microphone, speaker, transcription, sentiment, speech, and image analysis.
+- [ ] Runtime audio smoke test: plugin playback works on the same hardware route that `aplay -D plughw:2,0 test/speech.wav` uses.
+- [ ] Runtime audio smoke test: plugin recording produces a valid WAV with non-silent samples.
+- [ ] Runtime audio smoke test: simultaneous capture and playback works without deadlock or large glitches.
 
 ## Suggested Build and Verification Sequence
 

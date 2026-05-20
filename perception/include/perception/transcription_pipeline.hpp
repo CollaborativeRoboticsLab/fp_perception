@@ -14,7 +14,7 @@ namespace perception
 class TranscriptionPipeline
 {
 public:
-  using AudioReader = std::function<audio_data(int)>;
+  using AudioReader = std::function<audio_data(const audio_buffer_request&)>;
 
   TranscriptionPipeline(std::shared_ptr<TranscriptionDriver> driver, AudioReader readDeviceAudio)
     : driver_(std::move(driver)), read_device_audio_(std::move(readDeviceAudio))
@@ -31,7 +31,11 @@ public:
       if (!read_device_audio_)
         throw perception_exception("Device audio reader is not available.");
 
-      request.audio = read_device_audio_(request.device_buffer_time);
+      audio_buffer_request audio_request;
+      audio_request.duration_seconds = request.device_buffer_time;
+      audio_request.use_time_window = request.use_device_audio_time_window;
+      audio_request.start_time = request.device_audio_start_time;
+      request.audio = read_device_audio_(audio_request);
     }
 
     return driver_->transcribe(request);

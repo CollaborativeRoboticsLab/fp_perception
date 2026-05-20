@@ -296,13 +296,13 @@ protected:
   void initialize_pipelines()
   {
     transcription_pipeline_ = std::make_unique<TranscriptionPipeline>(
-        transcription_driver_, [this](int duration_seconds) { return read_latest_public_audio(duration_seconds); });
+        transcription_driver_, [this](const audio_buffer_request& request) { return read_public_audio(request); });
 
     speech_pipeline_ = std::make_unique<SpeechPipeline>(speech_driver_, speaker_driver_);
 
     sentiment_pipeline_ =
-        std::make_unique<SentimentPipeline>(sentiment_driver_, transcription_driver_, [this](int duration_seconds) {
-          return read_latest_public_audio(duration_seconds);
+        std::make_unique<SentimentPipeline>(sentiment_driver_, transcription_driver_, [this](const audio_buffer_request& request) {
+          return read_public_audio(request);
         });
 
     image_analysis_pipeline_ =
@@ -332,14 +332,16 @@ protected:
       if (use_microphone_driver_ and microphone_driver_)
         data = microphone_driver_->readChunk();
 
+      const auto audio_stamp = this->now();
+
       if (use_microphone_driver_ && microphone_driver_ && !data.samples.empty())
-        public_audio_buffer_.append(data, audio_input_buffer_duration_);
+        public_audio_buffer_.append(data, audio_input_buffer_duration_, audio_stamp);
 
       if (audio_input_publish_ && audio_publisher_)
       {
         // If publishing is enabled, publish the audio data
         Audio msg;
-        msg.header.stamp = rclcpp::Clock().now();
+        msg.header.stamp = audio_stamp;
         msg.header.frame_id = audio_input_frame_id_;
         msg.sample_rate = data.sample_rate;
         msg.channels = data.channels;
@@ -401,10 +403,17 @@ protected:
     internal_request.device_buffer_time =
         request.device_buffer_time > 0 ? request.device_buffer_time : audio_input_buffer_duration_;
     internal_request.use_device_audio = request.use_device_audio;
+    internal_request.use_device_audio_time_window = false;
 
     if (!request.use_device_audio)
     {
       internal_request.audio = perception::msg_to_audio_data(request.audio);
+      header = request.audio.header;
+    }
+    else if (request.audio.header.stamp.sec != 0 || request.audio.header.stamp.nanosec != 0)
+    {
+      internal_request.use_device_audio_time_window = true;
+      internal_request.device_audio_start_time = rclcpp::Time(request.audio.header.stamp);
       header = request.audio.header;
     }
 
@@ -430,9 +439,15 @@ protected:
     internal_request.device_buffer_time =
         request.device_buffer_time > 0 ? request.device_buffer_time : audio_input_buffer_duration_;
     internal_request.use_device_audio = request.use_device_audio;
+    internal_request.use_device_audio_time_window = false;
 
     if (!request.use_device_audio)
       internal_request.text = request.text;
+    else if (request.header.stamp.sec != 0 || request.header.stamp.nanosec != 0)
+    {
+      internal_request.use_device_audio_time_window = true;
+      internal_request.device_audio_start_time = rclcpp::Time(request.header.stamp);
+    }
 
     return internal_request;
   }
@@ -619,6 +634,30 @@ protected:
     }
 
     return out;
+  }
+
+  perception::audio_data read_public_audio(const audio_buffer_request& request)
+  {
+    const int duration_seconds = std::max(1, request.duration_seconds);
+
+    if (request.use_time_window)
+    {
+      try
+      {
+        auto out = public_audio_buffer_.readWindow(request.start_time, duration_seconds);
+        RCLCPP_INFO(this->get_logger(), "Using timestamped device audio window: start=%.9f duration=%d seconds frames=%d",
+                    request.start_time.seconds(), duration_seconds, out.chunk_size);
+        return out;
+      }
+      catch (const std::exception& e)
+      {
+        RCLCPP_WARN(this->get_logger(),
+                    "Timestamped device audio window unavailable (%s). Falling back to latest %d seconds.", e.what(),
+                    duration_seconds);
+      }
+    }
+
+    return read_latest_public_audio(duration_seconds);
   }
 
   void image_analysis_callback(const std::shared_ptr<ImageAnalysis::Request> request,

@@ -73,19 +73,20 @@
       audio:
         MicrophoneAudioDriver:
           name: MicrophoneAudioDriver
-          device_id: 6
-          chunk_size: 48000     # number of frames per audio buffer processing cycle.will give inputoverflowed error if too small
+          device_name: "ALC285 Analog"
+          chunk_size: 960       # frames per audio buffer processing cycle (20 ms at 48 kHz)
           sample_rate: 48000    # number of samples per second
-          channels: 2           # number of audio channels
+          channels: 1           # mono is usually best for STT and avoids silent stereo channels
           buffer_time: 10       # buffering time in seconds
 
         SpeakerAudioDriver:
           name: SpeakerAudioDriver
-          device_id: 6
+          device_name: "ALC285 Analog"
           sample_rate: 48000
           channels: 2
-          test_file_path: test/mic_test.wav
-          # test_file_path: install/perception_driver_audio/share/perception_driver_audio/audio/hello-1.wav
+          # Use a known-good packaged WAV for speaker routing tests; mic_test.wav may be silent if capture is misconfigured.
+          # test_file_path: test/mic_test.wav
+          test_file_path: install/perception_driver_audio/share/perception_driver_audio/audio/hello-1.wav
           # test_file_path: install/perception_driver_audio/share/perception_driver_audio/audio/hello-2.wav
 
       transcription:

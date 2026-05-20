@@ -7,6 +7,7 @@
 - Replace ad hoc `std::any` payload conventions with shared structs in `perception_base`.
 - Keep ROS publishers, subscribers, and services at the node boundary.
 - Make future drivers easier to add without repeating boilerplate.
+- Support real-time robot audio: always-on microphone capture, request-time extraction of timestamped audio windows, low-latency speaker output, streaming TTS playback, and simultaneous microphone/speaker operation.
 
 ## Current Problems
 
@@ -56,6 +57,30 @@ Other workflows still use plugin-specific payloads instead of shared structs, es
 ### 4. The device-audio buffer is in the wrong place
 
 The rolling microphone buffer, waiting logic, and duration slicing live in the server even though they are really part of audio-source behavior.
+
+The current buffer is also sample-count based only. For request-driven STT, the system needs a timestamped ring buffer so a request can ask for the audio segment corresponding to a time interval such as:
+
+```text
+[request.header.stamp, request.header.stamp + request.duration]
+```
+
+or, depending on service semantics, the latest `duration` ending at a request/header timestamp. This avoids guessing based only on "latest N seconds" and makes audio extraction deterministic when service calls arrive after the user finished speaking.
+
+### 5. Current PortAudio drivers use blocking I/O
+
+`MicrophoneAudioDriver` currently captures by running a driver thread that calls `Pa_ReadStream()`.
+
+`SpeakerAudioDriver` currently plays by calling `Pa_WriteStream()` from `play()`.
+
+This blocking API is acceptable for simple record/play tests, but it is not the preferred architecture for an interactive robot that needs:
+
+- continuous listening,
+- no gaps between output chunks,
+- streaming TTS,
+- low-latency turn-taking,
+- and simultaneous microphone/speaker timing.
+
+The target audio backend should use PortAudio callback streams with lock-free or short-lock ring buffers between the real-time audio callback and ROS/workflow threads.
 
 ## Refactor Principles
 
@@ -210,6 +235,44 @@ This is lower risk if multiple audio sources may need the same behavior.
 
 Recommendation: start with Option B unless the microphone plugin is guaranteed to remain the only device-audio source.
 
+#### Timestamped audio ring buffer requirement
+
+Whichever option is chosen, buffered audio should be stored with timing metadata, not only as a flat vector of samples.
+
+Recommended behavior:
+
+- Maintain a monotonic mapping from sample index to capture time.
+- Store either per-block timestamps or enough metadata to derive timestamps from the first sample time, sample rate, channel count, and total captured frame index.
+- Expose APIs such as:
+
+```cpp
+audio_data readLatest(std::chrono::milliseconds duration);
+audio_data readWindow(const rclcpp::Time& start, const rclcpp::Duration& duration);
+audio_data readWindow(const rclcpp::Time& start, const rclcpp::Time& end);
+```
+
+- Prefer frame counts internally. Convert to sample counts only when indexing interleaved sample vectors.
+- Include the selected window start timestamp in the returned audio metadata once the shared `audio_data` type supports it, or return an audio-window wrapper containing `audio_data` plus timestamps.
+- Handle missing/partial windows explicitly by either returning the available overlap with a warning flag or returning a structured error.
+
+This enables STT requests to extract the relevant buffered audio using `(header time, header time + duration)` instead of always transcribing the most recent N seconds.
+
+### 6. Real-time audio backend target
+
+For the robot use case, the audio plugin should evolve from blocking `Pa_ReadStream()` / `Pa_WriteStream()` calls to callback-driven streams.
+
+Recommended target design:
+
+- Open a microphone input stream with a PortAudio input callback.
+- Open a speaker output stream with a PortAudio output callback.
+- Consider one full-duplex PortAudio stream if the selected device/API supports it and tight input/output timing is required.
+- The input callback appends captured frames into a timestamped ring buffer and optionally publishes/forwards chunks to ROS from a non-real-time thread.
+- The output callback pulls frames from a playback queue/ring buffer filled by TTS streaming or complete synthesized audio.
+- The callbacks must not call ROS logging, allocate memory, perform network I/O, do STT/TTS work, or block on long mutex waits.
+- ROS/service/pipeline threads interact with the audio backend through typed methods such as `enqueuePlayback()`, `readWindow()`, and `readLatest()`.
+
+Blocking `Pa_WriteStream()` can remain as a fallback/simple test backend, but the production robot audio path should be callback + ring buffer based.
+
 ### 6. Plugin loading helper
 
 Extract repetitive plugin-loading code into a helper or manager, for example:
@@ -263,6 +326,27 @@ This will remove a large amount of repeated initialization logic from `Perceptio
 ### Outcome
 
 - The biggest concentration of low-level logic leaves the server.
+- Audio requests can be served from a timestamped ring buffer rather than from an ambiguous latest-N-seconds sample vector.
+
+## Phase 2b. Introduce real-time audio backend
+
+### Scope
+
+- Add callback-based audio capture/playback for production robot use.
+- Keep the existing blocking implementation only as a fallback or debugging path during migration.
+
+### Changes
+
+- Add a timestamped input ring buffer owned by the audio source driver or shared audio component.
+- Add a playback queue/ring buffer owned by the audio sink driver.
+- Replace microphone capture based on repeated `Pa_ReadStream()` with a PortAudio input callback.
+- Replace speaker playback based on direct `Pa_WriteStream()` calls with a PortAudio output callback for streaming playback.
+- Add typed methods for `readWindow(start, duration)`, `readLatest(duration)`, `enqueuePlayback(audio_data)`, `stopPlayback()`, and queue drain/underrun status.
+- Ensure callbacks avoid blocking, dynamic allocation, ROS logging, network calls, and other non-real-time-safe work.
+
+### Outcome
+
+- Always-on listening, streaming TTS, low-latency interaction, and simultaneous input/output timing are supported by design.
 
 ## Phase 3. Add typed driver interfaces
 
@@ -322,6 +406,7 @@ This will remove a large amount of repeated initialization logic from `Perceptio
 
 - audio rolling buffer state and synchronization
 - duration-based audio slicing
+- timestamp-to-sample-window extraction
 - plugin-specific `std::any_cast` logic
 - sentiment transcription chaining logic
 - image-analysis request assembly
@@ -339,12 +424,14 @@ This will remove a large amount of repeated initialization logic from `Perceptio
 - provider-specific request construction
 - provider-specific response parsing
 - device-specific capture/playback details
+- PortAudio callback stream ownership and real-time-safe audio queues
 - provider defaults such as models, voices, detail settings, and file encoding strategy
 
 ### Move into workflow classes
 
 - multi-driver orchestration
 - fallback and validation logic for `use_device_audio` and `use_device_vision`
+- request timestamp + duration mapping to audio ring-buffer windows
 - shared error mapping
 - typed result assembly
 

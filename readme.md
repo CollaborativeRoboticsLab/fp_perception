@@ -12,6 +12,7 @@ Start here:
 
 - [Server](docs/server_system.md) — how the server loads plugins, acquires devices, and routes data
 - [ROS Interface](docs/interfaces.md) — topics/services and message/service definitions
+- [Test the System](docs/test_the_system.md) — validate startup, audio routing, generated WAV files, and ROS services
 - [Base Classes](docs/base_classes.md) — `DriverBase` and `RestBase`
 
 Drivers:
@@ -81,11 +82,13 @@ colcon build
 
 ## Start the system
 
-If using microphone or speaker run the following code to find the required device id
+If using microphone or speaker, configure the audio drivers by `device_name` when possible. The test guide shows how to confirm the selected PortAudio device and map it to an ALSA `plughw:X,Y` route for direct WAV playback checks.
 
 ```sh
 python3 src/perception/perception_driver_audio/find_devices.py
 ```
+
+See [Test the System](docs/test_the_system.md) for startup validation, generated WAV checks, and service-call examples.
 
 ```sh
 export OPENAI_API_KEY=

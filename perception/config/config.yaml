@@ -1,7 +1,7 @@
 /**:
   ros__parameters:
     # Server behavior
-    run_tests: true
+    run_tests: false
 
     # Which plugin groups to load
     use_ros_vision_driver: false

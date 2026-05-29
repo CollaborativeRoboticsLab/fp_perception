@@ -79,11 +79,14 @@ After the startup tests finish, verify the generated WAV files directly through 
 ```bash
 cd ~/colcon_ws
 
+# find the device name and route for your speaker from the PortAudio log, e.g. 'ALC285 Analog' with 'hw:3,0' route
+python3 src/perception/perception_driver_audio/find_devices.py
+
 # Confirm the microphone test recording is audible.
-aplay -D plughw:2,0 test/mic_test.wav
+aplay -D plughw:3,0 test/mic_test.wav
 
 # Confirm the speech synthesis output file is audible.
-aplay -D plughw:2,0 test/speech.wav
+aplay -D plughw:3,0 test/speech.wav
 ```
 
 Expected output looks like:
@@ -91,13 +94,6 @@ Expected output looks like:
 ```text
 Playing WAVE 'test/mic_test.wav' : Signed 16 bit Little Endian, Rate 48000 Hz, Mono
 Playing WAVE 'test/speech.wav' : Signed 16 bit Little Endian, Rate 24000 Hz, Mono
-```
-
-If the PortAudio log reports a different hardware device such as `hw:3,0`, update the `aplay` device accordingly:
-
-```bash
-aplay -D plughw:3,0 test/mic_test.wav
-aplay -D plughw:3,0 test/speech.wav
 ```
 
 ## Live audio topic check

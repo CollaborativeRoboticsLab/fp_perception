@@ -111,8 +111,12 @@ public:
     if (run_tests_)
       run_tests();
 
-    audio_subscriber_ = this->create_subscription<Audio>(
-        audio_output_topic_, 10, std::bind(&PerceptionServer::audioCallback, this, std::placeholders::_1));
+    if (audio_input_publish_)
+      audio_publisher_ = this->create_publisher<Audio>(audio_input_topic_, 10);
+
+    if (audio_output_subscribe_)
+      audio_subscriber_ = this->create_subscription<Audio>(
+          audio_output_topic_, 10, std::bind(&PerceptionServer::audioCallback, this, std::placeholders::_1));
 
     if (transcription_enabled_)
       transcription_ = this->create_service<Transcribe>(
@@ -749,7 +753,6 @@ protected:
   std::string vision_input_topic_;
   std::string vision_input_frame_id_;
   int vision_input_frequency_;
-  bool vision_input_non_ros_;
 
   // Transcription service parameters
   bool transcription_enabled_;
@@ -818,12 +821,6 @@ protected:
 
   // Publisher for vision data
   rclcpp::Publisher<sensor_msgs::msg::Image>::SharedPtr image_publisher_;
-
-  // Thread for publishing gathered data from the device
-  std::thread publish_audio_;
-
-  // Thread for publishing gathered data from the device
-  std::thread publish_vision_;
 
   rclcpp::TimerBase::SharedPtr deferred_initialize_timer_;
   std::mutex initialization_mutex_;

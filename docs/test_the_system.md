@@ -83,10 +83,10 @@ cd ~/colcon_ws
 python3 src/perception/perception_driver_audio/find_devices.py
 
 # Confirm the microphone test recording is audible.
-aplay -D plughw:3,0 test/mic_test.wav
+aplay -D plughw:2,0 test/mic_test.wav
 
 # Confirm the speech synthesis output file is audible.
-aplay -D plughw:3,0 test/speech.wav
+aplay -D plughw:2,0 test/speech.wav
 ```
 
 Expected output looks like:
@@ -112,21 +112,23 @@ You should see a nonzero publish rate and messages with populated `samples`. The
 Default service name is typically `perception/transcription`.
 
 This reads from the server's public audio buffer for `device_buffer_time` seconds and transcribes it. Speak into the microphone immediately before or during the call.
+It only works after the microphone driver has initialized the public audio buffer; otherwise the service returns `Device audio not available: public audio buffer not initialized`.
 
 Latest-buffer smoke test:
 
 ```bash
+source install/setup.bash
 ros2 service call /perception/transcription perception_msgs/srv/PerceptionTranscribe "{
-	audio: {
-		header: {stamp: {sec: 0, nanosec: 0}, frame_id: ''},
-		sample_rate: 0,
-		channels: 0,
-		chunk_size: 0,
-		chunk_count: 0,
-		samples: []
-	},
-	use_device_audio: true,
-	device_buffer_time: 3
+  audio: {
+    header: {stamp: {sec: 0, nanosec: 0}, frame_id: ''},
+    sample_rate: 0,
+    channels: 0,
+    chunk_size: 0,
+    chunk_count: 0,
+    samples: []
+  },
+  use_device_audio: true,
+  device_buffer_time: 10
 }"
 ```
 
@@ -139,16 +141,16 @@ echo "Speak for the next 3 seconds..."
 sleep 3
 
 ros2 service call /perception/transcription perception_msgs/srv/PerceptionTranscribe "{
-	audio: {
-		header: {stamp: {sec: ${STAMP_SEC}, nanosec: ${STAMP_NSEC}}, frame_id: ''},
-		sample_rate: 0,
-		channels: 0,
-		chunk_size: 0,
-		chunk_count: 0,
-		samples: []
-	},
-	use_device_audio: true,
-	device_buffer_time: 3
+  audio: {
+    header: {stamp: {sec: ${STAMP_SEC}, nanosec: ${STAMP_NSEC}}, frame_id: ''},
+    sample_rate: 0,
+    channels: 0,
+    chunk_size: 0,
+    chunk_count: 0,
+    samples: []
+  },
+  use_device_audio: true,
+  device_buffer_time: 3
 }"
 ```
 
@@ -228,6 +230,7 @@ Expected outcome for these three service smoke tests:
 ## Troubleshooting
 
 - If device-audio calls time out, ensure the microphone driver is enabled and producing samples.
+- If transcription returns `Device audio not available: public audio buffer not initialized`, verify the microphone driver is running and `ros2 topic hz /perception/microphone` shows samples before calling the service.
 - If you request a longer `device_buffer_time` than the server buffer duration, increase `interface.audio_input.buffer_duration`.
 - If you don’t hear speech output with `use_device_audio: true`, ensure the speaker driver is enabled and the container can access an output device.
 - If `aplay` works but the speaker driver does not, compare the `aplay -D plughw:X,Y` route against the `hw:X,Y` shown in the PortAudio resolved-device log.

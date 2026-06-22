@@ -91,6 +91,7 @@ public:
 
   ~PerceptionServer()
   {
+    stop_background_tasks();
   }
 
   void initialize()
@@ -141,6 +142,8 @@ public:
           image_analysis_service_name_,
           std::bind(&PerceptionServer::image_analysis_callback, this, std::placeholders::_1, std::placeholders::_2));
 
+    start_background_tasks();
+
     initialized_ = true;
   }
 
@@ -160,6 +163,23 @@ protected:
         RCLCPP_ERROR(this->get_logger(), "Deferred initialization failed: %s", e.what());
       }
     });
+  }
+
+  void start_background_tasks()
+  {
+    if (use_microphone_driver_ && microphone_driver_ && !audio_publish_thread_.joinable())
+    {
+      audio_publish_thread_ = std::thread([this]() { publishAudio(); });
+    }
+  }
+
+  void stop_background_tasks()
+  {
+    if (microphone_driver_)
+      microphone_driver_->deinitialize();
+
+    if (audio_publish_thread_.joinable())
+      audio_publish_thread_.join();
   }
 
   void configure_driver_selection()
@@ -331,32 +351,40 @@ protected:
   {
     while (rclcpp::ok())
     {
-      audio_data data;
-
-      if (use_microphone_driver_ and microphone_driver_)
-        data = microphone_driver_->readChunk();
-
-      const auto audio_stamp = this->now();
-
-      if (use_microphone_driver_ && microphone_driver_ && !data.samples.empty())
-        public_audio_buffer_.append(data, audio_input_buffer_duration_, audio_stamp);
-
-      if (audio_input_publish_ && audio_publisher_)
+      try
       {
-        // If publishing is enabled, publish the audio data
-        Audio msg;
-        msg.header.stamp = audio_stamp;
-        msg.header.frame_id = audio_input_frame_id_;
-        msg.sample_rate = data.sample_rate;
-        msg.channels = data.channels;
-        msg.chunk_size = data.chunk_size;
-        msg.chunk_count = data.chunk_count;
-        msg.samples = data.samples;
+        audio_data data;
 
-        audio_publisher_->publish(msg);
+        if (use_microphone_driver_ && microphone_driver_)
+          data = microphone_driver_->readChunk();
+
+        const auto audio_stamp = this->now();
+
+        if (use_microphone_driver_ && microphone_driver_ && !data.samples.empty())
+          public_audio_buffer_.append(data, audio_input_buffer_duration_, audio_stamp);
+
+        if (audio_input_publish_ && audio_publisher_)
+        {
+          // If publishing is enabled, publish the audio data
+          Audio msg;
+          msg.header.stamp = audio_stamp;
+          msg.header.frame_id = audio_input_frame_id_;
+          msg.sample_rate = data.sample_rate;
+          msg.channels = data.channels;
+          msg.chunk_size = data.chunk_size;
+          msg.chunk_count = data.chunk_count;
+          msg.samples = data.samples;
+
+          audio_publisher_->publish(msg);
+        }
+      }
+      catch (const std::exception& e)
+      {
+        if (rclcpp::ok())
+          RCLCPP_WARN(this->get_logger(), "Audio publish loop skipped a cycle: %s", e.what());
       }
 
-      std::this_thread::sleep_for(std::chrono::milliseconds(int(1000 / audio_input_frequency_)));
+      std::this_thread::sleep_for(std::chrono::milliseconds(int(1000 / std::max(1, audio_input_frequency_))));
     }
   }
 
@@ -530,7 +558,17 @@ protected:
       catch (const std::exception& e)
       {
         response->success = false;
-        response->transcription = std::string("Device audio not available: ") + e.what();
+        const std::string error_message = e.what();
+        if (error_message.find("public audio buffer") != std::string::npos ||
+            error_message.find("audio buffer") != std::string::npos ||
+            error_message.find("Timeout waiting for audio data") != std::string::npos)
+        {
+          response->transcription = std::string("Device audio not available: ") + error_message;
+        }
+        else
+        {
+          response->transcription = std::string("Transcription service error: ") + error_message;
+        }
         RCLCPP_ERROR(this->get_logger(), "%s", response->transcription.c_str());
         return;
       }
@@ -825,6 +863,7 @@ protected:
   rclcpp::TimerBase::SharedPtr deferred_initialize_timer_;
   std::mutex initialization_mutex_;
   bool initialized_ = false;
+  std::thread audio_publish_thread_;
 };
 
 }  // namespace perception

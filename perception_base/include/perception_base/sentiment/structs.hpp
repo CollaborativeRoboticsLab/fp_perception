@@ -20,6 +20,7 @@ struct sentiment_result
 {
   std::string label;
   double score = 0.0;
+  std::string analyzed_text;
   bool success = false;
   std::string error;
 };

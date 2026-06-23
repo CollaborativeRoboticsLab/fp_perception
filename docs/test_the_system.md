@@ -3,7 +3,7 @@
 
 This page is a practical, copy/paste guide to validate the perception server, audio device routing, generated WAV files, and ROS 2 service interfaces from a terminal.
 
-## Prereqs
+## Prerequisites
 
 In one terminal, build, source, and launch the server:
 
@@ -112,6 +112,7 @@ You should see a nonzero publish rate and messages with populated `samples`. The
 Default service name is typically `perception/transcription`.
 
 This reads from the server's public audio buffer for `device_buffer_time` seconds and transcribes it. Speak into the microphone immediately before or during the call.
+
 It only works after the microphone driver has initialized the public audio buffer; otherwise the service returns `Device audio not available: public audio buffer not initialized`.
 
 Latest-buffer smoke test:
@@ -128,7 +129,7 @@ ros2 service call /perception/transcription perception_msgs/srv/PerceptionTransc
     samples: []
   },
   use_device_audio: true,
-  device_buffer_time: 10
+  device_buffer_time: 5
 }"
 ```
 
@@ -137,9 +138,10 @@ Timestamp-window smoke test:
 ```bash
 STAMP_SEC=$(date +%s)
 STAMP_NSEC=$(date +%N)
-echo "Speak for the next 3 seconds..."
-sleep 3
+echo "Speak for the next 5 seconds..."
+sleep 5
 
+source install/setup.bash
 ros2 service call /perception/transcription perception_msgs/srv/PerceptionTranscribe "{
   audio: {
     header: {stamp: {sec: ${STAMP_SEC}, nanosec: ${STAMP_NSEC}}, frame_id: ''},
@@ -150,14 +152,15 @@ ros2 service call /perception/transcription perception_msgs/srv/PerceptionTransc
     samples: []
   },
   use_device_audio: true,
-  device_buffer_time: 3
+  device_buffer_time: 5
 }"
 ```
 
-Notes:
+### Parameters and expected behavior
 
 - `audio` is ignored when `use_device_audio: true`, but it must still be present to satisfy the request type.
 - `device_buffer_time` must be **≤** the configured server ring buffer duration (`interface.audio_input.buffer_duration`).
+
 - If the request header stamp is zero, the server uses the latest buffered audio window.
 - If the timestamped window is only partially available, the server returns the available overlap and logs a warning.
 - If the timestamped window has no overlap with the ring buffer, the server logs a warning and falls back to the latest buffered audio instead of failing the node.
@@ -172,14 +175,17 @@ If `use_device_audio: true`, the server will:
 2) transcribe it
 3) run sentiment on the transcribed text
 
+The response includes `analyzed_text`, which is the exact text that was sent into sentiment analysis. This is useful for debugging device-audio runs where the sentiment label looks plausible but the upstream transcription may be wrong.
+
 Latest-buffer smoke test:
 
 ```bash
+source install/setup.bash
 ros2 service call /perception/sentiment_analysis perception_msgs/srv/PerceptionSentiment "{
-	header: {stamp: {sec: 0, nanosec: 0}, frame_id: ''},
-	text: '',
-	use_device_audio: true,
-	device_buffer_time: 3
+  header: {stamp: {sec: 0, nanosec: 0}, frame_id: ''},
+  text: '',
+  use_device_audio: true,
+  device_buffer_time: 5
 }"
 ```
 
@@ -188,14 +194,15 @@ Timestamp-window smoke test:
 ```bash
 STAMP_SEC=$(date +%s)
 STAMP_NSEC=$(date +%N)
-echo "Speak with a positive or negative phrase for the next 3 seconds..."
-sleep 3
+echo "Speak with a positive or negative phrase for the next 5 seconds..."
+sleep 5
 
+source install/setup.bash
 ros2 service call /perception/sentiment_analysis perception_msgs/srv/PerceptionSentiment "{
-	header: {stamp: {sec: ${STAMP_SEC}, nanosec: ${STAMP_NSEC}}, frame_id: ''},
-	text: '',
-	use_device_audio: true,
-	device_buffer_time: 3
+  header: {stamp: {sec: ${STAMP_SEC}, nanosec: ${STAMP_NSEC}}, frame_id: ''},
+  text: '',
+  use_device_audio: true,
+  device_buffer_time: 5
 }"
 ```
 
@@ -208,14 +215,15 @@ If `use_device_audio: true`, the server will synthesize speech and play it throu
 Device-playback smoke test:
 
 ```bash
+source install/setup.bash
 ros2 service call /perception/speech perception_msgs/srv/PerceptionSpeech "{
-	input: {
-		header: {stamp: {sec: 0, nanosec: 0}, frame_id: ''},
-		text: 'Hello from perception',
-		voice: '',
-		instructions: ''
-	},
-	use_device_audio: true
+  input: {
+    header: {stamp: {sec: 0, nanosec: 0}, frame_id: ''},
+    text: 'Hello from perception',
+    voice: '',
+    instructions: ''
+  },
+  use_device_audio: true
 }"
 ```
 
@@ -224,7 +232,7 @@ With `use_device_audio: true`, the main success signal is audible playback throu
 Expected outcome for these three service smoke tests:
 
 - transcription returns `success: true` and a non-empty `transcription`
-- sentiment returns a label such as `POSITIVE` or `NEGATIVE` with a confidence score
+- sentiment returns a label such as `POSITIVE` or `NEGATIVE` with a confidence score, plus `analyzed_text` for debugging
 - speech returns `success: true` and audible playback through the configured speaker
 
 ## Troubleshooting
@@ -246,13 +254,13 @@ This is the easiest way to test from the CLI because you don't need to embed ima
 ros2 service call /perception/image_analysis perception_msgs/srv/PerceptionImageAnalysis "{
   header: {stamp: {sec: 0, nanosec: 0}, frame_id: ''},
   image: {
-	header: {stamp: {sec: 0, nanosec: 0}, frame_id: ''},
-	height: 0,
-	width: 0,
-	encoding: '',
-	is_bigendian: 0,
-	step: 0,
-	data: []
+    header: {stamp: {sec: 0, nanosec: 0}, frame_id: ''},
+    height: 0,
+    width: 0,
+    encoding: '',
+    is_bigendian: 0,
+    step: 0,
+    data: []
   },
   prompt: 'Describe the most important objects in this image',
   use_device_vision: true
@@ -263,55 +271,3 @@ Notes:
 
 - Requires `use_vision_driver: true` and `interface.image_analysis.provide_service: true` in config.
 - `image` is ignored when `use_device_vision: true`, but must still be present to satisfy the request type.
-
-## Image analysis service (external image file)
-
-`ros2 service call` can pass `sensor_msgs/Image`, but it’s cumbersome to paste raw `data` bytes.
-For an external image file test, use this minimal Python snippet:
-
-```bash
-python3 - <<'PY'
-import sys
-import cv2
-import rclpy
-from rclpy.node import Node
-from cv_bridge import CvBridge
-
-from perception_msgs.srv import PerceptionImageAnalysis
-
-class Client(Node):
-	def __init__(self):
-		super().__init__('image_analysis_test_client')
-		self.cli = self.create_client(PerceptionImageAnalysis, '/perception/image_analysis')
-
-def main(path, prompt):
-	rclpy.init()
-	node = Client()
-	if not node.cli.wait_for_service(timeout_sec=10.0):
-		raise RuntimeError('service /perception/image_analysis not available')
-
-	img = cv2.imread(path, cv2.IMREAD_COLOR)
-	if img is None:
-		raise RuntimeError(f'failed to read image: {path}')
-
-	req = PerceptionImageAnalysis.Request()
-	req.prompt = prompt
-	req.use_device_vision = False
-	req.image = CvBridge().cv2_to_imgmsg(img, encoding='bgr8')
-
-	future = node.cli.call_async(req)
-	rclpy.spin_until_future_complete(node, future, timeout_sec=60.0)
-	if future.result() is None:
-		raise RuntimeError('no response')
-	print(future.result().response)
-
-	node.destroy_node()
-	rclpy.shutdown()
-
-if __name__ == '__main__':
-	path = sys.argv[1] if len(sys.argv) > 1 else 'test/image.png'
-	prompt = sys.argv[2] if len(sys.argv) > 2 else "What's in this image?"
-	main(path, prompt)
-PY
-```
-

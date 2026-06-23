@@ -93,6 +93,7 @@ public:
     sentiment_result result;
     result.label = response_.response;
     result.score = response_.confidence;
+    result.analyzed_text = request_data.text;
     result.success = !response_.response.empty();
     if (!result.success)
       result.error = "No response received from sentiment analysis service";

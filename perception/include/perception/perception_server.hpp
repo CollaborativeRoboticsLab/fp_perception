@@ -486,6 +486,8 @@ protected:
 
   void write_sentiment_response(const sentiment_result& result, Sentiment::Response& response)
   {
+    response.analyzed_text = result.analyzed_text;
+
     if (result.success)
     {
       response.label = result.label;

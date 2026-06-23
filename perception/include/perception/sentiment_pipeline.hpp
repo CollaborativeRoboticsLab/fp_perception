@@ -60,7 +60,9 @@ public:
       request.text = transcription_result_data.text;
     }
 
-    return sentiment_driver_->analyze(request);
+    auto result = sentiment_driver_->analyze(request);
+    result.analyzed_text = request.text;
+    return result;
   }
 
 private:

@@ -59,6 +59,14 @@ public:
     // Log the parameters
     RCLCPP_INFO(node_->get_logger(), "Assigned driver Name: %s", name_.c_str());
 
+    if (diagnostics_enabled())
+    {
+      enable_diagnostics("rest-sentiment-" + name_, name_ + " status",
+                         [this](diagnostic_updater::DiagnosticStatusWrapper& status) {
+                           produce_diagnostics(status);
+                         });
+    }
+
     // Log that the driver has been initialized
     RCLCPP_INFO(node_->get_logger(), "Initialized");
   }
@@ -70,6 +78,7 @@ public:
    */
   void deinitialize() override
   {
+    disable_diagnostics();
     response_ = perception::RESTResponse{};
     name_.clear();
     node_.reset();
@@ -185,6 +194,31 @@ protected:
       throw perception_exception("Unexpected sentiment JSON structure received");
 
     return res;
+  }
+
+  void produce_diagnostics(diagnostic_updater::DiagnosticStatusWrapper& status)
+  {
+    std::string last_error;
+    {
+      std::lock_guard<std::mutex> lock(rest_status_mutex_);
+      last_error = last_rest_error_;
+    }
+
+    if (rest_request_count_.load() == 0)
+      status.summary(diagnostic_msgs::msg::DiagnosticStatus::OK, "Sentiment driver idle");
+    else if (last_rest_success_.load())
+      status.summary(diagnostic_msgs::msg::DiagnosticStatus::OK, "Last sentiment request succeeded");
+    else
+      status.summary(diagnostic_msgs::msg::DiagnosticStatus::WARN, "Last sentiment request failed");
+
+    status.add("uri", uri_);
+    status.add("request_count", rest_request_count_.load());
+    status.add("failure_count", rest_failure_count_.load());
+    status.add("last_http_code", last_rest_http_code_.load());
+    status.add("last_result_success", last_result_.success ? "true" : "false");
+    status.add("last_label", last_result_.label.empty() ? std::string("none") : last_result_.label);
+    status.add("last_score", last_result_.score);
+    status.add("last_error", last_error.empty() ? std::string("none") : last_error);
   }
 
   perception::RESTResponse response_;

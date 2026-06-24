@@ -1,5 +1,6 @@
 #pragma once
 
+#include <atomic>
 #include <mutex>
 #include <condition_variable>
 #include <opencv2/opencv.hpp>
@@ -54,6 +55,12 @@ public:
     image_sub_ =
         transport.subscribe(interface_name_, 1, std::bind(&DefaultDriver::imageCallback, this, std::placeholders::_1));
 
+    if (diagnostics_enabled())
+    {
+      enable_diagnostics("vision-topic-" + name_, name_ + " status",
+                         [this](diagnostic_updater::DiagnosticStatusWrapper& status) { produce_diagnostics(status); });
+    }
+
     RCLCPP_INFO(node_->get_logger(), "Started. Subscribed to image topic: %s", interface_name_.c_str());
   }
 
@@ -63,14 +70,15 @@ public:
    */
   void deinitialize() override
   {
+    disable_diagnostics();
     image_sub_.shutdown();
     RCLCPP_INFO(node_->get_logger(), "DefaultDriver unsubscribed from topic: %s", interface_name_.c_str());
   }
 
   /**
-   * @brief Get latest image data from the driver. cast to cv::Mat befure using
-
-   * @return std::any The latest data from the driver of type cv::Mat
+    * @brief Get the latest image data from the driver.
+    *
+    * @return vision_frame The latest frame received from the subscribed ROS topic.
    * @throws perception_exception if not implemented in derived classes
    */
   vision_frame captureFrame() override
@@ -122,13 +130,41 @@ protected:
   {
     std::lock_guard<std::mutex> lock(buffer_mutex_);
     latest_image_ = msg;
+    received_image_count_++;
 
     buffer_cv_.notify_all();
+  }
+
+  void produce_diagnostics(diagnostic_updater::DiagnosticStatusWrapper& status)
+  {
+    sensor_msgs::msg::Image::ConstSharedPtr image;
+    {
+      std::lock_guard<std::mutex> lock(buffer_mutex_);
+      image = latest_image_;
+    }
+
+    if (!image)
+      status.summary(diagnostic_msgs::msg::DiagnosticStatus::WARN, "Waiting for image frames");
+    else
+      status.summary(diagnostic_msgs::msg::DiagnosticStatus::OK, "Receiving image frames");
+
+    status.add("topic", interface_name_);
+    status.add("received_image_count", received_image_count_.load());
+    status.add("latest_frame_available", image ? "true" : "false");
+    if (image)
+    {
+      status.add("latest_frame_id", image->header.frame_id);
+      status.add("latest_stamp_sec", image->header.stamp.sec);
+      status.add("latest_stamp_nanosec", image->header.stamp.nanosec);
+      status.add("latest_width", static_cast<int>(image->width));
+      status.add("latest_height", static_cast<int>(image->height));
+    }
   }
 
   std::string interface_name_;
   image_transport::Subscriber image_sub_;
   sensor_msgs::msg::Image::ConstSharedPtr latest_image_;
+  std::atomic<uint64_t> received_image_count_{ 0 };
 };
 
 }  // namespace perception

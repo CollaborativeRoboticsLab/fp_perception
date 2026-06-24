@@ -9,6 +9,7 @@
 #include <fstream>
 #include <algorithm>
 #include <cmath>
+#include <atomic>
 #include <cstdint>
 #include <perception_base/audio/audio_sink_driver.hpp>
 #include <perception_base/audio/structs.hpp>
@@ -154,6 +155,9 @@ public:
     RCLCPP_INFO(node_->get_logger(), "Assigned driver sample_rate: %d", sample_rate_);
     RCLCPP_INFO(node_->get_logger(), "Assigned driver channels: %d", channels_);
 
+    if (diagnostics_enabled())
+      setup_diagnostics();
+
     RCLCPP_INFO(node_->get_logger(), "Initialized");
   }
 
@@ -163,6 +167,8 @@ public:
    */
   void deinitialize() override
   {
+    disable_diagnostics();
+
     for (auto& pair : stream_dict_)
     {
       if (!pair.second)
@@ -355,14 +361,17 @@ protected:
     if (!driver)
       return paAbort;
 
-    return driver->fill_output_buffer(output_buffer, frames_per_buffer);
+    return driver->fill_output_buffer(output_buffer, frames_per_buffer, status_flags);
   }
 
-  int fill_output_buffer(void* output_buffer, unsigned long frames_per_buffer)
+  int fill_output_buffer(void* output_buffer, unsigned long frames_per_buffer, PaStreamCallbackFlags status_flags)
   {
     auto* output = static_cast<int16_t*>(output_buffer);
     const size_t samples_needed = static_cast<size_t>(frames_per_buffer) * static_cast<size_t>(std::max(1, channels_));
     size_t copied = 0;
+
+    if (status_flags & paOutputUnderflow)
+      underrun_count_++;
 
     std::unique_lock<std::mutex> lock(playback_mutex_, std::try_to_lock);
     if (lock.owns_lock())
@@ -375,6 +384,10 @@ protected:
 
       if (playback_queue_.empty())
         playback_cv_.notify_all();
+    }
+    else
+    {
+      callback_lock_miss_count_++;
     }
 
     if (copied < samples_needed)
@@ -496,10 +509,57 @@ protected:
     playback_cv_.wait(lock, [this] { return playback_queue_.empty(); });
   }
 
+  void setup_diagnostics()
+  {
+    enable_diagnostics("portaudio-speaker-" + std::to_string(device_id_), name_ + " playback",
+                       [this](diagnostic_updater::DiagnosticStatusWrapper& status) { produce_diagnostics(status); });
+  }
+
+  void produce_diagnostics(diagnostic_updater::DiagnosticStatusWrapper& status)
+  {
+    const auto underrun_count = underrun_count_.load();
+    const auto lock_miss_count = callback_lock_miss_count_.load();
+
+    size_t queued_samples = 0;
+    {
+      std::lock_guard<std::mutex> lock(playback_mutex_);
+      queued_samples = playback_queue_.size();
+    }
+
+    const size_t queued_frames = queued_samples / static_cast<size_t>(std::max(1, channels_));
+    bool stream_active = false;
+    for (const auto& pair : stream_dict_)
+    {
+      if (pair.second && Pa_IsStreamActive(pair.second) == 1)
+      {
+        stream_active = true;
+        break;
+      }
+    }
+
+    if (!stream_active && queued_samples > 0)
+      status.summary(diagnostic_msgs::msg::DiagnosticStatus::ERROR, "Speaker queue has data but no active stream");
+    else if (underrun_count > 0 || lock_miss_count > 0)
+      status.summary(diagnostic_msgs::msg::DiagnosticStatus::WARN, "Speaker callback underruns observed");
+    else if (stream_active)
+      status.summary(diagnostic_msgs::msg::DiagnosticStatus::OK, "Speaker playback healthy");
+    else
+      status.summary(diagnostic_msgs::msg::DiagnosticStatus::OK, "Speaker idle");
+
+    status.add("device_id", device_id_);
+    status.add("device_name", device_name_);
+    status.add("sample_rate", sample_rate_);
+    status.add("channels", channels_);
+    status.add("queued_samples", queued_samples);
+    status.add("queued_frames", queued_frames);
+    status.add("queue_drained", queued_samples == 0 ? "true" : "false");
+    status.add("callback_underrun_count", underrun_count);
+    status.add("callback_lock_miss_count", lock_miss_count);
+  }
+
   int device_id_;
   std::string device_name_;
   PaError err = paNoError;
-  std::vector<int16_t> audio_queue_;
   int sample_rate_;  // Default sample rate
   int channels_;     // Default number of channels
   std::string test_file_path_;
@@ -508,7 +568,8 @@ protected:
   std::deque<int16_t> playback_queue_;
   std::mutex playback_mutex_;
   std::condition_variable playback_cv_;
-  uint64_t underrun_count_{ 0 };
+  std::atomic<uint64_t> underrun_count_{ 0 };
+  std::atomic<uint64_t> callback_lock_miss_count_{ 0 };
 };
 
 }  // namespace perception

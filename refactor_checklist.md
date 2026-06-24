@@ -1,48 +1,37 @@
 # Perception Refactor Checklist
 
-This checklist tracks the remaining work after the typed-interface, audio-buffer, callback-audio, pipeline, and driver-manager refactors. Historical implementation steps have been collapsed so the file only shows current status and actionable next work.
+Only active refactor items and validation status are kept here.
 
-## Current Status
+## Completed Core Refactor
 
-- [x] Shared request/result structs exist for transcription, sentiment, vision, and image analysis.
-- [x] `PerceptionServer` uses typed driver pointers where practical.
-- [x] Server-side `std::any_cast` usage has been removed.
-- [x] The last live plugin `std::any_cast` path was removed from speech synthesis audio handling.
-- [x] `DriverBase` still exists as the pluginlib/lifecycle base.
-- [x] Legacy `DriverBase` data hooks are marked as compatibility-only and are no longer used by server workflows.
-- [x] `AudioBuffer` owns rolling microphone audio storage, trimming, waiting, latest reads, and timestamp-window reads.
-- [x] Device-audio transcription and sentiment use `AudioBuffer` through typed pipelines.
-- [x] Timestamped device-audio requests use the requested window when available.
-- [x] Partial timestamp-window overlap returns available audio and logs a warning.
-- [x] No-overlap timestamp-window requests warn and fall back to latest buffered audio instead of failing the node.
-- [x] Microphone capture uses a PortAudio input callback.
-- [x] Speaker playback uses a PortAudio output callback and playback queue.
-- [x] `AudioSinkDriver` exposes `enqueuePlayback()` and `stopPlayback()` compatibility points.
-- [x] `TranscriptionPipeline`, `SpeechPipeline`, `SentimentPipeline`, and `ImageAnalysisPipeline` exist.
-- [x] `DriverManager` centralizes plugin declaration, loading, initialization, type casting, and test invocation.
-- [x] Main docs describe typed role interfaces instead of the old `std::any` workflow contract.
-- [x] `docs/test_the_system.md` documents terminal smoke tests for startup, generated WAV playback, device audio services, and image analysis.
+- [x] Typed request/result structs and typed pipelines are in place.
+- [x] `PerceptionServer` and loaded plugins no longer rely on server-side `std::any_cast` paths.
+- [x] `AudioBuffer` handles rolling microphone storage and timestamp-window reads.
+- [x] Microphone capture and speaker playback use PortAudio callbacks.
+- [x] Driver diagnostics publish on `/diagnostics` via `diagnostic_updater` when `use_diagnostics=true`.
+- [x] `DriverManager` centralizes plugin loading, initialization, casting, and test execution.
+- [x] Main docs and smoke-test docs are updated for the typed workflow.
 
 ## Remaining Refactor Work
 
 ### Legacy API Cleanup
 
-- [ ] Remove `DriverBase::getData()`, `setData()`, `getDataStream()`, and `setDataStream()` after confirming no external packages still call them.
-- [ ] Remove compatibility comments and old examples that mention untyped driver data exchange outside planning docs.
-- [ ] Check for dead members left from pre-`DriverManager` loading and remove any that are no longer needed.
+- [x] Remove `DriverBase::getData()`, `setData()`, `getDataStream()`, and `setDataStream()` after confirming no external packages still call them.
+- [x] Remove compatibility comments and old examples that mention untyped driver data exchange outside planning docs.
+- [x] Check for dead members left from pre-`DriverManager` loading and remove any that are no longer needed.
 
 ### Audio Backend Hardening
 
-- [ ] Add callback overflow/underflow counters for microphone and speaker drivers.
-- [ ] Expose callback queue/status diagnostics from non-real-time code.
+- [x] Add callback overflow/underflow counters for microphone and speaker drivers.
+- [x] Expose callback queue/status diagnostics from non-real-time code.
 - [ ] Confirm callback bodies avoid ROS logging, network calls, heap-heavy work, and long blocking waits.
 - [ ] Decide whether a full-duplex PortAudio stream is needed for tighter input/output timing, or keep separate input/output streams.
-- [ ] Add explicit queue drain/underrun status for speaker playback.
+- [x] Add explicit queue drain/underrun status for speaker playback.
 
 ### REST Cleanup
 
-- [ ] Replace deprecated `curl_formadd` / `CURLOPT_HTTPPOST` usage in `RestBase::call_audio()` with `curl_mime_*` APIs.
-- [ ] Rebuild REST-backed drivers and confirm libcurl deprecation warnings are gone.
+- [x] Replace deprecated `curl_formadd` / `CURLOPT_HTTPPOST` usage in `RestBase::call_audio()` with `curl_mime_*` APIs.
+- [x] Rebuild REST-backed drivers and confirm libcurl deprecation warnings are gone.
 
 ## Validation Checklist
 
@@ -50,7 +39,8 @@ This checklist tracks the remaining work after the typed-interface, audio-buffer
 
 - [x] Focused build passed after timestamp-window handling changes: `perception`.
 - [x] Focused build passed after speech-driver typed audio cleanup: `perception_base`, `perception_driver_speech`, and `perception`.
-- [ ] Full perception stack build from `/home/ubuntu/colcon_ws`.
+- [x] Focused build passed after callback diagnostics changes: `perception_base`, `perception_driver_audio`, and `perception`.
+- [x] Full perception stack build from `/home/ubuntu/colcon_ws`.
 
 ### Startup Validation
 
@@ -70,10 +60,11 @@ This checklist tracks the remaining work after the typed-interface, audio-buffer
 - [x] `/perception/sentiment_analysis` with `use_device_audio: true` and timestamp-window request.
 - [x] `/perception/speech` with `use_device_audio: true` and audible playback.
 - [x] `/perception/image_analysis` with `use_device_vision: true`.
-- [ ] External-image image-analysis service call.
+- [x] External-image image-analysis service call.
 
 ### Runtime Audio Validation
 
+- [ ] `/diagnostics` investigation reduced microphone `dropped_callback_chunks` to `0` after pacing and ring-buffer fixes, but `input_overflow_count` still remains above `0` with `chunk_size: 1920`; treat this as the current software stopping point pending longer runtime tests.
 - [ ] Confirm microphone can capture continuously for several minutes without crashes or buffer growth issues.
 - [ ] Confirm speaker playback remains gap-free for typical generated speech.
 - [ ] Confirm microphone capture continues while speaker playback is active.
@@ -82,14 +73,13 @@ This checklist tracks the remaining work after the typed-interface, audio-buffer
 
 ## Deferred Or Out Of Scope
 
-- [ ] Moving the rolling audio buffer into the microphone plugin is deferred; the chosen implementation is the reusable `AudioBuffer` owned by `perception`.
-- [ ] Removing `DriverBase` as the pluginlib base is deferred; plugin XML and exports still use `perception::DriverBase`.
-- [ ] Changing ROS message or service definitions is deferred; current refactor keeps public ROS interfaces stable.
-- [ ] Full-duplex PortAudio is optional and should only be pursued if separate input/output streams do not meet timing needs.
+- [ ] Keep `AudioBuffer` owned by `perception`; moving it into the microphone plugin is deferred.
+- [ ] Keep `DriverBase` as the pluginlib base for now.
+- [ ] Keep public ROS messages and services stable.
+- [ ] Full-duplex PortAudio is optional unless separate streams prove insufficient.
 
 ## Next Recommended Steps
 
-1. Run the terminal service smoke tests from `docs/test_the_system.md` and mark the service validation items above.
-2. Run a full perception stack build from the colcon workspace root.
-3. Modernize `RestBase::call_audio()` to remove libcurl deprecation warnings.
-4. Add microphone/speaker callback diagnostics and repeat long-running simultaneous capture/playback tests.
+1. Repeat long-running simultaneous capture/playback tests and inspect `/diagnostics` counters.
+2. Confirm whether microphone `input_overflow_count` stays low and stable over longer runtime at `chunk_size: 1920`.
+3. Decide whether stream-latency tuning or full-duplex PortAudio is necessary based on those runtime results.

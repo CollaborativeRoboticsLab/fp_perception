@@ -1,12 +1,14 @@
 #pragma once
 
 #include <string>
-#include <any>
+#include <chrono>
+#include <functional>
 #include <mutex>
-#include <thread>
+#include <memory>
 #include <filesystem>
 #include <atomic>
 
+#include <diagnostic_updater/diagnostic_updater.hpp>
 #include <rclcpp/rclcpp.hpp>
 #include <perception_base/exceptions.hpp>
 
@@ -35,60 +37,6 @@ public:
    *
    */
   virtual void deinitialize() = 0;
-
-  /**
-   * @brief Legacy untyped data pull hook kept for compatibility during migration.
-   *
-   * Prefer typed driver interfaces in new code.
-   *
-   * @return std::any The latest data from the driver.
-   * @throws perception_exception if not implemented in derived classes
-   */
-  virtual std::any getData()
-  {
-    throw perception_exception("getData() not implemented for this driver.");
-  }
-
-  /**
-   * @brief Legacy untyped data push hook kept for compatibility during migration.
-   *
-   * Prefer typed driver interfaces in new code.
-   *
-   * @param  input The latest data from the driver.
-   * @throws perception_exception if not implemented in derived classes
-   */
-  virtual void setData(const std::any& input)
-  {
-    (void)input;
-    throw perception_exception("setData() not implemented for this driver.");
-  }
-
-  /**
-   * @brief Legacy untyped stream pull hook kept for compatibility during migration.
-   *
-   * Prefer typed driver interfaces in new code.
-   *
-   * @return std::any The latest data from the driver.
-   * @throws perception_exception if not implemented in derived classes
-   */
-  virtual std::any getDataStream()
-  {
-    throw perception_exception("getDataStream() not implemented for this driver.");
-  }
-
-  /**
-   * @brief Legacy untyped stream push hook kept for compatibility during migration.
-   *
-   * Prefer typed driver interfaces in new code.
-   *
-   * @return std::any The latest data from the driver.
-   * @throws perception_exception if not implemented in derived classes
-   */
-  virtual void setDataStream(const std::any& input)
-  {
-    (void)input;
-    throw perception_exception("setDataStream() not implemented for this driver.");
-  }
 
   /**
    * @brief Get the name of the driver
@@ -147,6 +95,41 @@ protected:
   void initialize_base(const rclcpp::Node::SharedPtr& node)
   {
     node_ = node;
+
+    if (!node_->has_parameter("use_diagnostics"))
+      node_->declare_parameter("use_diagnostics", false);
+
+    diagnostics_enabled_ = node_->get_parameter("use_diagnostics").as_bool();
+  }
+
+  bool diagnostics_enabled() const
+  {
+    return diagnostics_enabled_;
+  }
+
+  void enable_diagnostics(const std::string& hardware_id, const std::string& task_name,
+                          std::function<void(diagnostic_updater::DiagnosticStatusWrapper&)> task,
+                          std::chrono::milliseconds period = std::chrono::seconds(1))
+  {
+    if (!diagnostics_enabled_ || !node_)
+      return;
+
+    diagnostics_timer_.reset();
+    diagnostics_updater_.reset();
+
+    diagnostics_updater_ = std::make_unique<diagnostic_updater::Updater>(node_);
+    diagnostics_updater_->setHardwareID(hardware_id.empty() ? name_ : hardware_id);
+    diagnostics_updater_->add(task_name, std::move(task));
+    diagnostics_timer_ = node_->create_wall_timer(period, [this]() {
+      if (diagnostics_updater_)
+        diagnostics_updater_->force_update();
+    });
+  }
+
+  void disable_diagnostics()
+  {
+    diagnostics_timer_.reset();
+    diagnostics_updater_.reset();
   }
 
   /**
@@ -172,15 +155,17 @@ protected:
   std::condition_variable buffer_cv_;
 
   /**
-   * @brief Thread for gathering data from the device for publishing
-   *
-   */
-  std::thread driver_thread_;  // Thread for capturing images
-
-  /**
    * @brief Flag to indicate if the driver thread is running
    *
    */
   std::atomic<bool> is_running_{ false };
+
+  /**
+   * @brief Flag to enable standard ROS diagnostics publishing.
+   */
+  bool diagnostics_enabled_{ false };
+
+  std::unique_ptr<diagnostic_updater::Updater> diagnostics_updater_;
+  rclcpp::TimerBase::SharedPtr diagnostics_timer_;
 };
 }  // namespace perception

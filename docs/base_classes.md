@@ -13,9 +13,14 @@ This package is built around a small set of base classes and typed role interfac
 - `deinitialize()`: **pure virtual** and must be implemented by every driver.
 - `test()`: optional; default logs the driver name.
 
+### Standard diagnostics
+
+- If `use_diagnostics=true` on the server node, drivers can publish status on the standard ROS 2 `/diagnostics` topic via `diagnostic_updater`.
+- `DriverBase` provides the shared parameter read and updater/timer wiring; concrete drivers only populate their own health fields.
+
 ### Typed role interfaces
 
-New server and pipeline code should use typed interfaces instead of the legacy untyped hooks:
+Server and pipeline code use typed interfaces:
 
 - `AudioSourceDriver`: microphone-like sources returning `audio_data` chunks.
 - `AudioSinkDriver`: speaker-like sinks accepting `audio_data` playback.
@@ -24,10 +29,6 @@ New server and pipeline code should use typed interfaces instead of the legacy u
 - `SentimentAnalysisDriver`: sentiment providers accepting `sentiment_request`.
 - `VisionSourceDriver`: camera-like sources returning `vision_frame`.
 - `ImageAnalysisDriver`: image-analysis providers accepting `image_analysis_request`.
-
-### Legacy untyped hooks
-
-`DriverBase` still exposes `getData()`, `setData(const std::any&)`, `getDataStream()`, and `setDataStream(const std::any&)` as compatibility hooks for old callers. They are not used by the current perception server workflows.
 
 ### Common utilities
 

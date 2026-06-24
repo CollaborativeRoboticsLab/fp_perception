@@ -13,6 +13,9 @@
     use_speech_driver: true
     use_image_analysis_driver: true
 
+    # Diagnostics
+    use_diagnostics: true
+
     # Pluginlib class selection
     ros_vision_driver: perception::DefaultDriver
     non_ros_vision_driver: perception::OpenCVDriver
@@ -39,7 +42,6 @@
       transcription:
         provide_service: true
         service: perception/transcription
-        buffer_duration: 10
 
       speech:
         provide_service: true
@@ -74,7 +76,7 @@
         MicrophoneAudioDriver:
           name: MicrophoneAudioDriver
           device_name: "ALC285 Analog"
-          chunk_size: 960       # frames per audio buffer processing cycle (20 ms at 48 kHz)
+          chunk_size: 1920      # frames per audio buffer processing cycle (40 ms at 48 kHz)
           sample_rate: 48000    # number of samples per second
           channels: 1           # mono is usually best for STT and avoids silent stereo channels
           buffer_time: 10       # buffering time in seconds

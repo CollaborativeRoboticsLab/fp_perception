@@ -65,6 +65,14 @@ public:
     RCLCPP_INFO(node_->get_logger(), "Assigned driver voice: %s", voice_.c_str());
     RCLCPP_INFO(node_->get_logger(), "Assigned driver instructions: %s", instructions_.c_str());
 
+    if (diagnostics_enabled())
+    {
+      enable_diagnostics("rest-speech-" + model_name_, name_ + " status",
+                         [this](diagnostic_updater::DiagnosticStatusWrapper& status) {
+                           produce_diagnostics(status);
+                         });
+    }
+
     // Log the driver initialization
     RCLCPP_INFO(node_->get_logger(), "Initialized");
   }
@@ -77,6 +85,7 @@ public:
    */
   void deinitialize() override
   {
+    disable_diagnostics();
     response_ = perception::RESTResponse{};
     model_name_.clear();
     test_text_.clear();
@@ -224,6 +233,32 @@ protected:
   {
     (void)object;
     throw perception_exception("fromJson() not implemented for this driver.");
+  }
+
+  void produce_diagnostics(diagnostic_updater::DiagnosticStatusWrapper& status)
+  {
+    std::string last_error;
+    {
+      std::lock_guard<std::mutex> lock(rest_status_mutex_);
+      last_error = last_rest_error_;
+    }
+
+    if (rest_request_count_.load() == 0)
+      status.summary(diagnostic_msgs::msg::DiagnosticStatus::OK, "Speech driver idle");
+    else if (last_rest_success_.load())
+      status.summary(diagnostic_msgs::msg::DiagnosticStatus::OK, "Last speech request succeeded");
+    else
+      status.summary(diagnostic_msgs::msg::DiagnosticStatus::WARN, "Last speech request failed");
+
+    status.add("model", model_name_);
+    status.add("uri", uri_);
+    status.add("request_count", rest_request_count_.load());
+    status.add("failure_count", rest_failure_count_.load());
+    status.add("last_http_code", last_rest_http_code_.load());
+    status.add("last_audio_samples", last_audio_.samples.size());
+    status.add("last_audio_sample_rate", last_audio_.sample_rate);
+    status.add("default_voice", voice_);
+    status.add("last_error", last_error.empty() ? std::string("none") : last_error);
   }
 
   std::string model_name_;

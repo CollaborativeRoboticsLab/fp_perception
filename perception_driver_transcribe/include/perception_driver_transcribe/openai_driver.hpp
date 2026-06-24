@@ -59,6 +59,14 @@ public:
     RCLCPP_INFO(node_->get_logger(), "Assigned driver Model: %s", model_name_.c_str());
     RCLCPP_INFO(node_->get_logger(), "Assigned driver Test Audio Path: %s", test_file_path_.c_str());
 
+    if (diagnostics_enabled())
+    {
+      enable_diagnostics("rest-transcription-" + model_name_, name_ + " status",
+                         [this](diagnostic_updater::DiagnosticStatusWrapper& status) {
+                           produce_diagnostics(status);
+                         });
+    }
+
     // Log that the driver has been initialized
     RCLCPP_INFO(node_->get_logger(), "Initialized");
   }
@@ -71,6 +79,7 @@ public:
    */
   void deinitialize() override
   {
+    disable_diagnostics();
     response_ = perception::RESTResponse{};
     model_name_.clear();
     test_file_path_.clear();
@@ -141,7 +150,7 @@ public:
       RCLCPP_ERROR(node_->get_logger(), "Failed to read test audio file.");
       throw perception_exception("Failed to read test audio file.");
     }
-    RCLCPP_INFO(node_->get_logger(), "Test audio file read successfully, size: %d", data.samples.size());
+    RCLCPP_INFO(node_->get_logger(), "Test audio file read successfully, size: %zu", data.samples.size());
 
     // Convert the audio data to the expected format
     transcription_request request;
@@ -175,8 +184,9 @@ protected:
    * @param prompt The perception request to convert
    * @return A JSON object representing the prompt request
    */
-  virtual nlohmann::json toJson(const perception::RESTRequest& prompt)
+  virtual nlohmann::json toJson(const perception::RESTRequest& request)
   {
+    (void)request;
     throw perception_exception("toJson() not implemented for this driver.");
   }
 
@@ -200,6 +210,31 @@ protected:
     }
 
     return res;
+  }
+
+  void produce_diagnostics(diagnostic_updater::DiagnosticStatusWrapper& status)
+  {
+    std::string last_error;
+    {
+      std::lock_guard<std::mutex> lock(rest_status_mutex_);
+      last_error = last_rest_error_;
+    }
+
+    if (rest_request_count_.load() == 0)
+      status.summary(diagnostic_msgs::msg::DiagnosticStatus::OK, "Transcription driver idle");
+    else if (last_rest_success_.load())
+      status.summary(diagnostic_msgs::msg::DiagnosticStatus::OK, "Last transcription request succeeded");
+    else
+      status.summary(diagnostic_msgs::msg::DiagnosticStatus::WARN, "Last transcription request failed");
+
+    status.add("model", model_name_);
+    status.add("uri", uri_);
+    status.add("request_count", rest_request_count_.load());
+    status.add("failure_count", rest_failure_count_.load());
+    status.add("last_http_code", last_rest_http_code_.load());
+    status.add("last_result_success", last_result_.success ? "true" : "false");
+    status.add("last_transcription_length", last_result_.text.size());
+    status.add("last_error", last_error.empty() ? std::string("none") : last_error);
   }
 
   perception::RESTResponse response_;

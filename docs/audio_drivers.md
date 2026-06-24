@@ -34,6 +34,7 @@ Class: `perception::MicrophoneAudioDriver` (PortAudio input)
 
 - The perception server calls `readChunk()` repeatedly to build a continuous audio feed.
 - If transcription is enabled, the server also keeps an internal rolling buffer for a configurable duration.
+- If `use_diagnostics=true`, the driver publishes capture health on `/diagnostics` via `diagnostic_updater`.
 
 ## SpeakerAudioDriver
 
@@ -58,4 +59,5 @@ Class: `perception::SpeakerAudioDriver` (PortAudio output)
 
 - The perception server can subscribe to an audio topic and forward it to this driver.
 - The perception server can also route synthesized speech audio to this driver when speech requests set `use_device_audio=true`.
+- If `use_diagnostics=true`, the driver publishes playback health on `/diagnostics` via `diagnostic_updater`.
 

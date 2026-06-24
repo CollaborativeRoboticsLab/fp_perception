@@ -65,6 +65,14 @@ public:
     RCLCPP_INFO(node_->get_logger(), "Assigned driver Test Prompt: %s", test_prompt_.c_str());
     RCLCPP_INFO(node_->get_logger(), "Assigned driver Image Detail: %s", detail_.c_str());
 
+    if (diagnostics_enabled())
+    {
+      enable_diagnostics("rest-image-analysis-" + model_name_, name_ + " status",
+                         [this](diagnostic_updater::DiagnosticStatusWrapper& status) {
+                           produce_diagnostics(status);
+                         });
+    }
+
     // Log that the driver has been initialized
     RCLCPP_INFO(node_->get_logger(), "Initialized");
   }
@@ -77,6 +85,7 @@ public:
    */
   void deinitialize() override
   {
+    disable_diagnostics();
     response_ = perception::RESTResponse{};
     model_name_.clear();
     test_file_path_.clear();
@@ -293,6 +302,32 @@ protected:
     res.success = !has_real_error && !res.response.empty();
 
     return res;
+  }
+
+  void produce_diagnostics(diagnostic_updater::DiagnosticStatusWrapper& status)
+  {
+    std::string last_error;
+    {
+      std::lock_guard<std::mutex> lock(rest_status_mutex_);
+      last_error = last_rest_error_;
+    }
+
+    if (rest_request_count_.load() == 0)
+      status.summary(diagnostic_msgs::msg::DiagnosticStatus::OK, "Image analysis driver idle");
+    else if (last_rest_success_.load())
+      status.summary(diagnostic_msgs::msg::DiagnosticStatus::OK, "Last image analysis request succeeded");
+    else
+      status.summary(diagnostic_msgs::msg::DiagnosticStatus::WARN, "Last image analysis request failed");
+
+    status.add("model", model_name_);
+    status.add("uri", uri_);
+    status.add("detail", detail_);
+    status.add("request_count", rest_request_count_.load());
+    status.add("failure_count", rest_failure_count_.load());
+    status.add("last_http_code", last_rest_http_code_.load());
+    status.add("last_result_success", last_result_.success ? std::string("true") : std::string("false"));
+    status.add("last_response_length", last_result_.response.size());
+    status.add("last_error", last_error.empty() ? std::string("none") : last_error);
   }
 
   perception::RESTResponse response_;

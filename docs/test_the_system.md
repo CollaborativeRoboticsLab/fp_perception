@@ -275,5 +275,5 @@ ros2 service call /perception/image_analysis perception_msgs/srv/PerceptionImage
 
 Notes:
 
-- Requires `use_vision_driver: true` and `interface.image_analysis.provide_service: true` in config.
+- Requires `interface.image_analysis.provide_service: true` and at least one enabled vision driver such as `use_ros_vision_driver: true` or `use_non_ros_vision_driver: true` in config.
 - `image` is ignored when `use_device_vision: true`, but must still be present to satisfy the request type.

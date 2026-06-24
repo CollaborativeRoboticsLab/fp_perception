@@ -192,6 +192,7 @@ protected:
     this->declare_parameter("use_sentiment_driver", false);
     this->declare_parameter("use_speech_driver", false);
     this->declare_parameter("use_image_analysis_driver", false);
+    this->declare_parameter("use_diagnostics", false);
     this->declare_parameter("run_tests", false);
 
     use_ros_vision_driver_ = this->get_parameter("use_ros_vision_driver").as_bool();
@@ -384,7 +385,8 @@ protected:
           RCLCPP_WARN(this->get_logger(), "Audio publish loop skipped a cycle: %s", e.what());
       }
 
-      std::this_thread::sleep_for(std::chrono::milliseconds(int(1000 / std::max(1, audio_input_frequency_))));
+      if (!(use_microphone_driver_ && microphone_driver_))
+        std::this_thread::sleep_for(std::chrono::milliseconds(int(1000 / std::max(1, audio_input_frequency_))));
     }
   }
 

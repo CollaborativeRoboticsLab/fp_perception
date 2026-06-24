@@ -2,12 +2,12 @@
 
 #include <portaudio.h>
 #include <vector>
-#include <deque>
 #include <mutex>
 #include <condition_variable>
 #include <algorithm>
 #include <cmath>
 #include <atomic>
+#include <chrono>
 #include <rclcpp/rclcpp.hpp>
 #include <std_msgs/msg/int16_multi_array.hpp>
 #include <perception_base/audio/audio_source_driver.hpp>
@@ -200,6 +200,10 @@ public:
 
     // Buffer stores captured samples at the capture sample rate.
     buffer_size_ = capture_sample_rate_ * channels_ * buffer_time_;
+    audio_buffer_.assign(static_cast<size_t>(std::max(1, buffer_size_)), 0);
+    read_index_ = 0;
+    write_index_ = 0;
+    buffered_sample_count_ = 0;
     RCLCPP_INFO(node_->get_logger(), "Assigned driver capture_sample_rate: %d", capture_sample_rate_);
     RCLCPP_INFO(node_->get_logger(), "Assigned driver final buffer size: %d samples", buffer_size_);
 
@@ -223,6 +227,9 @@ public:
     // Start callback-driven audio capture.
     RCLCPP_INFO(node_->get_logger(), "starting callback-driven audio capture...");
 
+    if (diagnostics_enabled())
+      setup_diagnostics();
+
     // Log that the driver has been initialized
     RCLCPP_INFO(node_->get_logger(), "Initialized");
   }
@@ -235,12 +242,7 @@ public:
   {
     is_running_ = false;
     buffer_cv_.notify_all();
-
-    if (driver_thread_.joinable())
-    {
-      driver_thread_.join();
-      RCLCPP_INFO(node_->get_logger(), "thread stopped.");
-    }
+    disable_diagnostics();
 
     if (stream_)
     {
@@ -249,6 +251,11 @@ public:
       stream_ = nullptr;
       RCLCPP_INFO(node_->get_logger(), "stopped.");
     }
+
+    std::lock_guard<std::mutex> lock(buffer_mutex_);
+    read_index_ = 0;
+    write_index_ = 0;
+    buffered_sample_count_ = 0;
   }
 
   /**
@@ -257,7 +264,7 @@ public:
    * approach is to use this to get a certain amount of audio data by repeatedly calling
    * this function until enough data is collected.
    *
-   * @return std::any The latest audio data from the driver as type `perception::audio_data`
+    * @return perception::audio_data The latest audio chunk(s) from the driver.
    * @throws perception_exception if the stream is not active
    */
   audio_data readChunk() override
@@ -267,7 +274,9 @@ public:
 
     const size_t chunk_samples = static_cast<size_t>(chunk_size_) * static_cast<size_t>(std::max(1, channels_));
 
-    const auto has_enough_audio = [this, chunk_samples] { return audio_buffer_.size() >= chunk_samples || !is_running_; };
+    const auto has_enough_audio = [this, chunk_samples] {
+      return buffered_sample_count_ >= chunk_samples || !is_running_;
+    };
     if (timeout_sec_ < 0)
     {
       buffer_cv_.wait(lock, has_enough_audio);
@@ -280,7 +289,7 @@ public:
       }
     }
 
-    if (audio_buffer_.size() < chunk_samples && !is_running_)
+    if (buffered_sample_count_ < chunk_samples && !is_running_)
       throw perception_exception("Microphone stream is not running.");
 
     audio_data data;
@@ -289,19 +298,12 @@ public:
     data.chunk_size = chunk_size_;
     data.chunk_count = 0;
 
-    std::vector<int16_t> captured;
-    while (audio_buffer_.size() >= chunk_samples)
+    const size_t samples_to_copy = (buffered_sample_count_ / chunk_samples) * chunk_samples;
+    std::vector<int16_t> captured(samples_to_copy);
+    if (samples_to_copy > 0)
     {
-      auto begin_iter = audio_buffer_.begin();
-      auto end_iter = begin_iter + static_cast<std::ptrdiff_t>(chunk_samples);
-
-      // Append the chunk to the output data
-      captured.insert(captured.end(), begin_iter, end_iter);
-
-      // Erase the chunk from the buffer in one go
-      audio_buffer_.erase(begin_iter, end_iter);
-
-      data.chunk_count++;
+      read_samples_locked(captured.data(), samples_to_copy);
+      data.chunk_count = static_cast<int>(samples_to_copy / chunk_samples);
     }
 
     // If the capture sample rate differs from the configured sample rate, resample.
@@ -324,6 +326,7 @@ public:
 
     return data;
   }
+
   /**
    * @brief Test the driver
    *
@@ -429,16 +432,7 @@ protected:
       return paContinue;
     }
 
-    audio_buffer_.insert(audio_buffer_.end(), samples, samples + sample_count);
-
-    if (audio_buffer_.size() > static_cast<size_t>(std::max(0, buffer_size_)))
-    {
-      const size_t excess = audio_buffer_.size() - static_cast<size_t>(std::max(0, buffer_size_));
-      const size_t channels = static_cast<size_t>(std::max(1, channels_));
-      const size_t samples_to_remove = (excess / channels) * channels;
-      audio_buffer_.erase(audio_buffer_.begin(),
-                          audio_buffer_.begin() + static_cast<std::ptrdiff_t>(samples_to_remove));
-    }
+    write_samples_locked(samples, sample_count);
 
     lock.unlock();
     buffer_cv_.notify_one();
@@ -485,10 +479,102 @@ protected:
     return output;
   }
 
+  void setup_diagnostics()
+  {
+    enable_diagnostics("portaudio-microphone-" + std::to_string(device_id_), name_ + " capture",
+                       [this](diagnostic_updater::DiagnosticStatusWrapper& status) { produce_diagnostics(status); });
+  }
+
+  void produce_diagnostics(diagnostic_updater::DiagnosticStatusWrapper& status)
+  {
+    const auto overflow_count = input_overflow_count_.load();
+    const auto drop_count = dropped_callback_chunks_.load();
+    const bool stream_active = is_running_.load() && stream_ && Pa_IsStreamActive(stream_) == 1;
+
+    size_t buffered_samples = 0;
+    {
+      std::lock_guard<std::mutex> lock(buffer_mutex_);
+      buffered_samples = buffered_sample_count_;
+    }
+
+    const size_t buffered_frames = buffered_samples / static_cast<size_t>(std::max(1, channels_));
+
+    if (!stream_active)
+      status.summary(diagnostic_msgs::msg::DiagnosticStatus::ERROR, "Microphone stream inactive");
+    else if (overflow_count > 0 || drop_count > 0)
+      status.summary(diagnostic_msgs::msg::DiagnosticStatus::WARN, "Microphone callback overruns observed");
+    else
+      status.summary(diagnostic_msgs::msg::DiagnosticStatus::OK, "Microphone capture healthy");
+
+    status.add("device_id", device_id_);
+    status.add("device_name", device_name_);
+    status.add("configured_sample_rate", sample_rate_);
+    status.add("capture_sample_rate", capture_sample_rate_);
+    status.add("channels", channels_);
+    status.add("chunk_size", static_cast<int>(chunk_size_));
+    status.add("buffer_time_seconds", buffer_time_);
+    status.add("buffer_size_samples", buffer_size_);
+    status.add("buffered_samples", buffered_samples);
+    status.add("buffered_frames", buffered_frames);
+    status.add("input_overflow_count", overflow_count);
+    status.add("dropped_callback_chunks", drop_count);
+  }
+
+  void write_samples_locked(const int16_t* samples, size_t sample_count)
+  {
+    if (audio_buffer_.empty() || !samples || sample_count == 0)
+      return;
+
+    if (sample_count >= audio_buffer_.size())
+    {
+      const size_t keep = audio_buffer_.size();
+      std::copy(samples + (sample_count - keep), samples + sample_count, audio_buffer_.begin());
+      read_index_ = 0;
+      write_index_ = 0;
+      buffered_sample_count_ = keep;
+      return;
+    }
+
+    const size_t free_space = audio_buffer_.size() - buffered_sample_count_;
+    if (sample_count > free_space)
+    {
+      const size_t overflow = sample_count - free_space;
+      read_index_ = (read_index_ + overflow) % audio_buffer_.size();
+      buffered_sample_count_ -= overflow;
+    }
+
+    const size_t first_copy = std::min(sample_count, audio_buffer_.size() - write_index_);
+    std::copy(samples, samples + first_copy, audio_buffer_.begin() + static_cast<std::ptrdiff_t>(write_index_));
+
+    const size_t remaining = sample_count - first_copy;
+    if (remaining > 0)
+      std::copy(samples + first_copy, samples + sample_count, audio_buffer_.begin());
+
+    write_index_ = (write_index_ + sample_count) % audio_buffer_.size();
+    buffered_sample_count_ += sample_count;
+  }
+
+  void read_samples_locked(int16_t* destination, size_t sample_count)
+  {
+    if (!destination || sample_count == 0)
+      return;
+
+    const size_t first_copy = std::min(sample_count, audio_buffer_.size() - read_index_);
+    std::copy(audio_buffer_.begin() + static_cast<std::ptrdiff_t>(read_index_),
+              audio_buffer_.begin() + static_cast<std::ptrdiff_t>(read_index_ + first_copy), destination);
+
+    const size_t remaining = sample_count - first_copy;
+    if (remaining > 0)
+      std::copy(audio_buffer_.begin(), audio_buffer_.begin() + static_cast<std::ptrdiff_t>(remaining),
+                destination + first_copy);
+
+    read_index_ = (read_index_ + sample_count) % audio_buffer_.size();
+    buffered_sample_count_ -= sample_count;
+  }
+
   PaStream* stream_;
   PaError err = paNoError;
-  std::deque<int16_t> audio_buffer_;
-  std::mutex publish_mutex_;
+  std::vector<int16_t> audio_buffer_;
   int device_id_;                 // Device ID for the microphone
   std::string device_name_;
   unsigned long chunk_size_;      // Default chunk size
@@ -498,6 +584,9 @@ protected:
   int buffer_time_;               // Buffer time in seconds
   int timeout_sec_{ -1 };         // Wait timeout for audio data (-1 waits indefinitely)
   int buffer_size_{ 0 };          // Buffer size in samples
+  size_t read_index_{ 0 };
+  size_t write_index_{ 0 };
+  size_t buffered_sample_count_{ 0 };
   std::atomic<uint64_t> input_overflow_count_{ 0 };
   std::atomic<uint64_t> dropped_callback_chunks_{ 0 };
 };

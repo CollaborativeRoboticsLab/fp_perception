@@ -29,9 +29,9 @@ Today the server is responsible for:
 
 This makes the server hard to test, hard to extend, and easy to break.
 
-### 2. Plugin contracts are too generic
+### 2. Plugin contracts were too generic
 
-`DriverBase` exposes `getData`, `setData`, `getDataStream`, and `setDataStream` using `std::any`.
+Before the typed-interface refactor, `DriverBase` exposed `getData`, `setData`, `getDataStream`, and `setDataStream` using `std::any`.
 
 That forces the server to know hidden conventions such as:
 
@@ -66,13 +66,11 @@ The current buffer is also sample-count based only. For request-driven STT, the 
 
 or, depending on service semantics, the latest `duration` ending at a request/header timestamp. This avoids guessing based only on "latest N seconds" and makes audio extraction deterministic when service calls arrive after the user finished speaking.
 
-### 5. Current PortAudio drivers use blocking I/O
+### 5. PortAudio drivers originally used blocking I/O
 
-`MicrophoneAudioDriver` currently captures by running a driver thread that calls `Pa_ReadStream()`.
+The original implementation captured with `Pa_ReadStream()` and played with `Pa_WriteStream()`.
 
-`SpeakerAudioDriver` currently plays by calling `Pa_WriteStream()` from `play()`.
-
-This blocking API is acceptable for simple record/play tests, but it is not the preferred architecture for an interactive robot that needs:
+That blocking API was acceptable for simple record/play tests, but it was not the preferred architecture for an interactive robot that needs:
 
 - continuous listening,
 - no gaps between output chunks,
@@ -80,7 +78,7 @@ This blocking API is acceptable for simple record/play tests, but it is not the 
 - low-latency turn-taking,
 - and simultaneous microphone/speaker timing.
 
-The target audio backend should use PortAudio callback streams with lock-free or short-lock ring buffers between the real-time audio callback and ROS/workflow threads.
+The current audio backend now uses PortAudio callback streams with bounded queues/ring-buffer style buffering between the real-time audio callback and ROS/workflow threads.
 
 ## Refactor Principles
 
@@ -259,7 +257,7 @@ This enables STT requests to extract the relevant buffered audio using `(header 
 
 ### 6. Real-time audio backend target
 
-For the robot use case, the audio plugin should evolve from blocking `Pa_ReadStream()` / `Pa_WriteStream()` calls to callback-driven streams.
+For the robot use case, the audio plugin evolved from blocking `Pa_ReadStream()` / `Pa_WriteStream()` calls to callback-driven streams.
 
 Recommended target design:
 
@@ -271,7 +269,7 @@ Recommended target design:
 - The callbacks must not call ROS logging, allocate memory, perform network I/O, do STT/TTS work, or block on long mutex waits.
 - ROS/service/pipeline threads interact with the audio backend through typed methods such as `enqueuePlayback()`, `readWindow()`, and `readLatest()`.
 
-Blocking `Pa_WriteStream()` can remain as a fallback/simple test backend, but the production robot audio path should be callback + ring buffer based.
+The production robot audio path is now callback + ring buffer based; further work is about runtime hardening rather than blocking-I/O removal.
 
 ### 6. Plugin loading helper
 
@@ -354,7 +352,7 @@ This will remove a large amount of repeated initialization logic from `Perceptio
 
 - Introduce role-specific abstract classes.
 - Make existing plugins implement those interfaces.
-- Keep compatibility with `DriverBase` during migration if needed.
+- Keep `DriverBase` only as the pluginlib/lifecycle base during migration.
 
 ### Changes
 
@@ -454,7 +452,7 @@ After the low-risk cleanup is in place:
 1. Introduce typed role interfaces.
 2. Update all concrete plugins to implement them.
 3. Replace plugin instance storage from `std::shared_ptr<DriverBase>` to typed pointers where appropriate.
-4. Remove remaining `std::any` usage from server workflows.
+4. Remove remaining `std::any` usage from server workflows and then delete the compatibility hooks.
 
 ## Risks and Mitigations
 
@@ -523,7 +521,7 @@ The refactor is complete when:
 - `PerceptionServer` is mostly node wiring and configuration.
 - No service callback contains provider-specific request assembly.
 - New cross-plugin payloads use typed shared structs.
-- Most or all server-side `std::any_cast` calls are removed.
+- Server-side `std::any_cast` calls are removed.
 - Audio buffering is owned by a dedicated abstraction, not open-coded in the server.
 - Adding a new plugin does not require duplicating large load/init blocks.
 

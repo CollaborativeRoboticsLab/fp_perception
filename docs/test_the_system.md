@@ -235,7 +235,7 @@ Expected outcome for these three service smoke tests:
 - sentiment returns a label such as `POSITIVE` or `NEGATIVE` with a confidence score, plus `analyzed_text` for debugging
 - speech returns `success: true` and audible playback through the configured speaker
 
-## Troubleshooting
+### Troubleshooting
 
 - If device-audio calls time out, ensure the microphone driver is enabled and producing samples.
 - If transcription returns `Device audio not available: public audio buffer not initialized`, verify the microphone driver is running and `ros2 topic hz /perception/microphone` shows samples before calling the service.
@@ -244,7 +244,13 @@ Expected outcome for these three service smoke tests:
 - If `aplay` works but the speaker driver does not, compare the `aplay -D plughw:X,Y` route against the `hw:X,Y` shown in the PortAudio resolved-device log.
 - If `test/mic_test.wav` is silent, confirm the microphone input source is selected in the host audio settings and rerun `ros2 launch perception server.launch.py` with `run_tests: true`.
 
-## Image analysis service (device vision)
+### Image analysis service (device vision)
+
+The system is tested with Realsense D435 Camera. So the current devcontainer includes the `realsense2_camera` ROS package and a launch file to start the camera node. 
+
+```bash
+ros2 launch realsense2_camera rs_launch.py
+```
 
 Default service name is typically `perception/image_analysis`.
 

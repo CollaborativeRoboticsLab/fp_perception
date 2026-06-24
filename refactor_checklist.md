@@ -64,12 +64,12 @@ This checklist tracks the remaining work after the typed-interface, audio-buffer
 
 ### Service Smoke Tests
 
-- [ ] `/perception/transcription` with `use_device_audio: true` and zero timestamp.
-- [ ] `/perception/transcription` with `use_device_audio: true` and timestamp-window request.
-- [ ] `/perception/sentiment_analysis` with `use_device_audio: true` and zero timestamp.
-- [ ] `/perception/sentiment_analysis` with `use_device_audio: true` and timestamp-window request.
-- [ ] `/perception/speech` with `use_device_audio: true` and audible playback.
-- [ ] `/perception/image_analysis` with `use_device_vision: true`.
+- [x] `/perception/transcription` with `use_device_audio: true` and zero timestamp.
+- [x] `/perception/transcription` with `use_device_audio: true` and timestamp-window request.
+- [x] `/perception/sentiment_analysis` with `use_device_audio: true` and zero timestamp.
+- [x] `/perception/sentiment_analysis` with `use_device_audio: true` and timestamp-window request.
+- [x] `/perception/speech` with `use_device_audio: true` and audible playback.
+- [x] `/perception/image_analysis` with `use_device_vision: true`.
 - [ ] External-image image-analysis service call.
 
 ### Runtime Audio Validation

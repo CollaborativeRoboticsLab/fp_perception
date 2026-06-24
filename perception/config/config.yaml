@@ -4,7 +4,7 @@
     run_tests: false
 
     # Which plugin groups to load
-    use_ros_vision_driver: false
+    use_ros_vision_driver: true
     use_non_ros_vision_driver: false
     use_microphone_driver: true
     use_speaker_driver: true

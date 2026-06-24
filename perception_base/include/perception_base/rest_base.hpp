@@ -62,6 +62,8 @@ public:
     node_->declare_parameter(plugin_name_ + ".rest.method", "POST");
     node_->declare_parameter(plugin_name_ + ".rest.ssl_verify", true);
     node_->declare_parameter(plugin_name_ + ".rest.auth_type", "Bearer");
+    node_->declare_parameter(plugin_name_ + ".rest.timeout_sec", 60);
+    node_->declare_parameter(plugin_name_ + ".rest.connect_timeout_sec", 10);
 
     // Get parameters from the parameter server
 
@@ -69,12 +71,16 @@ public:
     method_ = node_->get_parameter(plugin_name_ + ".rest.method").as_string();
     ssl_verify_ = node_->get_parameter(plugin_name_ + ".rest.ssl_verify").as_bool();
     auth_type_ = node_->get_parameter(plugin_name_ + ".rest.auth_type").as_string();
+    timeout_sec_ = node_->get_parameter(plugin_name_ + ".rest.timeout_sec").as_int();
+    connect_timeout_sec_ = node_->get_parameter(plugin_name_ + ".rest.connect_timeout_sec").as_int();
 
     // Log the parameters
     RCLCPP_INFO(node_->get_logger(), "Assigned driver URI: %s", uri_.c_str());
     RCLCPP_INFO(node_->get_logger(), "Assigned driver Method: %s", method_.c_str());
     RCLCPP_INFO(node_->get_logger(), "Assigned driver SSL Verify: %s", ssl_verify_ ? "true" : "false");
     RCLCPP_INFO(node_->get_logger(), "Assigned driver Auth Type: %s", auth_type_.c_str());
+    RCLCPP_INFO(node_->get_logger(), "Assigned driver Timeout: %ld sec", timeout_sec_);
+    RCLCPP_INFO(node_->get_logger(), "Assigned driver Connect Timeout: %ld sec", connect_timeout_sec_);
 
     // Load api key from environment
     if (!api_key_name.empty())
@@ -145,6 +151,7 @@ public:
     curl_easy_setopt(curl, CURLOPT_POSTFIELDSIZE, json_body.size());
     curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, write_callback);
     curl_easy_setopt(curl, CURLOPT_WRITEDATA, &response_data);
+    apply_timeouts(curl);
 
     if (!ssl_verify_)
     {
@@ -283,6 +290,7 @@ public:
     curl_easy_setopt(curl, CURLOPT_MIMEPOST, mime);
     curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, write_callback);
     curl_easy_setopt(curl, CURLOPT_WRITEDATA, &response_data);
+    apply_timeouts(curl);
 
     // Handle SSL verification
     if (!ssl_verify_)
@@ -387,6 +395,7 @@ public:
     curl_easy_setopt(curl, CURLOPT_HTTPHEADER, headers);
     curl_easy_setopt(curl, CURLOPT_POSTFIELDS, body.c_str());
     curl_easy_setopt(curl, CURLOPT_POSTFIELDSIZE, body.size());
+    apply_timeouts(curl);
 
     // Write binary audio data to vector
     curl_easy_setopt(
@@ -436,6 +445,15 @@ public:
   }
 
 protected:
+  void apply_timeouts(CURL* curl)
+  {
+    if (connect_timeout_sec_ > 0)
+      curl_easy_setopt(curl, CURLOPT_CONNECTTIMEOUT, connect_timeout_sec_);
+
+    if (timeout_sec_ > 0)
+      curl_easy_setopt(curl, CURLOPT_TIMEOUT, timeout_sec_);
+  }
+
   void record_rest_result(bool success, long http_code, const std::string& error)
   {
     rest_request_count_++;
@@ -483,6 +501,8 @@ protected:
   bool ssl_verify_;          // Flag for SSL verification
   std::string auth_type_;    // Type of authentication (e.g., Bearer)
   std::string api_key_;      // API key for authentication
+  long timeout_sec_{ 60 };
+  long connect_timeout_sec_{ 10 };
   std::atomic<uint64_t> rest_request_count_{ 0 };
   std::atomic<uint64_t> rest_failure_count_{ 0 };
   std::atomic<bool> last_rest_success_{ true };

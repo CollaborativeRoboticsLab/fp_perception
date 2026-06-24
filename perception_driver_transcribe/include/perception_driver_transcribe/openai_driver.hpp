@@ -1,19 +1,18 @@
 #pragma once
 
-#include <string>
-#include <vector>
-
-#include <rclcpp/rclcpp.hpp>
-
-#include <perception_base/rest_base.hpp>
-#include <perception_base/audio/structs.hpp>
 #include <perception_base/audio/wav.hpp>
 #include <perception_base/exceptions.hpp>
+#include <perception_base/rest_base.hpp>
+#include <perception_base/transcription/structs.hpp>
+#include <perception_base/transcription/transcription_driver.hpp>
+#include <rclcpp/rclcpp.hpp>
+#include <string>
+#include <vector>
 
 namespace perception
 {
 
-class OpenAIDriver : public RestBase
+class OpenAIDriver : public RestBase, public TranscriptionDriver
 {
 public:
   /**
@@ -60,6 +59,14 @@ public:
     RCLCPP_INFO(node_->get_logger(), "Assigned driver Model: %s", model_name_.c_str());
     RCLCPP_INFO(node_->get_logger(), "Assigned driver Test Audio Path: %s", test_file_path_.c_str());
 
+    if (diagnostics_enabled())
+    {
+      enable_diagnostics("rest-transcription-" + model_name_, name_ + " status",
+                         [this](diagnostic_updater::DiagnosticStatusWrapper& status) {
+                           produce_diagnostics(status);
+                         });
+    }
+
     // Log that the driver has been initialized
     RCLCPP_INFO(node_->get_logger(), "Initialized");
   }
@@ -72,24 +79,12 @@ public:
    */
   void deinitialize() override
   {
+    disable_diagnostics();
     response_ = perception::RESTResponse{};
     model_name_.clear();
     test_file_path_.clear();
     name_.clear();
     node_.reset();
-  }
-
-  /**
-   * @brief Get latest data from the driver
-   *
-   * This function waits for the transcription service to complete and retrieves the latest transcription data.
-   *
-   * @return std::any The latest transcription data in the form of std::string
-   * @throws perception_exception if not implemented in derived classes
-   */
-  std::any getData() override
-  {
-    return response_.response;
   }
 
   /**
@@ -100,9 +95,9 @@ public:
    *
    * @param input The latest data from the driver.
    */
-  void setDataStream(const std::any& input) override
+  transcription_result transcribe(const transcription_request& request_data) override
   {
-    const auto& new_audio = std::any_cast<const perception::audio_data&>(input);
+    const auto& new_audio = request_data.audio;
 
     // create perception::RESTRequest object
     perception::RESTRequest request;
@@ -123,8 +118,16 @@ public:
     request.options.push_back(model_option2);
 
     response_ = call_audio(request);
-  }
 
+    transcription_result result;
+    result.text = response_.response;
+    result.success = !response_.response.empty();
+    if (!result.success)
+      result.error = "No transcription result received.";
+
+    last_result_ = result;
+    return last_result_;
+  }
   /**
    * @brief Test method for the driver
    *
@@ -147,23 +150,25 @@ public:
       RCLCPP_ERROR(node_->get_logger(), "Failed to read test audio file.");
       throw perception_exception("Failed to read test audio file.");
     }
-    RCLCPP_INFO(node_->get_logger(), "Test audio file read successfully, size: %d", data.samples.size());
+    RCLCPP_INFO(node_->get_logger(), "Test audio file read successfully, size: %zu", data.samples.size());
 
     // Convert the audio data to the expected format
-    setDataStream(data);
+    transcription_request request;
+    request.audio = data;
+
+    const auto transcription = transcribe(request);
 
     RCLCPP_INFO(node_->get_logger(), "Transcription service called with test audio data. waiting for response...");
 
-    auto result = getData();
-
-    if (result.has_value())
+    if (transcription.success)
     {
-      RCLCPP_INFO(node_->get_logger(), "Transcription result: %s", std::any_cast<std::string>(result).c_str());
+      RCLCPP_INFO(node_->get_logger(), "Transcription result: %s", transcription.text.c_str());
     }
     else
     {
-      RCLCPP_ERROR(node_->get_logger(), "No transcription result received.");
-      throw perception_exception("No transcription result received.");
+      RCLCPP_ERROR(node_->get_logger(), "%s", transcription.error.c_str());
+      throw perception_exception(transcription.error.empty() ? "No transcription result received." :
+                                                               transcription.error);
     }
 
     RCLCPP_INFO(node_->get_logger(), "Test completed.");
@@ -179,8 +184,9 @@ protected:
    * @param prompt The perception request to convert
    * @return A JSON object representing the prompt request
    */
-  virtual nlohmann::json toJson(const perception::RESTRequest& prompt)
+  virtual nlohmann::json toJson(const perception::RESTRequest& request)
   {
+    (void)request;
     throw perception_exception("toJson() not implemented for this driver.");
   }
 
@@ -206,7 +212,33 @@ protected:
     return res;
   }
 
+  void produce_diagnostics(diagnostic_updater::DiagnosticStatusWrapper& status)
+  {
+    std::string last_error;
+    {
+      std::lock_guard<std::mutex> lock(rest_status_mutex_);
+      last_error = last_rest_error_;
+    }
+
+    if (rest_request_count_.load() == 0)
+      status.summary(diagnostic_msgs::msg::DiagnosticStatus::OK, "Transcription driver idle");
+    else if (last_rest_success_.load())
+      status.summary(diagnostic_msgs::msg::DiagnosticStatus::OK, "Last transcription request succeeded");
+    else
+      status.summary(diagnostic_msgs::msg::DiagnosticStatus::WARN, "Last transcription request failed");
+
+    status.add("model", model_name_);
+    status.add("uri", uri_);
+    status.add("request_count", rest_request_count_.load());
+    status.add("failure_count", rest_failure_count_.load());
+    status.add("last_http_code", last_rest_http_code_.load());
+    status.add("last_result_success", last_result_.success ? "true" : "false");
+    status.add("last_transcription_length", last_result_.text.size());
+    status.add("last_error", last_error.empty() ? std::string("none") : last_error);
+  }
+
   perception::RESTResponse response_;
+  transcription_result last_result_;
 
   std::string model_name_;
   std::string test_file_path_;

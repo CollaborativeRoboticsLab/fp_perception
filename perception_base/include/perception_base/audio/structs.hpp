@@ -22,6 +22,13 @@ struct audio_data
   bool override = false;  ///< if the system sample_rate, channels, and chunk_size should be overridden by message data
 };
 
+struct audio_buffer_request
+{
+  int duration_seconds = 0;
+  bool use_time_window = false;
+  rclcpp::Time start_time;
+};
+
 struct text_data
 {
   std::string text;          ///< Text data to be processed

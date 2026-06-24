@@ -16,11 +16,13 @@ This document focuses on:
 - Drivers implement `perception::DriverBase`.
 - The server loads drivers at runtime using `pluginlib::ClassLoader<perception::DriverBase>`.
 - Each driver is selected by a fully-qualified class name parameter (for example `perception::MicrophoneAudioDriver`).
+- Loaded plugins are cast to typed role interfaces such as `AudioSourceDriver`, `AudioSinkDriver`, `TranscriptionDriver`, `SpeechSynthesisDriver`, `SentimentAnalysisDriver`, `VisionSourceDriver`, and `ImageAnalysisDriver`.
 
-### Uniform data exchange
+### Typed data exchange
 
-- Drivers exchange data through the `DriverBase` methods using `std::any`.
-- The server converts between ROS messages (`perception_msgs/*`) and internal structs (`perception::audio_data`, `perception::text_data`).
+- Runtime workflows use typed interfaces and shared structs such as `perception::audio_data`, `perception::text_data`, `transcription_request`, `sentiment_request`, and `image_analysis_request`.
+- `DriverBase` remains the pluginlib base and lifecycle surface; its legacy untyped data hooks are kept only for compatibility with old callers.
+- The server converts between ROS messages (`perception_msgs/*`, `sensor_msgs/*`) and internal typed structs at the node boundary.
 
 ### Device acquisition lives in the plugins
 
@@ -54,7 +56,8 @@ If enabled by parameters, the server provides:
 
 The server uses boolean flags to decide which drivers to load:
 
-- `use_vision_driver`
+- `use_ros_vision_driver`
+- `use_non_ros_vision_driver`
 - `use_microphone_driver`
 - `use_speaker_driver`
 - `use_transcription_driver`
@@ -64,6 +67,7 @@ The server uses boolean flags to decide which drivers to load:
 
 And:
 
+- `use_diagnostics`: if true, enabled drivers publish standard ROS 2 health updates on `/diagnostics` via `diagnostic_updater`.
 - `run_tests`: if true, calls `test()` on each loaded driver during startup.
 
 ### Plugin selection (which class to load)
@@ -79,7 +83,7 @@ These parameters select which pluginlib class gets loaded:
 - `sentiment_driver` (default `perception::SentimentDriver`)
 - `image_analysis_driver` (default `perception::OpenAIImageAnalysisDriver`)
 
-Note: when `use_vision_driver=true`, the current server code loads **both** the ROS vision driver and the non-ROS vision driver; `interface.vision_input.non_ros` controls which one is used for publishing.
+Note: if both `use_ros_vision_driver=true` and `use_non_ros_vision_driver=true`, the current server code loads both vision drivers and the publish loop can emit frames from both sources.
 
 ### ROS interface configuration
 
@@ -103,11 +107,12 @@ If enabled, the server subscribes to `PerceptionAudio` and forwards audio sample
 
 - `interface.transcription.provide_service` (bool)
 - `interface.transcription.service` (string)
-- `interface.transcription.buffer_duration` (int, seconds)
 
 The rolling microphone buffer is sized as:
 
 $$\text{max\_samples} = sample\_rate \times channels \times buffer\_duration$$
+
+where `buffer_duration` comes from `interface.audio_input.buffer_duration`.
 
 When the buffer exceeds this size, the server drops the oldest samples and keeps the latest window.
 
@@ -132,16 +137,16 @@ When the buffer exceeds this size, the server drops the oldest samples and keeps
 - `interface.vision_input.topic` (string)
 - `interface.vision_input.frame_id` (string)
 - `interface.vision_input.frequency` (int)
-- `interface.vision_input.non_ros` (bool)
 
-If `non_ros=true`, the server publishes frames from the OpenCV driver; otherwise it republishes frames from the ROS image subscriber driver.
+If `use_ros_vision_driver=true`, the server can republish frames from the ROS image subscriber driver.
+If `use_non_ros_vision_driver=true`, the server can also publish frames from the OpenCV driver.
 
 ## End-to-end flows
 
 ### Device microphone -> transcription service
 
 1. Microphone plugin acquires audio from PortAudio.
-2. Server accumulates a rolling `transcription_buffer_`.
+2. Server appends audio into the shared rolling `AudioBuffer`.
 3. A client calls `PerceptionTranscribe` with `use_device_audio=true`.
 4. Server calls the transcription driver with the buffer and returns the text.
 
@@ -151,6 +156,13 @@ If `non_ros=true`, the server publishes frames from the OpenCV driver; otherwise
 2. Server calls the speech driver.
 3. If `use_device_audio=true`, server forwards synthesized audio to the speaker driver.
 4. Otherwise, server returns synthesized audio in the service response.
+
+## Diagnostics
+
+- When `use_diagnostics=true`, instrumented drivers publish `diagnostic_msgs/msg/DiagnosticArray` updates on `/diagnostics`.
+- Audio drivers report callback overflow, underrun, queue, and buffer state.
+- REST-backed drivers report request counts, failure counts, last HTTP code, and last error state.
+- Vision drivers report subscription or capture health and recent frame activity.
 
 ### Device microphone -> sentiment
 

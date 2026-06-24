@@ -1,7 +1,7 @@
 
 # Base classes
 
-This package is built around a small set of base classes that make it easy to load perception "drivers" as plugins and exchange data through a uniform interface.
+This package is built around a small set of base classes and typed role interfaces that make it easy to load perception "drivers" as plugins.
 
 ## DriverBase
 
@@ -13,14 +13,22 @@ This package is built around a small set of base classes that make it easy to lo
 - `deinitialize()`: **pure virtual** and must be implemented by every driver.
 - `test()`: optional; default logs the driver name.
 
-### Data exchange
+### Standard diagnostics
 
-Drivers exchange data through `std::any` to keep the base interface generic:
+- If `use_diagnostics=true` on the server node, drivers can publish status on the standard ROS 2 `/diagnostics` topic via `diagnostic_updater`.
+- `DriverBase` provides the shared parameter read and updater/timer wiring; concrete drivers only populate their own health fields.
 
-- `getData()` / `setData(const std::any&)`: single-shot data pull/push.
-- `getDataStream()` / `setDataStream(const std::any&)`: stream-style pull/push.
+### Typed role interfaces
 
-Individual drivers define what types they expect inside the `std::any` (for example `perception::audio_data`, `perception::text_data`, `cv::Mat`, etc.).
+Server and pipeline code use typed interfaces:
+
+- `AudioSourceDriver`: microphone-like sources returning `audio_data` chunks.
+- `AudioSinkDriver`: speaker-like sinks accepting `audio_data` playback.
+- `TranscriptionDriver`: transcription providers accepting `transcription_request`.
+- `SpeechSynthesisDriver`: TTS providers accepting `text_data` and returning `audio_data`.
+- `SentimentAnalysisDriver`: sentiment providers accepting `sentiment_request`.
+- `VisionSourceDriver`: camera-like sources returning `vision_frame`.
+- `ImageAnalysisDriver`: image-analysis providers accepting `image_analysis_request`.
 
 ### Common utilities
 

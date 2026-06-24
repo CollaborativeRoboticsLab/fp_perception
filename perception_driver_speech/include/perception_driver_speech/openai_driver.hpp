@@ -1,16 +1,17 @@
 #pragma once
 
-#include <string>
-#include <vector>
-#include <rclcpp/rclcpp.hpp>
-#include <perception_base/rest_base.hpp>
 #include <perception_base/audio/structs.hpp>
 #include <perception_base/audio/wav.hpp>
 #include <perception_base/exceptions.hpp>
+#include <perception_base/rest_base.hpp>
+#include <perception_base/speech/speech_synthesis_driver.hpp>
+#include <rclcpp/rclcpp.hpp>
+#include <string>
+#include <vector>
 
 namespace perception
 {
-class OpenAISpeechDriver : public RestBase
+class OpenAISpeechDriver : public RestBase, public SpeechSynthesisDriver
 {
 public:
   /**
@@ -64,6 +65,14 @@ public:
     RCLCPP_INFO(node_->get_logger(), "Assigned driver voice: %s", voice_.c_str());
     RCLCPP_INFO(node_->get_logger(), "Assigned driver instructions: %s", instructions_.c_str());
 
+    if (diagnostics_enabled())
+    {
+      enable_diagnostics("rest-speech-" + model_name_, name_ + " status",
+                         [this](diagnostic_updater::DiagnosticStatusWrapper& status) {
+                           produce_diagnostics(status);
+                         });
+    }
+
     // Log the driver initialization
     RCLCPP_INFO(node_->get_logger(), "Initialized");
   }
@@ -76,6 +85,7 @@ public:
    */
   void deinitialize() override
   {
+    disable_diagnostics();
     response_ = perception::RESTResponse{};
     model_name_.clear();
     test_text_.clear();
@@ -86,31 +96,8 @@ public:
     node_.reset();
   }
 
-  /**
-   * @brief Get latest data from the driver
-   *
-   * This function should be overridden in derived classes to provide specific data retrieval logic.
-   *
-   * @return std::any containing the audio data
-   */
-  std::any getData() override
+  audio_data synthesize(const text_data& new_text) override
   {
-    audio_data data;
-
-    if (!response_.audio_stream.empty())
-    {
-      data.samples = std::any_cast<std::vector<int16_t>>(response_.audio_stream);
-      data.sample_rate = 24000;  // Assuming a sample rate of 24kHz
-      data.channels = 1;         // Assuming mono audio
-    }
-
-    return data;
-  }
-
-  void setDataStream(const std::any& input) override
-  {
-    const auto& new_text = std::any_cast<const perception::text_data&>(input);
-
     // create perception::RESTRequest object
     perception::RESTRequest request;
     request.prompt = new_text.text;
@@ -159,8 +146,19 @@ public:
     request.options.push_back(model_option4);
 
     response_ = call_tts(request);
-  }
 
+    audio_data data;
+
+    if (!response_.audio_stream.empty())
+    {
+      data.samples = response_.audio_stream;
+      data.sample_rate = 24000;
+      data.channels = 1;
+    }
+
+    last_audio_ = data;
+    return last_audio_;
+  }
   /**
    * @brief Test method for the driver
    *
@@ -178,15 +176,12 @@ public:
     new_text.instructions = instructions_;
 
     // Convert the audio data to the expected format
-    setDataStream(new_text);
+    const auto data = synthesize(new_text);
 
     RCLCPP_INFO(node_->get_logger(), "Speech service called with test text data. waiting for response...");
 
-    auto result = getData();
-
-    if (result.has_value())
+    if (!data.samples.empty())
     {
-      audio_data data = std::any_cast<audio_data>(result);
       writeWavFile(test_file_path_, data);
       RCLCPP_INFO(node_->get_logger(), "Speech synthesis result received and saved to %s", test_file_path_.c_str());
     }
@@ -236,7 +231,34 @@ protected:
    */
   virtual perception::RESTResponse fromJson(const nlohmann::json& object)
   {
+    (void)object;
     throw perception_exception("fromJson() not implemented for this driver.");
+  }
+
+  void produce_diagnostics(diagnostic_updater::DiagnosticStatusWrapper& status)
+  {
+    std::string last_error;
+    {
+      std::lock_guard<std::mutex> lock(rest_status_mutex_);
+      last_error = last_rest_error_;
+    }
+
+    if (rest_request_count_.load() == 0)
+      status.summary(diagnostic_msgs::msg::DiagnosticStatus::OK, "Speech driver idle");
+    else if (last_rest_success_.load())
+      status.summary(diagnostic_msgs::msg::DiagnosticStatus::OK, "Last speech request succeeded");
+    else
+      status.summary(diagnostic_msgs::msg::DiagnosticStatus::WARN, "Last speech request failed");
+
+    status.add("model", model_name_);
+    status.add("uri", uri_);
+    status.add("request_count", rest_request_count_.load());
+    status.add("failure_count", rest_failure_count_.load());
+    status.add("last_http_code", last_rest_http_code_.load());
+    status.add("last_audio_samples", last_audio_.samples.size());
+    status.add("last_audio_sample_rate", last_audio_.sample_rate);
+    status.add("default_voice", voice_);
+    status.add("last_error", last_error.empty() ? std::string("none") : last_error);
   }
 
   std::string model_name_;
@@ -246,5 +268,6 @@ protected:
   std::string test_file_path_ = "test_audio.wav";  // Path to the test audio file
 
   perception::RESTResponse response_;
+  audio_data last_audio_;
 };
 }  // namespace perception

@@ -10,17 +10,18 @@ It enables modular development and dynamic loading of components at runtime usin
 
 Start here:
 
-- [Server](docs/server_system.md) — how the server loads plugins, acquires devices, and routes data
-- [ROS Interface](docs/interfaces.md) — topics/services and message/service definitions
-- [Base Classes](docs/base_classes.md) — `DriverBase` and `RestBase`
+- [Server plugin loading and device and data acquisition](docs/server_system.md) 
+- [ROS Topic, Service and Action Interfaces](docs/interfaces.md)
+- [Testing the System and Interfaces](docs/test_the_system.md)
+- [Base Classes](docs/base_classes.md)
 
 Drivers:
 
-- [Audio Drivers](docs/audio_drivers.md)
-- [Vision Drivers](docs/vision_drivers.md)
-- [Transcription Drivers](docs/transribe_drivers.md)
-- [Speech Drivers](docs/speech_drivers.md)
-- [Sentiment Drivers](docs/sentiment_drivers.md)
+- [Audio Drivers and AudioData Acquisition](docs/audio_drivers.md) 
+- [Vision Drivers and ImageData Acquisition](docs/vision_drivers.md)
+- [Transcription Drivers and Transcription Service](docs/transribe_drivers.md)
+- [Speech Drivers and Speech Synthesis](docs/speech_drivers.md)
+- [Sentiment Drivers and Sentiment Analysis](docs/sentiment_drivers.md)
 - [Image Analysis Drivers](docs/image_analysis_drivers.md)
 
 
@@ -29,18 +30,16 @@ Drivers:
 * **Plugin-based driver framework**
   Integrate new sensors and drivers without changing the core system.
 
-* **Reusable base classes** for drivers (`DriverBase`) and REST-backed drivers (`RestBase`)
+* **Reusable base classes** for Physical device drivers (`DriverBase`) and REST-backed drivers (`RestBase`)
 
-* Designed with **HRI** in mind – enabling perception for social, assistive, and interactive robots.
-
-* Server exposes a small set of **ROS topics/services** for audio, vision, transcription, speech synthesis, and sentiment.
-* Server also exposes **image analysis** as a ROS service (optional).
+* Designed with **HRI** in mind – enabling perception for robots that does not have built-in perception capabilities.
 
 ## Plugins
 
 ### Driver Plugins
 
 - `DriverBase` is used to implement drivers that interact with perception hardware (e.g., cameras, audio devices).
+- `RestBase` is used to implement drivers that interact with REST APIs (e.g., OpenAI, HuggingFace).
 
 - Driver READMEs:
   - [perception_driver_vision/readme.md](perception_driver_vision/readme.md)
@@ -66,7 +65,7 @@ Install dependencies
 ```sh
 cd ..
 sudo apt update
-sudo apt install libportaudio2 portaudio19-dev python3-pyaudio ros-humble-vision-opencv
+sudo apt install libportaudio2 portaudio19-dev python3-pyaudio ros-${ROS_DISTRO}-vision-opencv
 ```
 
 for any missing dependencies
@@ -81,16 +80,18 @@ colcon build
 
 ## Start the system
 
-If using microphone or speaker run the following code to find the required device id
+If using microphone or speaker, configure the audio drivers by `device_name` when possible. The test guide shows how to confirm the selected PortAudio device and map it to an ALSA `plughw:X,Y` route for direct WAV playback checks.
 
 ```sh
 python3 src/perception/perception_driver_audio/find_devices.py
 ```
 
+See [Test the System](docs/test_the_system.md) for startup validation, generated WAV checks, and service-call examples.
+
 ```sh
-source install/setup.bash
 export OPENAI_API_KEY=
 export HUGGINGFACE_API_KEY=
+source install/setup.bash
 ros2 launch perception server.launch.py
 ```
 

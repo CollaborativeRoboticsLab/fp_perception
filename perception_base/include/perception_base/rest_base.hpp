@@ -1,5 +1,6 @@
 #pragma once
 
+#include <atomic>
 #include <string>
 #include <curl/curl.h>
 #include <nlohmann/json.hpp>
@@ -18,7 +19,7 @@ namespace perception
  * It provides a common interface for sending requests and receiving responses.
  */
 
-class RestBase : public DriverBase
+class RestBase : public virtual DriverBase
 {
 public:
   /**
@@ -117,7 +118,10 @@ public:
 
     CURL* curl = curl_easy_init();
     if (!curl)
+    {
+      record_rest_result(false, 0, "Failed to initialize libcurl");
       throw perception::perception_exception("Failed to initialize libcurl");
+    }
 
     struct curl_slist* headers = nullptr;
     headers = curl_slist_append(headers, "Content-Type: application/json");
@@ -131,6 +135,7 @@ public:
     {
       curl_slist_free_all(headers);
       curl_easy_cleanup(curl);
+      record_rest_result(false, 0, "Unsupported auth type: " + auth_type_);
       throw perception::perception_exception("Unsupported auth type: " + auth_type_);
     }
 
@@ -152,6 +157,7 @@ public:
     {
       curl_slist_free_all(headers);
       curl_easy_cleanup(curl);
+      record_rest_result(false, 0, std::string("cURL error: ") + curl_easy_strerror(res));
       throw perception::perception_exception("cURL error: " + std::string(curl_easy_strerror(res)));
     }
 
@@ -198,6 +204,7 @@ public:
       if (!details.empty())
         msg += " - " + details;
 
+      record_rest_result(false, http_code, msg);
       throw perception::perception_exception(msg);
     }
 
@@ -205,10 +212,13 @@ public:
     try
     {
       nlohmann::json response_json = nlohmann::json::parse(response_data);
-      return fromJson(response_json);  // <- Custom method converting json to RESTResponse
+      auto response = fromJson(response_json);  // <- Custom method converting json to RESTResponse
+      record_rest_result(true, http_code, "");
+      return response;
     }
     catch (const std::exception& e)
     {
+      record_rest_result(false, http_code, std::string("JSON parse error: ") + e.what());
       throw perception::perception_exception("JSON parse error: " + std::string(e.what()));
     }
   }
@@ -226,28 +236,51 @@ public:
   {
     CURL* curl = curl_easy_init();
     if (!curl)
+    {
+      record_rest_result(false, 0, "Failed to initialize libcurl");
       throw perception_exception("Failed to initialize libcurl");
+    }
 
-    struct curl_httppost* form = nullptr;
-    struct curl_httppost* last = nullptr;
+    curl_mime* mime = curl_mime_init(curl);
+    if (!mime)
+    {
+      curl_easy_cleanup(curl);
+      record_rest_result(false, 0, "Failed to initialize libcurl MIME form");
+      throw perception_exception("Failed to initialize libcurl MIME form");
+    }
 
     // Add options as form fields
     for (const auto& opt : req.options)
     {
-      curl_formadd(&form, &last, CURLFORM_COPYNAME, opt.key.c_str(), CURLFORM_COPYCONTENTS, opt.value.c_str(),
-                   CURLFORM_END);
+      curl_mimepart* option_part = curl_mime_addpart(mime);
+      if (!option_part || curl_mime_name(option_part, opt.key.c_str()) != CURLE_OK ||
+          curl_mime_data(option_part, opt.value.c_str(), CURL_ZERO_TERMINATED) != CURLE_OK)
+      {
+        curl_mime_free(mime);
+        curl_easy_cleanup(curl);
+        record_rest_result(false, 0, "Failed to build MIME field for option: " + opt.key);
+        throw perception_exception("Failed to build MIME field for option: " + opt.key);
+      }
     }
 
     // Add audio data as a file
-    curl_formadd(&form, &last, CURLFORM_COPYNAME, "file", CURLFORM_BUFFER, "audio.wav", CURLFORM_BUFFERPTR,
-                 reinterpret_cast<const void*>(req.file_stream.data()), CURLFORM_BUFFERLENGTH, req.file_stream.size(),
-                 CURLFORM_CONTENTTYPE, req.file_type.c_str(), CURLFORM_END);
+    curl_mimepart* file_part = curl_mime_addpart(mime);
+    if (!file_part || curl_mime_name(file_part, "file") != CURLE_OK ||
+        curl_mime_filename(file_part, "audio.wav") != CURLE_OK ||
+        curl_mime_data(file_part, req.file_stream.data(), req.file_stream.size()) != CURLE_OK ||
+        curl_mime_type(file_part, req.file_type.c_str()) != CURLE_OK)
+    {
+      curl_mime_free(mime);
+      curl_easy_cleanup(curl);
+      record_rest_result(false, 0, "Failed to build MIME audio payload");
+      throw perception_exception("Failed to build MIME audio payload");
+    }
 
     std::string response_data;
 
     // Set curl options
     curl_easy_setopt(curl, CURLOPT_URL, uri_.c_str());
-    curl_easy_setopt(curl, CURLOPT_HTTPPOST, form);
+    curl_easy_setopt(curl, CURLOPT_MIMEPOST, mime);
     curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, write_callback);
     curl_easy_setopt(curl, CURLOPT_WRITEDATA, &response_data);
 
@@ -268,8 +301,9 @@ public:
     }
     else
     {
-      curl_formfree(form);
+      curl_mime_free(mime);
       curl_easy_cleanup(curl);
+      record_rest_result(false, 0, "Unsupported auth type: " + auth_type_);
       throw perception_exception("Unsupported auth type: " + auth_type_);
     }
 
@@ -282,24 +316,33 @@ public:
 
     // Cleanup
     curl_slist_free_all(headers);
-    curl_formfree(form);
+    curl_mime_free(mime);
     curl_easy_cleanup(curl);
 
     // Error handling
     if (res != CURLE_OK)
+    {
+      record_rest_result(false, http_code, std::string("cURL error: ") + curl_easy_strerror(res));
       throw perception_exception("cURL error: " + std::string(curl_easy_strerror(res)));
+    }
 
     if (http_code != 200)
+    {
+      record_rest_result(false, http_code, "HTTP error: " + std::to_string(http_code));
       throw perception_exception("HTTP error: " + std::to_string(http_code));
+    }
 
     // Parse and return response
     try
     {
       nlohmann::json json = nlohmann::json::parse(response_data);
-      return fromJson(json);  // Assumes fromJson(const nlohmann::json&) is implemented
+      auto response = fromJson(json);  // Assumes fromJson(const nlohmann::json&) is implemented
+      record_rest_result(true, http_code, "");
+      return response;
     }
     catch (const std::exception& e)
     {
+      record_rest_result(false, http_code, std::string("JSON parse error: ") + e.what());
       throw perception_exception("JSON parse error: " + std::string(e.what()));
     }
   }
@@ -308,7 +351,10 @@ public:
   {
     CURL* curl = curl_easy_init();
     if (!curl)
+    {
+      record_rest_result(false, 0, "Failed to initialize libcurl");
       throw perception_exception("Failed to initialize libcurl");
+    }
 
     // Prepare the JSON body
     nlohmann::json json_body;
@@ -333,6 +379,7 @@ public:
     {
       curl_easy_cleanup(curl);
       curl_slist_free_all(headers);
+      record_rest_result(false, 0, "Unsupported auth type: " + auth_type_);
       throw perception_exception("Unsupported auth type: " + auth_type_);
     }
 
@@ -366,10 +413,16 @@ public:
     curl_easy_cleanup(curl);
 
     if (res != CURLE_OK)
+    {
+      record_rest_result(false, http_code, std::string("cURL error: ") + curl_easy_strerror(res));
       throw perception_exception("cURL error: " + std::string(curl_easy_strerror(res)));
+    }
 
     if (http_code != 200)
+    {
+      record_rest_result(false, http_code, "HTTP error: " + std::to_string(http_code));
       throw perception_exception("HTTP error: " + std::to_string(http_code));
+    }
 
     // Convert raw PCM to int16_t
     std::vector<int16_t> samples(audio_binary.size() / 2);
@@ -377,11 +430,25 @@ public:
 
     perception::RESTResponse response;
     response.audio_stream = samples;  // Assuming audio_stream is a vector<int16_t>
+    record_rest_result(true, http_code, "");
 
     return response;
   }
 
 protected:
+  void record_rest_result(bool success, long http_code, const std::string& error)
+  {
+    rest_request_count_++;
+    if (!success)
+      rest_failure_count_++;
+
+    last_rest_success_.store(success);
+    last_rest_http_code_.store(http_code);
+
+    std::lock_guard<std::mutex> lock(rest_status_mutex_);
+    last_rest_error_ = error;
+  }
+
   static size_t write_callback(void* contents, size_t size, size_t nmemb, std::string* userp)
   {
     userp->append(static_cast<char*>(contents), size * nmemb);
@@ -416,6 +483,12 @@ protected:
   bool ssl_verify_;          // Flag for SSL verification
   std::string auth_type_;    // Type of authentication (e.g., Bearer)
   std::string api_key_;      // API key for authentication
+  std::atomic<uint64_t> rest_request_count_{ 0 };
+  std::atomic<uint64_t> rest_failure_count_{ 0 };
+  std::atomic<bool> last_rest_success_{ true };
+  std::atomic<long> last_rest_http_code_{ 0 };
+  std::mutex rest_status_mutex_;
+  std::string last_rest_error_;
 };
 
 }  // namespace perception

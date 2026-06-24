@@ -9,9 +9,9 @@ Class: `perception::SentimentDriver` (REST-based sentiment inference)
 
 ### What it does
 
-- Accepts plain text (`std::string`) via `setDataStream()`.
+- Accepts `sentiment_request` via `analyze()`.
 - Sends a JSON request to the configured endpoint (Hugging Face style: `inputs: <text>`).
-- Parses a Hugging Face-style response and exposes `(label, score)` via `getData()`.
+- Parses a Hugging Face-style response and returns `(label, score)` in `sentiment_result`.
 
 ### Parameters
 
@@ -33,4 +33,5 @@ Environment:
 - The server offers `perception_msgs/srv/PerceptionSentiment`.
 - If `use_device_audio=true`, the server transcribes device audio first and then runs sentiment on the transcription.
 - Otherwise, it runs sentiment directly on the request text.
+- If `use_diagnostics=true`, the driver publishes request health on `/diagnostics` via `diagnostic_updater`.
 

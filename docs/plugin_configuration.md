@@ -11,13 +11,15 @@ At a high level:
 
 ```yaml
   # Enable/disable plugin groups
+  use_ros_vision_driver: false
+  use_non_ros_vision_driver: false
   use_microphone_driver: true
   use_speaker_driver: true
   use_transcription_driver: true
   use_speech_driver: true
   use_sentiment_driver: false
-  use_vision_driver: false
   use_image_analysis_driver: false
+  use_diagnostics: true
 
   # Select which pluginlib classes to load
   microphone_driver: perception::MicrophoneAudioDriver
@@ -37,7 +39,6 @@ At a high level:
     transcription:
       provide_service: true
       service: perception/transcription
-      buffer_duration: 10
     speech:
       provide_service: true
       service_name: perception/speech

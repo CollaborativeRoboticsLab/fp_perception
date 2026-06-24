@@ -9,9 +9,9 @@ Class: `perception::OpenAISpeechDriver` (REST-based TTS)
 
 ### What it does
 
-- Accepts `perception::text_data` via `setDataStream()`.
+- Accepts `perception::text_data` via `synthesize()`.
 - Uses `RestBase::call_tts()` to request PCM audio from the configured REST endpoint.
-- Exposes the synthesized audio via `getData()` as `perception::audio_data`.
+- Returns the synthesized audio as `perception::audio_data`.
 
 ### Parameters
 
@@ -38,4 +38,5 @@ Environment:
 - The server offers `perception_msgs/srv/PerceptionSpeech`.
 - If `use_device_audio=true`, the server routes synthesized audio to the speaker driver.
 - Otherwise, it returns the audio in the service response.
+- If `use_diagnostics=true`, the driver publishes request health on `/diagnostics` via `diagnostic_updater`.
 

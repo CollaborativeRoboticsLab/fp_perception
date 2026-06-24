@@ -9,9 +9,9 @@ Class: `perception::OpenAIDriver` (REST-based audio transcription)
 
 ### What it does
 
-- Accepts `perception::audio_data` via `setDataStream()`.
+- Accepts `transcription_request` via `transcribe()`.
 - Encodes audio to WAV bytes and uploads it as multipart form data.
-- Parses the JSON response and exposes the transcribed text via `getData()`.
+- Parses the JSON response and returns a `transcription_result`.
 
 ### Parameters
 
@@ -35,4 +35,5 @@ Environment:
 - The server offers `perception_msgs/srv/PerceptionTranscribe`.
 - If `use_device_audio=true`, the server transcribes its internal rolling microphone buffer.
 - Otherwise, it transcribes the request-provided `PerceptionAudio`.
+- If `use_diagnostics=true`, the driver publishes request health on `/diagnostics` via `diagnostic_updater`.
 

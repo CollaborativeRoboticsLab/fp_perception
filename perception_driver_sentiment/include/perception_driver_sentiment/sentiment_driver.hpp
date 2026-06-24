@@ -1,11 +1,11 @@
 #pragma once
 
-#include <any>
-#include <string>
-#include <utility>
-#include <vector>
-#include <rclcpp/rclcpp.hpp>
 #include <perception_base/rest_base.hpp>
+#include <perception_base/sentiment/sentiment_analysis_driver.hpp>
+#include <perception_base/sentiment/structs.hpp>
+#include <rclcpp/rclcpp.hpp>
+#include <string>
+#include <vector>
 
 namespace perception
 {
@@ -17,7 +17,7 @@ namespace perception
  *  It uses the prompt_msgs::srv::Prompt service to send text for sentiment analysis and receive the response.
  *
  */
-class SentimentDriver : public RestBase
+class SentimentDriver : public RestBase, public SentimentAnalysisDriver
 {
 public:
   /**
@@ -59,6 +59,14 @@ public:
     // Log the parameters
     RCLCPP_INFO(node_->get_logger(), "Assigned driver Name: %s", name_.c_str());
 
+    if (diagnostics_enabled())
+    {
+      enable_diagnostics("rest-sentiment-" + name_, name_ + " status",
+                         [this](diagnostic_updater::DiagnosticStatusWrapper& status) {
+                           produce_diagnostics(status);
+                         });
+    }
+
     // Log that the driver has been initialized
     RCLCPP_INFO(node_->get_logger(), "Initialized");
   }
@@ -70,36 +78,12 @@ public:
    */
   void deinitialize() override
   {
+    disable_diagnostics();
     response_ = perception::RESTResponse{};
     name_.clear();
     node_.reset();
   }
 
-  /**
-   * @brief Get latest data from the driver
-   *
-   * This function waits for the sentiment analysis service to complete and retrieves the latest sentiment analysis
-   * data.
-   *
-   * @return std::any containing the latest sentiment analysis data, which is a std::pair<std::string, double>
-   * @throws perception_exception if not implemented in derived classes
-   */
-  std::any getData() override
-  {
-    std::pair<std::string, double> sentiment_result;
-
-    if (response_.response.empty())
-    {
-      throw perception_exception("No response received from sentiment analysis service");
-    }
-    else
-    {
-      sentiment_result.first = response_.response;     // The sentiment label
-      sentiment_result.second = response_.confidence;  // The confidence score
-    }
-
-    return sentiment_result;
-  }
   /**
    * @brief Set data to the driver
    *
@@ -108,16 +92,24 @@ public:
    *
    * @param input The latest data from the driver.
    */
-  void setDataStream(const std::any& input) override
+  sentiment_result analyze(const sentiment_request& request_data) override
   {
-    const auto& text = std::any_cast<const std::string>(input);
-
     perception::RESTRequest request;
-    request.prompt = text;
+    request.prompt = request_data.text;
 
     response_ = call(request);
-  }
 
+    sentiment_result result;
+    result.label = response_.response;
+    result.score = response_.confidence;
+    result.analyzed_text = request_data.text;
+    result.success = !response_.response.empty();
+    if (!result.success)
+      result.error = "No response received from sentiment analysis service";
+
+    last_result_ = result;
+    return last_result_;
+  }
   /**
    * @brief Test method for the driver
    *
@@ -128,21 +120,23 @@ public:
     RCLCPP_INFO(node_->get_logger(), "Testing SentimentDriver with model: %s", uri_.c_str());
 
     // Example test input
-    std::string test_text = "I love programming!";
+    sentiment_request request;
+    request.text = "I love programming!";
 
     // Wait for the service to process the request
-    RCLCPP_INFO(node_->get_logger(), "Initiated Sentiment analysis for text: %s", test_text.c_str());
+    RCLCPP_INFO(node_->get_logger(), "Initiated Sentiment analysis for text: %s", request.text.c_str());
 
-    setDataStream(test_text);
+    const auto sentiment = analyze(request);
 
-    auto result = getData();
-
-    if (result.has_value())
+    if (sentiment.success)
     {
-      auto sentiment_result = std::any_cast<std::pair<std::string, double>>(result);
-
       RCLCPP_INFO(node_->get_logger(), "Analysis results with sentiment: %s and confidence: %f",
-                  sentiment_result.first.c_str(), sentiment_result.second);
+                  sentiment.label.c_str(), sentiment.score);
+    }
+    else
+    {
+      throw perception_exception(sentiment.error.empty() ? "No response received from sentiment analysis service" :
+                                                           sentiment.error);
     }
 
     RCLCPP_INFO(node_->get_logger(), "Test completed.");
@@ -202,7 +196,33 @@ protected:
     return res;
   }
 
+  void produce_diagnostics(diagnostic_updater::DiagnosticStatusWrapper& status)
+  {
+    std::string last_error;
+    {
+      std::lock_guard<std::mutex> lock(rest_status_mutex_);
+      last_error = last_rest_error_;
+    }
+
+    if (rest_request_count_.load() == 0)
+      status.summary(diagnostic_msgs::msg::DiagnosticStatus::OK, "Sentiment driver idle");
+    else if (last_rest_success_.load())
+      status.summary(diagnostic_msgs::msg::DiagnosticStatus::OK, "Last sentiment request succeeded");
+    else
+      status.summary(diagnostic_msgs::msg::DiagnosticStatus::WARN, "Last sentiment request failed");
+
+    status.add("uri", uri_);
+    status.add("request_count", rest_request_count_.load());
+    status.add("failure_count", rest_failure_count_.load());
+    status.add("last_http_code", last_rest_http_code_.load());
+    status.add("last_result_success", last_result_.success ? "true" : "false");
+    status.add("last_label", last_result_.label.empty() ? std::string("none") : last_result_.label);
+    status.add("last_score", last_result_.score);
+    status.add("last_error", last_error.empty() ? std::string("none") : last_error);
+  }
+
   perception::RESTResponse response_;
+  sentiment_result last_result_;
 };
 
 }  // namespace perception

@@ -4,12 +4,14 @@
 #include <vector>
 #include <deque>
 #include <mutex>
+#include <condition_variable>
 #include <map>
 #include <fstream>
 #include <algorithm>
 #include <cmath>
+#include <atomic>
 #include <cstdint>
-#include <perception_base/driver_base.hpp>
+#include <perception_base/audio/audio_sink_driver.hpp>
 #include <perception_base/audio/structs.hpp>
 #include <perception_base/audio/wav.hpp>
 #include <perception_driver_audio/utils.hpp>
@@ -23,7 +25,7 @@ namespace perception
  * This class is responsible for managing the audio output to a speaker using PortAudio.
  * It provides methods to start and stop the audio stream, as well as play audio data.
  */
-class SpeakerAudioDriver : public DriverBase
+class SpeakerAudioDriver : public AudioSinkDriver
 {
 public:
   /**
@@ -57,7 +59,8 @@ public:
   {
     // Configure parameters for the nodevision
     node->declare_parameter("driver.audio.SpeakerAudioDriver.name", "SpeakerAudioDriver");
-    node->declare_parameter("driver.audio.SpeakerAudioDriver.device_id", 0);
+    node->declare_parameter("driver.audio.SpeakerAudioDriver.device_id", -1);
+    node->declare_parameter("driver.audio.SpeakerAudioDriver.device_name", "");
     node->declare_parameter("driver.audio.SpeakerAudioDriver.sample_rate", 44100);  // default sample rate
     node->declare_parameter("driver.audio.SpeakerAudioDriver.channels", 1);         // default number of channels
     node->declare_parameter("driver.audio.SpeakerAudioDriver.test_file_path",
@@ -66,6 +69,7 @@ public:
     // Load parameters from the node
     name_ = node->get_parameter("driver.audio.SpeakerAudioDriver.name").as_string();
     device_id_ = node->get_parameter("driver.audio.SpeakerAudioDriver.device_id").as_int();
+    device_name_ = node->get_parameter("driver.audio.SpeakerAudioDriver.device_name").as_string();
     sample_rate_ = node->get_parameter("driver.audio.SpeakerAudioDriver.sample_rate").as_int();
     channels_ = node->get_parameter("driver.audio.SpeakerAudioDriver.channels").as_int();
     test_file_path_ = node->get_parameter("driver.audio.SpeakerAudioDriver.test_file_path").as_string();
@@ -87,16 +91,56 @@ public:
       RCLCPP_ERROR(node_->get_logger(), "Pa_GetDeviceCount failed: %s", Pa_GetErrorText(device_count));
       throw perception_exception("PortAudio failed to enumerate devices");
     }
-    if (device_id_ < 0 || device_id_ >= device_count)
+
+    logPortAudioDevices(node_->get_logger());
+
+    int resolved_device_id = device_id_;
+    if (!device_name_.empty())
     {
-      throw perception_exception("Invalid speaker device_id " + std::to_string(device_id_) + " (must be in [0," +
-                                 std::to_string(std::max(0, device_count - 1)) + "])");
+      try
+      {
+        resolved_device_id = getDeviceIdByName(device_name_);
+        RCLCPP_INFO(node_->get_logger(), "Resolved speaker device_name '%s' to device_id %d.",
+                    device_name_.c_str(), resolved_device_id);
+      }
+      catch (const perception_exception& e)
+      {
+        RCLCPP_WARN(node_->get_logger(),
+                    "Failed to map speaker device_name '%s' to an ID: %s. Falling back to default output device.",
+                    device_name_.c_str(), e.what());
+        resolved_device_id = Pa_GetDefaultOutputDevice();
+      }
+    }
+    else if (resolved_device_id < 0 || resolved_device_id >= device_count)
+    {
+      resolved_device_id = Pa_GetDefaultOutputDevice();
     }
 
-    const PaDeviceInfo* device_info = Pa_GetDeviceInfo(device_id_);
+    if (resolved_device_id < 0 || resolved_device_id >= device_count)
+    {
+      for (int i = 0; i < device_count; ++i)
+      {
+        const PaDeviceInfo* info = Pa_GetDeviceInfo(i);
+        if (info && info->maxOutputChannels > 0)
+        {
+          resolved_device_id = i;
+          RCLCPP_WARN(node_->get_logger(), "Falling back to first available speaker device_id %d ('%s').",
+                      resolved_device_id, info->name);
+          break;
+        }
+      }
+    }
+
+    const PaDeviceInfo* device_info = Pa_GetDeviceInfo(resolved_device_id);
     if (!device_info)
     {
-      throw perception_exception("PortAudio returned null device info for device_id " + std::to_string(device_id_));
+      throw perception_exception("PortAudio returned null device info for device_id " + std::to_string(resolved_device_id));
+    }
+    if (resolved_device_id != device_id_)
+    {
+      RCLCPP_WARN(node_->get_logger(), "Speaker device id %d was replaced by %d (%s).", device_id_, resolved_device_id,
+                  device_info->name);
+      device_id_ = resolved_device_id;
     }
     if (device_info->maxOutputChannels <= 0)
     {
@@ -107,8 +151,12 @@ public:
     // Publish about the assigned driver parameters
     RCLCPP_INFO(node_->get_logger(), "Assigned driver name: %s", name_.c_str());
     RCLCPP_INFO(node_->get_logger(), "Assigned driver device_id: %d", device_id_);
+    RCLCPP_INFO(node_->get_logger(), "Assigned driver device: %s", describePortAudioDevice(device_id_).c_str());
     RCLCPP_INFO(node_->get_logger(), "Assigned driver sample_rate: %d", sample_rate_);
     RCLCPP_INFO(node_->get_logger(), "Assigned driver channels: %d", channels_);
+
+    if (diagnostics_enabled())
+      setup_diagnostics();
 
     RCLCPP_INFO(node_->get_logger(), "Initialized");
   }
@@ -119,23 +167,28 @@ public:
    */
   void deinitialize() override
   {
+    disable_diagnostics();
+
     for (auto& pair : stream_dict_)
     {
+      if (!pair.second)
+        continue;
+
       err = Pa_StopStream(pair.second);
       if (err != paNoError)
       {
         RCLCPP_ERROR(node_->get_logger(), "Failed to stop speaker stream: %s", Pa_GetErrorText(err));
-        throw perception_exception("Failed to stop speaker stream: " + std::string(Pa_GetErrorText(err)));
       }
 
       err = Pa_CloseStream(pair.second);
       if (err != paNoError)
       {
         RCLCPP_ERROR(node_->get_logger(), "Failed to close speaker stream: %s", Pa_GetErrorText(err));
-        throw perception_exception("Failed to close speaker stream: " + std::string(Pa_GetErrorText(err)));
       }
       pair.second = nullptr;
     }
+
+    stream_dict_.clear();
 
     RCLCPP_INFO(node_->get_logger(), "stopped.");
   }
@@ -146,10 +199,26 @@ public:
    * @param input The latest audio data to the driver in the form of `const std::vector<std::vector<int16_t>>&`.
    * @throws perception_exception if not implemented in derived classes
    */
-  void setDataStream(const std::any& input) override
+  void play(const audio_data& input_data) override
   {
-    // convert std::any to audio_data
-    auto data = std::any_cast<const perception::audio_data&>(input);
+    play_internal(input_data, true);
+  }
+
+  void enqueuePlayback(const audio_data& input_data) override
+  {
+    play_internal(input_data, false);
+  }
+
+  void stopPlayback() override
+  {
+    std::lock_guard<std::mutex> lock(playback_mutex_);
+    playback_queue_.clear();
+    playback_cv_.notify_all();
+  }
+
+  void play_internal(const audio_data& input_data, bool wait_for_drain)
+  {
+    auto data = input_data;
 
     if (data.samples.empty())
     {
@@ -185,10 +254,12 @@ public:
       outputParameters.suggestedLatency = Pa_GetDeviceInfo(device_id_)->defaultLowOutputLatency;
       outputParameters.hostApiSpecificStreamInfo = nullptr;
 
+      RCLCPP_INFO(node_->get_logger(), "Opening speaker stream on %s", describePortAudioDevice(device_id_).c_str());
+
       // Open a new stream for this format
       PaStream* stream = nullptr;
       err = Pa_OpenStream(&stream, nullptr, &outputParameters, sample_rate_, paFramesPerBufferUnspecified, paClipOff,
-                          nullptr, nullptr);
+              &SpeakerAudioDriver::pa_output_callback, this);
 
       if (err != paNoError)
       {
@@ -212,13 +283,19 @@ public:
       // Store the stream in the dictionary
       stream_dict_[stream_key] = stream;
       RCLCPP_INFO(node_->get_logger(), "Opened new speaker stream: %s", stream_key.c_str());
+      const PaStreamInfo* stream_info = Pa_GetStreamInfo(stream);
+      if (stream_info)
+      {
+        RCLCPP_INFO(node_->get_logger(), "Speaker stream info: sample_rate=%.0f output_latency=%.4f",
+                    stream_info->sampleRate, stream_info->outputLatency);
+      }
     }
 
     // Write data to the stream
     try
     {
-      write_data(data, stream_key);
-      RCLCPP_INFO(node_->get_logger(), "Audio data written to stream: %s", stream_key.c_str());
+      queue_data(data, stream_key, wait_for_drain);
+      RCLCPP_INFO(node_->get_logger(), "Audio data queued to stream: %s", stream_key.c_str());
     }
     catch (const perception_exception& e)
     {
@@ -226,7 +303,6 @@ public:
       throw;
     }
   }
-
   /**
    * @brief Read test/mic_test.wav and play it through the speaker.
    */
@@ -243,7 +319,26 @@ public:
       RCLCPP_INFO(node_->get_logger(), "Read audio data from %s with %zu samples, %d Hz, %d channels.",
                   filepath.string().c_str(), audio_data.samples.size(), audio_data.sample_rate, audio_data.channels);
 
-      setDataStream(audio_data);
+      int max_abs = 0;
+      long double sum_squares = 0.0;
+      for (const auto sample : audio_data.samples)
+      {
+        max_abs = std::max(max_abs, std::abs(static_cast<int>(sample)));
+        sum_squares += static_cast<long double>(sample) * static_cast<long double>(sample);
+      }
+      const double rms = audio_data.samples.empty() ? 0.0 :
+                                                        std::sqrt(static_cast<double>(sum_squares /
+                                                                                      audio_data.samples.size()));
+      const double duration = static_cast<double>(audio_data.samples.size()) /
+                              static_cast<double>(std::max(1, audio_data.sample_rate) * std::max(1, audio_data.channels));
+      RCLCPP_INFO(node_->get_logger(), "Speaker test input stats: max_abs=%d rms=%.2f estimated_duration=%.2fs", max_abs,
+                  rms, duration);
+      if (max_abs < 128)
+      {
+        RCLCPP_WARN(node_->get_logger(), "Speaker test input appears nearly silent; use a known-good WAV to test output routing.");
+      }
+
+      play(audio_data);
     }
     catch (const perception_exception& e)
     {
@@ -254,6 +349,56 @@ public:
   }
 
 protected:
+  static int pa_output_callback(const void* input_buffer, void* output_buffer, unsigned long frames_per_buffer,
+                                const PaStreamCallbackTimeInfo* time_info, PaStreamCallbackFlags status_flags,
+                                void* user_data)
+  {
+    (void)input_buffer;
+    (void)time_info;
+    (void)status_flags;
+
+    auto* driver = static_cast<SpeakerAudioDriver*>(user_data);
+    if (!driver)
+      return paAbort;
+
+    return driver->fill_output_buffer(output_buffer, frames_per_buffer, status_flags);
+  }
+
+  int fill_output_buffer(void* output_buffer, unsigned long frames_per_buffer, PaStreamCallbackFlags status_flags)
+  {
+    auto* output = static_cast<int16_t*>(output_buffer);
+    const size_t samples_needed = static_cast<size_t>(frames_per_buffer) * static_cast<size_t>(std::max(1, channels_));
+    size_t copied = 0;
+
+    if (status_flags & paOutputUnderflow)
+      underrun_count_++;
+
+    std::unique_lock<std::mutex> lock(playback_mutex_, std::try_to_lock);
+    if (lock.owns_lock())
+    {
+      while (copied < samples_needed && !playback_queue_.empty())
+      {
+        output[copied++] = playback_queue_.front();
+        playback_queue_.pop_front();
+      }
+
+      if (playback_queue_.empty())
+        playback_cv_.notify_all();
+    }
+    else
+    {
+      callback_lock_miss_count_++;
+    }
+
+    if (copied < samples_needed)
+    {
+      std::fill(output + copied, output + samples_needed, static_cast<int16_t>(0));
+      underrun_count_++;
+    }
+
+    return paContinue;
+  }
+
   static std::vector<int16_t> resample_linear_interleaved(const std::vector<int16_t>& input, int channels,
                                                           int input_rate, int output_rate)
   {
@@ -293,8 +438,10 @@ protected:
     return output;
   }
 
-  void write_data(audio_data input_data, const std::string& stream_key)
+  void queue_data(audio_data input_data, const std::string& stream_key, bool wait_for_drain)
   {
+    (void)stream_key;
+
     std::vector<int16_t> data;  // Buffer for the actual data to write
 
     // Handle mono-to-stereo or stereo-to-mono conversions if necessary
@@ -319,6 +466,11 @@ protected:
           data[i] = static_cast<int16_t>((input_data.samples[2 * i] + input_data.samples[2 * i + 1]) / 2);
         }
       }
+      else
+      {
+        throw perception_exception("Unsupported channel conversion from " + std::to_string(input_data.channels) +
+                                   " to " + std::to_string(channels_));
+      }
     }
     else
     {
@@ -327,28 +479,97 @@ protected:
     }
 
     // Make sure chunk size is correct for frames (not samples)
-    if (data.size() < input_data.chunk_size * channels_)
+    const size_t required_samples =
+        static_cast<size_t>(std::max(1, input_data.chunk_size)) * static_cast<size_t>(std::max(1, channels_));
+
+    if (data.size() < required_samples)
     {
       throw perception_exception("Insufficient data" + std::to_string(data.size()) + " for requested chunk size " +
-                                 std::to_string(input_data.chunk_size * channels_));
+                                 std::to_string(required_samples));
     }
 
-    // Write to PortAudio stream
-    PaError err = Pa_WriteStream(stream_dict_[stream_key], data.data(), data.size() / channels_);
-    if (err != paNoError && err != paOutputUnderflowed)
+    const unsigned long frames_to_queue = static_cast<unsigned long>(data.size() / static_cast<size_t>(channels_));
+    RCLCPP_INFO(node_->get_logger(), "Queueing %lu frames (%zu samples) to speaker stream.", frames_to_queue,
+                data.size());
+
     {
-      throw perception_exception("PortAudio write error: " + std::string(Pa_GetErrorText(err)));
+      std::lock_guard<std::mutex> lock(playback_mutex_);
+      playback_queue_.insert(playback_queue_.end(), data.begin(), data.end());
     }
+
+    playback_cv_.notify_all();
+
+    if (wait_for_drain)
+      wait_for_playback_drain();
+  }
+
+  void wait_for_playback_drain()
+  {
+    std::unique_lock<std::mutex> lock(playback_mutex_);
+    playback_cv_.wait(lock, [this] { return playback_queue_.empty(); });
+  }
+
+  void setup_diagnostics()
+  {
+    enable_diagnostics("portaudio-speaker-" + std::to_string(device_id_), name_ + " playback",
+                       [this](diagnostic_updater::DiagnosticStatusWrapper& status) { produce_diagnostics(status); });
+  }
+
+  void produce_diagnostics(diagnostic_updater::DiagnosticStatusWrapper& status)
+  {
+    const auto underrun_count = underrun_count_.load();
+    const auto lock_miss_count = callback_lock_miss_count_.load();
+
+    size_t queued_samples = 0;
+    {
+      std::lock_guard<std::mutex> lock(playback_mutex_);
+      queued_samples = playback_queue_.size();
+    }
+
+    const size_t queued_frames = queued_samples / static_cast<size_t>(std::max(1, channels_));
+    bool stream_active = false;
+    for (const auto& pair : stream_dict_)
+    {
+      if (pair.second && Pa_IsStreamActive(pair.second) == 1)
+      {
+        stream_active = true;
+        break;
+      }
+    }
+
+    if (!stream_active && queued_samples > 0)
+      status.summary(diagnostic_msgs::msg::DiagnosticStatus::ERROR, "Speaker queue has data but no active stream");
+    else if (underrun_count > 0 || lock_miss_count > 0)
+      status.summary(diagnostic_msgs::msg::DiagnosticStatus::WARN, "Speaker callback underruns observed");
+    else if (stream_active)
+      status.summary(diagnostic_msgs::msg::DiagnosticStatus::OK, "Speaker playback healthy");
+    else
+      status.summary(diagnostic_msgs::msg::DiagnosticStatus::OK, "Speaker idle");
+
+    status.add("device_id", device_id_);
+    status.add("device_name", device_name_);
+    status.add("sample_rate", sample_rate_);
+    status.add("channels", channels_);
+    status.add("queued_samples", queued_samples);
+    status.add("queued_frames", queued_frames);
+    status.add("queue_drained", queued_samples == 0 ? "true" : "false");
+    status.add("callback_underrun_count", underrun_count);
+    status.add("callback_lock_miss_count", lock_miss_count);
   }
 
   int device_id_;
+  std::string device_name_;
   PaError err = paNoError;
-  std::vector<int16_t> audio_queue_;
   int sample_rate_;  // Default sample rate
   int channels_;     // Default number of channels
   std::string test_file_path_;
 
   std::map<std::string, PaStream*> stream_dict_;
+  std::deque<int16_t> playback_queue_;
+  std::mutex playback_mutex_;
+  std::condition_variable playback_cv_;
+  std::atomic<uint64_t> underrun_count_{ 0 };
+  std::atomic<uint64_t> callback_lock_miss_count_{ 0 };
 };
 
 }  // namespace perception

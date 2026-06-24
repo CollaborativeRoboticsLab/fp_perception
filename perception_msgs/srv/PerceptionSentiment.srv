@@ -5,3 +5,4 @@ int32 device_buffer_time
 ---
 string label
 float64 score
+string analyzed_text

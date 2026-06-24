@@ -12,7 +12,8 @@ These drivers are intended to be used within the `perception` ROS2 package and i
 - Capture audio in real-time from the microphone
 - Play audio buffers through the default output device
 - Built on `PortAudio` for cross-platform low-latency audio I/O
-- Compatible with ROS2 `rclcpp` and `std::any`-based driver model
+- Uses typed driver interfaces loaded through pluginlib
+- Publishes standard ROS 2 diagnostics on `/diagnostics` when `use_diagnostics=true`
 - Easily extendable for streaming, audio topics, or speech modules
 
 ## Dependencies
@@ -46,22 +47,22 @@ Example integration:
 
 ```cpp
 auto driver = std::make_shared<perception::MicrophoneAudioDriver>();
-driver->start(node, config);
-auto data = driver->getData();  // returns std::vector<int16_t> in std::any
+driver->initialize(node);
+auto data = driver->readChunk();
 ```
 
 To play audio using `SpeakerAudioDriver`:
 
 ```cpp
 perception::SpeakerAudioDriver speaker;
-speaker.start(node, config);
-speaker.setData(audio_any);  // audio_any must contain std::vector<int16_t>
+speaker.initialize(node);
+speaker.play(audio_data);
 ```
 
 ## Notes
 
-- Current implementation uses blocking calls (e.g., `Pa_ReadStream`) for simplicity.
-- You can wrap these drivers in a ROS2 node and publish audio buffers over custom messages for real-time processing.
+- Microphone capture and speaker playback use PortAudio callbacks.
+- The perception server can route diagnostics to `/diagnostics` through `diagnostic_updater`.
 
 ## To-Do
-- [ ] Buffer size and sample rate are currently hardcoded to 256 samples at 44.1kHz but can be parameterized.
+- [ ] Add long-running runtime validation for simultaneous capture and playback.

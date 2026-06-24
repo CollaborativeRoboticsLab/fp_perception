@@ -1,19 +1,18 @@
 #pragma once
 
+#include <opencv2/opencv.hpp>
+#include <perception_base/exceptions.hpp>
+#include <perception_base/image_analysis/image_analysis_driver.hpp>
+#include <perception_base/image_analysis/structs.hpp>
+#include <perception_base/rest_base.hpp>
+#include <rclcpp/rclcpp.hpp>
 #include <string>
 #include <vector>
-
-#include <opencv2/opencv.hpp>
-
-#include <rclcpp/rclcpp.hpp>
-
-#include <perception_base/rest_base.hpp>
-#include <perception_base/exceptions.hpp>
 
 namespace perception
 {
 
-class OpenAIImageAnalysisDriver : public RestBase
+class OpenAIImageAnalysisDriver : public RestBase, public ImageAnalysisDriver
 {
 public:
   /**
@@ -45,7 +44,8 @@ public:
     node->declare_parameter("driver.image_analysis.OpenAIImageAnalysisDriver.name", "OpenAIDriver");
     node->declare_parameter("driver.image_analysis.OpenAIImageAnalysisDriver.model", "gpt-4.1");
     node->declare_parameter("driver.image_analysis.OpenAIImageAnalysisDriver.test_file_path", "test/image.png");
-    node->declare_parameter("driver.image_analysis.OpenAIImageAnalysisDriver.test_prompt", "Is there a cat in this image?");
+    node->declare_parameter("driver.image_analysis.OpenAIImageAnalysisDriver.test_prompt", "Is there a cat in this "
+                                                                                           "image?");
     node->declare_parameter("driver.image_analysis.OpenAIImageAnalysisDriver.detail", "auto");
 
     // Get parameters from the node
@@ -65,6 +65,14 @@ public:
     RCLCPP_INFO(node_->get_logger(), "Assigned driver Test Prompt: %s", test_prompt_.c_str());
     RCLCPP_INFO(node_->get_logger(), "Assigned driver Image Detail: %s", detail_.c_str());
 
+    if (diagnostics_enabled())
+    {
+      enable_diagnostics("rest-image-analysis-" + model_name_, name_ + " status",
+                         [this](diagnostic_updater::DiagnosticStatusWrapper& status) {
+                           produce_diagnostics(status);
+                         });
+    }
+
     // Log that the driver has been initialized
     RCLCPP_INFO(node_->get_logger(), "Initialized");
   }
@@ -77,25 +85,13 @@ public:
    */
   void deinitialize() override
   {
+    disable_diagnostics();
     response_ = perception::RESTResponse{};
     model_name_.clear();
     test_file_path_.clear();
     name_.clear();
     detail_.clear();
     node_.reset();
-  }
-
-  /**
-   * @brief Get latest data from the driver
-   *
-   * This function waits for the transcription service to complete and retrieves the latest transcription data.
-   *
-   * @return std::any The latest transcription data in the form of std::string
-   * @throws perception_exception if not implemented in derived classes
-   */
-  std::any getData() override
-  {
-    return response_.response;
   }
 
   /**
@@ -106,12 +102,10 @@ public:
    *
    * @param input The latest data from the driver.
    */
-  void setDataStream(const std::any& input) override
+  image_analysis_result analyze(const image_analysis_request& request_data) override
   {
-    const auto& payload = std::any_cast<const std::pair<cv::Mat, std::string>&>(input);
-
-    const cv::Mat& frame = payload.first;
-    const std::string& prompt = payload.second;
+    const cv::Mat& frame = request_data.frame.image;
+    const std::string& prompt = request_data.prompt;
 
     if (frame.empty())
       throw perception_exception("OpenAIImageAnalysisDriver received an empty image frame");
@@ -127,8 +121,16 @@ public:
                                reinterpret_cast<const char*>(png_bytes.data()) + png_bytes.size());
 
     response_ = call(request);
-  }
 
+    image_analysis_result result;
+    result.response = response_.response;
+    result.success = !response_.response.empty();
+    if (!result.success)
+      result.error = "No image analysis result received.";
+
+    last_result_ = result;
+    return last_result_;
+  }
   /**
    * @brief Test method for the driver
    *
@@ -144,24 +146,25 @@ public:
     if (image.empty())
       throw perception_exception("Failed to read test image file: " + filepath.string());
 
-    setDataStream(std::make_pair(image, test_prompt_));
+    image_analysis_request request;
+    request.frame.image = image;
+    request.prompt = test_prompt_;
 
-    auto result = getData();
-    if (result.has_value())
+    const auto analysis = analyze(request);
+    if (analysis.success)
     {
-      RCLCPP_INFO(node_->get_logger(), "Image analysis result: %s", std::any_cast<std::string>(result).c_str());
+      RCLCPP_INFO(node_->get_logger(), "Image analysis result: %s", analysis.response.c_str());
     }
     else
     {
-      throw perception_exception("No image analysis result received.");
+      throw perception_exception(analysis.error.empty() ? "No image analysis result received." : analysis.error);
     }
   }
 
 protected:
   static std::string base64_encode(const unsigned char* data, size_t len)
   {
-    static const char* kTable =
-        "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+    static const char* kTable = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
     std::string out;
     out.reserve(((len + 2) / 3) * 4);
 
@@ -205,12 +208,16 @@ protected:
         if (err.is_string())
           return std::string("OpenAI error: ") + err.get<std::string>();
       }
-      catch (...) {}
+      catch (...)
+      {
+      }
       try
       {
         return std::string("OpenAI error: ") + object["error"].dump();
       }
-      catch (...) {}
+      catch (...)
+      {
+      }
       return "OpenAI error";
     }
 
@@ -256,8 +263,8 @@ protected:
     if (request.file_stream.empty())
       throw perception_exception("Image analysis request missing image payload");
 
-    const auto base64_image = base64_encode(
-        reinterpret_cast<const unsigned char*>(request.file_stream.data()), request.file_stream.size());
+    const auto base64_image =
+        base64_encode(reinterpret_cast<const unsigned char*>(request.file_stream.data()), request.file_stream.size());
     const std::string mime = request.file_type.empty() ? std::string("image/png") : request.file_type;
     const std::string data_url = "data:" + mime + ";base64," + base64_image;
 
@@ -272,8 +279,7 @@ protected:
       image_obj["detail"] = detail_;
     content.push_back(image_obj);
 
-    body["input"] = nlohmann::json::array(
-        { { { "role", "user" }, { "content", content } } });
+    body["input"] = nlohmann::json::array({ { { "role", "user" }, { "content", content } } });
 
     return body;
   }
@@ -298,7 +304,34 @@ protected:
     return res;
   }
 
+  void produce_diagnostics(diagnostic_updater::DiagnosticStatusWrapper& status)
+  {
+    std::string last_error;
+    {
+      std::lock_guard<std::mutex> lock(rest_status_mutex_);
+      last_error = last_rest_error_;
+    }
+
+    if (rest_request_count_.load() == 0)
+      status.summary(diagnostic_msgs::msg::DiagnosticStatus::OK, "Image analysis driver idle");
+    else if (last_rest_success_.load())
+      status.summary(diagnostic_msgs::msg::DiagnosticStatus::OK, "Last image analysis request succeeded");
+    else
+      status.summary(diagnostic_msgs::msg::DiagnosticStatus::WARN, "Last image analysis request failed");
+
+    status.add("model", model_name_);
+    status.add("uri", uri_);
+    status.add("detail", detail_);
+    status.add("request_count", rest_request_count_.load());
+    status.add("failure_count", rest_failure_count_.load());
+    status.add("last_http_code", last_rest_http_code_.load());
+    status.add("last_result_success", last_result_.success ? std::string("true") : std::string("false"));
+    status.add("last_response_length", last_result_.response.size());
+    status.add("last_error", last_error.empty() ? std::string("none") : last_error);
+  }
+
   perception::RESTResponse response_;
+  image_analysis_result last_result_;
 
   std::string model_name_;
   std::string test_file_path_;

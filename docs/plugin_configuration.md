@@ -36,12 +36,17 @@ At a high level:
       topic: perception/microphone
       frame_id: microphone_frame
       frequency: 10
+      audio_retention_window: 10
+      default_audio_request_window: 10
+
     transcription:
       provide_service: true
       service: perception/transcription
+
     speech:
       provide_service: true
       service_name: perception/speech
+      
     sentiment:
       provide_service: false
       service_name: perception/sentiment_analysis
@@ -49,6 +54,8 @@ At a high level:
     image_analysis:
       provide_service: false
       service_name: perception/image_analysis
+
+    audio_input:
 
   # Per-plugin parameters (maps to dot-separated params)
   driver:
@@ -59,7 +66,7 @@ At a high level:
         sample_rate: 48000
         channels: 2
         chunk_size: 48000
-        buffer_time: 10
+        capture_buffer_window: 10
     transcription:
       OpenAIDriver:
         model: whisper-1

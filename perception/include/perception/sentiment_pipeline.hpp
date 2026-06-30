@@ -42,12 +42,12 @@ public:
 
       transcription_request transcription_request_data;
       audio_buffer_request audio_request;
-      audio_request.duration_seconds = request.device_buffer_time;
+      audio_request.duration_seconds = request.audio_request_window;
       audio_request.use_time_window = request.use_device_audio_time_window;
       audio_request.start_time = request.device_audio_start_time;
       transcription_request_data.audio = read_device_audio_(audio_request);
       transcription_request_data.use_device_audio = true;
-      transcription_request_data.device_buffer_time = request.device_buffer_time;
+      transcription_request_data.audio_request_window = request.audio_request_window;
       transcription_request_data.use_device_audio_time_window = request.use_device_audio_time_window;
       transcription_request_data.device_audio_start_time = request.device_audio_start_time;
 

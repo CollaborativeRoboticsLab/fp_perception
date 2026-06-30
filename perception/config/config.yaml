@@ -33,7 +33,8 @@
         topic: perception/microphone
         frame_id: microphone_frame
         frequency: 10
-        buffer_duration: 10
+        audio_retention_window: 100
+        default_audio_request_window: 10
 
       audio_output:
         subscribe: true
@@ -79,7 +80,7 @@
           chunk_size: 1920      # frames per audio buffer processing cycle (40 ms at 48 kHz)
           sample_rate: 48000    # number of samples per second
           channels: 1           # mono is usually best for STT and avoids silent stereo channels
-          buffer_time: 10       # buffering time in seconds
+          capture_buffer_window: 10       # microphone capture buffer window in seconds
 
         SpeakerAudioDriver:
           name: SpeakerAudioDriver

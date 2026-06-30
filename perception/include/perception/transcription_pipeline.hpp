@@ -32,7 +32,7 @@ public:
         throw perception_exception("Device audio reader is not available.");
 
       audio_buffer_request audio_request;
-      audio_request.duration_seconds = request.device_buffer_time;
+      audio_request.duration_seconds = request.audio_request_window;
       audio_request.use_time_window = request.use_device_audio_time_window;
       audio_request.start_time = request.device_audio_start_time;
       request.audio = read_device_audio_(audio_request);

@@ -111,7 +111,7 @@ You should see a nonzero publish rate and messages with populated `samples`. The
 
 Default service name is typically `perception/transcription`.
 
-This reads from the server's public audio buffer for `device_buffer_time` seconds and transcribes it. Speak into the microphone immediately before or during the call.
+This reads from the server's public audio buffer for `audio_request_window` seconds and transcribes it. Speak into the microphone immediately before or during the call.
 
 It only works after the microphone driver has initialized the public audio buffer; otherwise the service returns `Device audio not available: public audio buffer not initialized`.
 
@@ -129,7 +129,7 @@ ros2 service call /perception/transcription perception_msgs/srv/PerceptionTransc
     samples: []
   },
   use_device_audio: true,
-  device_buffer_time: 5
+  audio_request_window: 5
 }"
 ```
 
@@ -152,14 +152,14 @@ ros2 service call /perception/transcription perception_msgs/srv/PerceptionTransc
     samples: []
   },
   use_device_audio: true,
-  device_buffer_time: 5
+  audio_request_window: 5
 }"
 ```
 
 ### Parameters and expected behavior
 
 - `audio` is ignored when `use_device_audio: true`, but it must still be present to satisfy the request type.
-- `device_buffer_time` must be **≤** the configured server ring buffer duration (`interface.audio_input.buffer_duration`).
+- `audio_request_window` must be **≤** the configured server ring buffer duration (`interface.audio_input.audio_retention_window`).
 
 - If the request header stamp is zero, the server uses the latest buffered audio window.
 - If the timestamped window is only partially available, the server returns the available overlap and logs a warning.
@@ -171,7 +171,7 @@ Default service name is typically `perception/sentiment_analysis`.
 
 If `use_device_audio: true`, the server will:
 
-1) wait until the public audio buffer has `device_buffer_time` seconds of new audio
+1) wait until the public audio buffer has `audio_request_window` seconds of new audio
 2) transcribe it
 3) run sentiment on the transcribed text
 
@@ -185,7 +185,7 @@ ros2 service call /perception/sentiment_analysis perception_msgs/srv/PerceptionS
   header: {stamp: {sec: 0, nanosec: 0}, frame_id: ''},
   text: '',
   use_device_audio: true,
-  device_buffer_time: 5
+  audio_request_window: 5
 }"
 ```
 
@@ -202,7 +202,7 @@ ros2 service call /perception/sentiment_analysis perception_msgs/srv/PerceptionS
   header: {stamp: {sec: ${STAMP_SEC}, nanosec: ${STAMP_NSEC}}, frame_id: ''},
   text: '',
   use_device_audio: true,
-  device_buffer_time: 5
+  audio_request_window: 5
 }"
 ```
 
@@ -239,7 +239,7 @@ Expected outcome for these three service smoke tests:
 
 - If device-audio calls time out, ensure the microphone driver is enabled and producing samples.
 - If transcription returns `Device audio not available: public audio buffer not initialized`, verify the microphone driver is running and `ros2 topic hz /perception/microphone` shows samples before calling the service.
-- If you request a longer `device_buffer_time` than the server buffer duration, increase `interface.audio_input.buffer_duration`.
+- If you request a longer `audio_request_window` than the server buffer duration, increase `interface.audio_input.audio_retention_window`.
 - If you don’t hear speech output with `use_device_audio: true`, ensure the speaker driver is enabled and the container can access an output device.
 - If `aplay` works but the speaker driver does not, compare the `aplay -D plughw:X,Y` route against the `hw:X,Y` shown in the PortAudio resolved-device log.
 - If `test/mic_test.wav` is silent, confirm the microphone input source is selected in the host audio settings and rerun `ros2 launch perception server.launch.py` with `run_tests: true`.

@@ -64,7 +64,7 @@ public:
     node->declare_parameter("driver.audio.MicrophoneAudioDriver.chunk_size", 256);     // default chunk size
     node->declare_parameter("driver.audio.MicrophoneAudioDriver.sample_rate", 44100);  // default sample rate
     node->declare_parameter("driver.audio.MicrophoneAudioDriver.channels", 1);         // default number of channels
-    node->declare_parameter("driver.audio.MicrophoneAudioDriver.buffer_time", 10);     // default buffer time in seconds
+    node->declare_parameter("driver.audio.MicrophoneAudioDriver.capture_buffer_window", 10);
     node->declare_parameter("driver.audio.MicrophoneAudioDriver.timeout_sec", -1);     // -1 waits indefinitely
     // Load parameters from the node
     name_ = node->get_parameter("driver.audio.MicrophoneAudioDriver.name").as_string();
@@ -73,7 +73,7 @@ public:
     chunk_size_ = node->get_parameter("driver.audio.MicrophoneAudioDriver.chunk_size").as_int();
     sample_rate_ = node->get_parameter("driver.audio.MicrophoneAudioDriver.sample_rate").as_int();
     channels_ = node->get_parameter("driver.audio.MicrophoneAudioDriver.channels").as_int();
-    buffer_time_ = node->get_parameter("driver.audio.MicrophoneAudioDriver.buffer_time").as_int();
+    capture_buffer_window_ = node->get_parameter("driver.audio.MicrophoneAudioDriver.capture_buffer_window").as_int();
     timeout_sec_ = node->get_parameter("driver.audio.MicrophoneAudioDriver.timeout_sec").as_int();
 
     // Initialize the base driver
@@ -151,7 +151,7 @@ public:
     }
 
     // Initial expected buffer size. It is recomputed after stream open if capture_sample_rate_ changes.
-    buffer_size_ = sample_rate_ * channels_ * buffer_time_;
+    buffer_size_ = sample_rate_ * channels_ * capture_buffer_window_;
 
     // Publish about the assigned driver parameters
     RCLCPP_INFO(node_->get_logger(), "Assigned driver name: %s", name_.c_str());
@@ -160,7 +160,7 @@ public:
     RCLCPP_INFO(node_->get_logger(), "Assigned driver chunk_size: %lu", chunk_size_);
     RCLCPP_INFO(node_->get_logger(), "Assigned driver sample_rate: %d", sample_rate_);
     RCLCPP_INFO(node_->get_logger(), "Assigned driver channels: %d", channels_);
-    RCLCPP_INFO(node_->get_logger(), "Assigned driver buffer_time: %d", buffer_time_);
+    RCLCPP_INFO(node_->get_logger(), "Assigned driver capture_buffer_window: %d", capture_buffer_window_);
     RCLCPP_INFO(node_->get_logger(), "Assigned driver timeout_sec: %d", timeout_sec_);
     RCLCPP_INFO(node_->get_logger(), "Assigned driver buffer size: %d", buffer_size_);
 
@@ -199,7 +199,7 @@ public:
     }
 
     // Buffer stores captured samples at the capture sample rate.
-    buffer_size_ = capture_sample_rate_ * channels_ * buffer_time_;
+    buffer_size_ = capture_sample_rate_ * channels_ * capture_buffer_window_;
     audio_buffer_.assign(static_cast<size_t>(std::max(1, buffer_size_)), 0);
     read_index_ = 0;
     write_index_ = 0;
@@ -425,16 +425,8 @@ protected:
     const auto* samples = static_cast<const int16_t*>(input_buffer);
     const size_t sample_count = static_cast<size_t>(frames_per_buffer) * static_cast<size_t>(std::max(1, channels_));
 
-    std::unique_lock<std::mutex> lock(buffer_mutex_, std::try_to_lock);
-    if (!lock.owns_lock())
-    {
-      dropped_callback_chunks_++;
-      return paContinue;
-    }
-
+    std::lock_guard<std::mutex> lock(buffer_mutex_);
     write_samples_locked(samples, sample_count);
-
-    lock.unlock();
     buffer_cv_.notify_one();
 
     return paContinue;
@@ -512,7 +504,7 @@ protected:
     status.add("capture_sample_rate", capture_sample_rate_);
     status.add("channels", channels_);
     status.add("chunk_size", static_cast<int>(chunk_size_));
-    status.add("buffer_time_seconds", buffer_time_);
+    status.add("capture_buffer_window_seconds", capture_buffer_window_);
     status.add("buffer_size_samples", buffer_size_);
     status.add("buffered_samples", buffered_samples);
     status.add("buffered_frames", buffered_frames);
@@ -581,7 +573,7 @@ protected:
   int sample_rate_;               // Default sample rate
   int capture_sample_rate_{ 0 };  // Actual device capture rate (may differ from sample_rate_)
   int channels_;                  // Default number of channels
-  int buffer_time_;               // Buffer time in seconds
+  int capture_buffer_window_;     // Capture buffer window in seconds
   int timeout_sec_{ -1 };         // Wait timeout for audio data (-1 waits indefinitely)
   int buffer_size_{ 0 };          // Buffer size in samples
   size_t read_index_{ 0 };

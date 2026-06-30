@@ -98,6 +98,14 @@ public:
   transcription_result transcribe(const transcription_request& request_data) override
   {
     const auto& new_audio = request_data.audio;
+    const int sample_rate = std::max(1, new_audio.sample_rate);
+    const int channels = std::max(1, new_audio.channels);
+    const double audio_seconds =
+      static_cast<double>(new_audio.samples.size()) / static_cast<double>(sample_rate * channels);
+
+    RCLCPP_INFO(node_->get_logger(),
+          "Starting OpenAI transcription request: samples=%zu sample_rate=%d channels=%d duration=%.3f seconds",
+          new_audio.samples.size(), new_audio.sample_rate, new_audio.channels, audio_seconds);
 
     // create perception::RESTRequest object
     perception::RESTRequest request;
@@ -118,6 +126,10 @@ public:
     request.options.push_back(model_option2);
 
     response_ = call_audio(request);
+
+    RCLCPP_INFO(node_->get_logger(),
+          "Completed OpenAI transcription request: response_chars=%zu",
+          response_.response.size());
 
     transcription_result result;
     result.text = response_.response;

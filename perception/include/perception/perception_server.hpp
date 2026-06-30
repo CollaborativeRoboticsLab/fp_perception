@@ -212,7 +212,8 @@ protected:
     this->declare_parameter("interface.audio_input.frame_id", "microphone_frame");
     this->declare_parameter("interface.audio_input.publish", false);
     this->declare_parameter("interface.audio_input.frequency", 10);
-    this->declare_parameter("interface.audio_input.buffer_duration", 10);
+    this->declare_parameter("interface.audio_input.audio_retention_window", 10);
+    this->declare_parameter("interface.audio_input.default_audio_request_window", 10);
 
     this->declare_parameter("interface.audio_output.topic", "perception/speaker");
     this->declare_parameter("interface.audio_output.subscribe", false);
@@ -238,7 +239,8 @@ protected:
     audio_input_topic_ = this->get_parameter("interface.audio_input.topic").as_string();
     audio_input_frame_id_ = this->get_parameter("interface.audio_input.frame_id").as_string();
     audio_input_frequency_ = this->get_parameter("interface.audio_input.frequency").as_int();
-    audio_input_buffer_duration_ = this->get_parameter("interface.audio_input.buffer_duration").as_int();
+    audio_input_retention_window_ = this->get_parameter("interface.audio_input.audio_retention_window").as_int();
+    default_audio_request_window_ = this->get_parameter("interface.audio_input.default_audio_request_window").as_int();
 
     audio_output_subscribe_ = this->get_parameter("interface.audio_output.subscribe").as_bool();
     audio_output_topic_ = this->get_parameter("interface.audio_output.topic").as_string();
@@ -264,6 +266,8 @@ protected:
     RCLCPP_INFO(this->get_logger(), "Audio input topic: %s", audio_input_topic_.c_str());
     RCLCPP_INFO(this->get_logger(), "Audio input frame_id: %s", audio_input_frame_id_.c_str());
     RCLCPP_INFO(this->get_logger(), "Audio input frequency: %d", audio_input_frequency_);
+    RCLCPP_INFO(this->get_logger(), "Audio retention window: %d seconds", audio_input_retention_window_);
+    RCLCPP_INFO(this->get_logger(), "Default audio request window: %d seconds", default_audio_request_window_);
 
     RCLCPP_INFO(this->get_logger(), "Audio output subscribe: %s", audio_output_subscribe_ ? "true" : "false");
     RCLCPP_INFO(this->get_logger(), "Audio output topic: %s", audio_output_topic_.c_str());
@@ -275,8 +279,6 @@ protected:
 
     RCLCPP_INFO(this->get_logger(), "Transcription enabled: %s", transcription_enabled_ ? "true" : "false");
     RCLCPP_INFO(this->get_logger(), "Transcription service: %s", transcription_service_.c_str());
-    RCLCPP_INFO(this->get_logger(), "Transcription buffer duration: %d seconds", audio_input_buffer_duration_);
-
     RCLCPP_INFO(this->get_logger(), "Speech synthesis enabled: %s", speech_enabled_ ? "true" : "false");
     RCLCPP_INFO(this->get_logger(), "Speech synthesis service name: %s", speech_service_name_.c_str());
 
@@ -362,7 +364,7 @@ protected:
         const auto audio_stamp = this->now();
 
         if (use_microphone_driver_ && microphone_driver_ && !data.samples.empty())
-          public_audio_buffer_.append(data, audio_input_buffer_duration_, audio_stamp);
+          public_audio_buffer_.append(data, audio_input_retention_window_, audio_stamp);
 
         if (audio_input_publish_ && audio_publisher_)
         {
@@ -434,8 +436,8 @@ protected:
   transcription_request make_transcription_request(const Transcribe::Request& request, std_msgs::msg::Header& header)
   {
     transcription_request internal_request;
-    internal_request.device_buffer_time =
-        request.device_buffer_time > 0 ? request.device_buffer_time : audio_input_buffer_duration_;
+    internal_request.audio_request_window =
+      request.audio_request_window > 0 ? request.audio_request_window : default_audio_request_window_;
     internal_request.use_device_audio = request.use_device_audio;
     internal_request.use_device_audio_time_window = false;
 
@@ -470,8 +472,8 @@ protected:
   sentiment_request make_sentiment_request(const Sentiment::Request& request)
   {
     sentiment_request internal_request;
-    internal_request.device_buffer_time =
-        request.device_buffer_time > 0 ? request.device_buffer_time : audio_input_buffer_duration_;
+    internal_request.audio_request_window =
+      request.audio_request_window > 0 ? request.audio_request_window : default_audio_request_window_;
     internal_request.use_device_audio = request.use_device_audio;
     internal_request.use_device_audio_time_window = false;
 
@@ -578,6 +580,11 @@ protected:
       }
     }
 
+    RCLCPP_INFO(this->get_logger(),
+                "Sending transcription response: success=%s transcription=\"%s\"",
+                transcription_result_data.success ? "true" : "false",
+                transcription_result_data.text.c_str());
+
     write_transcription_response(transcription_result_data, *response);
   }
 
@@ -668,15 +675,23 @@ protected:
     const size_t requested_samples =
         static_cast<size_t>(sample_rate) * static_cast<size_t>(channels) * static_cast<size_t>(duration_seconds);
     const size_t samples_to_copy = out.samples.size();
+    const double returned_seconds =
+        static_cast<double>(samples_to_copy) / static_cast<double>(std::max(1, sample_rate * channels));
+    const auto buffer_end_time = public_audio_buffer_.endTime();
+    const auto returned_duration = rclcpp::Duration::from_seconds(returned_seconds);
+    const auto window_start_time = buffer_end_time - returned_duration;
+
+    RCLCPP_INFO(this->get_logger(),
+          "Using latest device audio window: requested=%d seconds start=%.9f end=%.9f returned=%.3f seconds sample_rate=%d channels=%d frames=%d",
+          duration_seconds, window_start_time.seconds(), buffer_end_time.seconds(), returned_seconds,
+          sample_rate, channels, out.chunk_size);
 
     if (samples_to_copy < requested_samples)
     {
-      const double buffered_seconds =
-          static_cast<double>(samples_to_copy) / static_cast<double>(sample_rate * channels);
       RCLCPP_WARN(this->get_logger(),
                   "Requested %d seconds of device audio, but only %.2f seconds are buffered. Transcribing latest "
                   "available audio.",
-                  duration_seconds, buffered_seconds);
+                  duration_seconds, returned_seconds);
     }
 
     return out;
@@ -688,38 +703,28 @@ protected:
 
     if (request.use_time_window)
     {
-      try
-      {
-        auto out = public_audio_buffer_.readWindow(request.start_time, duration_seconds);
-        const auto requested_end_time = request.start_time + rclcpp::Duration::from_seconds(duration_seconds);
-        const auto buffered_start_time = public_audio_buffer_.startTime();
-        const auto buffered_end_time = public_audio_buffer_.endTime();
-        const double returned_seconds =
-          static_cast<double>(out.chunk_size) / static_cast<double>(std::max(1, out.sample_rate));
+      const auto requested_end_time = request.start_time + rclcpp::Duration::from_seconds(duration_seconds);
 
-        if (returned_seconds + 0.001 < static_cast<double>(duration_seconds))
-        {
-          RCLCPP_WARN(this->get_logger(),
-                      "Timestamped device audio window was partially buffered. Requested [%.9f, %.9f], buffered "
-                      "[%.9f, %.9f], returning %.3f seconds of available overlap.",
-                      request.start_time.seconds(), requested_end_time.seconds(), buffered_start_time.seconds(),
-                      buffered_end_time.seconds(), returned_seconds);
-        }
-        else
-        {
-          RCLCPP_INFO(this->get_logger(),
-                      "Using timestamped device audio window: start=%.9f duration=%d seconds frames=%d",
-                      request.start_time.seconds(), duration_seconds, out.chunk_size);
-        }
-        return out;
-      }
-      catch (const std::exception& e)
-      {
-        RCLCPP_WARN(this->get_logger(),
-                    "Timestamped device audio window unavailable (%s). Falling back to latest %d seconds instead of "
-                    "failing the request.",
-                    e.what(), duration_seconds);
-      }
+      RCLCPP_INFO(this->get_logger(),
+                  "Waiting for timestamped device audio window: requested=[%.9f, %.9f] timeout=%d seconds",
+                  request.start_time.seconds(), requested_end_time.seconds(), std::max(5, duration_seconds + 5));
+
+      public_audio_buffer_.waitForWindow(
+          request.start_time, duration_seconds,
+          std::chrono::seconds(std::max(5, duration_seconds + 5)));
+
+      auto out = public_audio_buffer_.readWindow(request.start_time, duration_seconds);
+      const auto buffered_start_time = public_audio_buffer_.startTime();
+      const auto buffered_end_time = public_audio_buffer_.endTime();
+      const double returned_seconds =
+        static_cast<double>(out.chunk_size) / static_cast<double>(std::max(1, out.sample_rate));
+
+      RCLCPP_INFO(this->get_logger(),
+                  "Timestamped device audio window ready: requested=[%.9f, %.9f] buffered=[%.9f, %.9f] returned=%.3f seconds frames=%d",
+                  request.start_time.seconds(), requested_end_time.seconds(), buffered_start_time.seconds(),
+                  buffered_end_time.seconds(), returned_seconds, out.chunk_size);
+
+      return out;
     }
 
     return read_latest_public_audio(duration_seconds);
@@ -784,7 +789,8 @@ protected:
   std::string audio_input_topic_;
   std::string audio_input_frame_id_;
   int audio_input_frequency_;
-  int audio_input_buffer_duration_;
+  int audio_input_retention_window_;
+  int default_audio_request_window_;
 
   // Audio output topic parameters
   std::string audio_output_topic_;

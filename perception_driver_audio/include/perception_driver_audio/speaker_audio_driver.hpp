@@ -294,8 +294,29 @@ public:
     // Write data to the stream
     try
     {
+      if (wait_for_drain)
+      {
+        RCLCPP_INFO(node_->get_logger(),
+                    "Queueing audio to speaker stream %s and waiting for playback drain.",
+                    stream_key.c_str());
+      }
+      else
+      {
+        RCLCPP_INFO(node_->get_logger(),
+                    "Queueing audio to speaker stream %s without waiting for playback drain.",
+                    stream_key.c_str());
+      }
+
       queue_data(data, stream_key, wait_for_drain);
-      RCLCPP_INFO(node_->get_logger(), "Audio data queued to stream: %s", stream_key.c_str());
+
+      if (wait_for_drain)
+      {
+        RCLCPP_INFO(node_->get_logger(), "Speaker playback drained for stream: %s", stream_key.c_str());
+      }
+      else
+      {
+        RCLCPP_INFO(node_->get_logger(), "Audio data queued to stream asynchronously: %s", stream_key.c_str());
+      }
     }
     catch (const perception_exception& e)
     {

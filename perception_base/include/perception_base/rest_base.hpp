@@ -62,6 +62,8 @@ public:
     node_->declare_parameter(plugin_name_ + ".rest.method", "POST");
     node_->declare_parameter(plugin_name_ + ".rest.ssl_verify", true);
     node_->declare_parameter(plugin_name_ + ".rest.auth_type", "Bearer");
+    node_->declare_parameter(plugin_name_ + ".rest.timeout_sec", 60);
+    node_->declare_parameter(plugin_name_ + ".rest.connect_timeout_sec", 10);
 
     // Get parameters from the parameter server
 
@@ -69,12 +71,16 @@ public:
     method_ = node_->get_parameter(plugin_name_ + ".rest.method").as_string();
     ssl_verify_ = node_->get_parameter(plugin_name_ + ".rest.ssl_verify").as_bool();
     auth_type_ = node_->get_parameter(plugin_name_ + ".rest.auth_type").as_string();
+    timeout_sec_ = node_->get_parameter(plugin_name_ + ".rest.timeout_sec").as_int();
+    connect_timeout_sec_ = node_->get_parameter(plugin_name_ + ".rest.connect_timeout_sec").as_int();
 
     // Log the parameters
     RCLCPP_INFO(node_->get_logger(), "Assigned driver URI: %s", uri_.c_str());
     RCLCPP_INFO(node_->get_logger(), "Assigned driver Method: %s", method_.c_str());
     RCLCPP_INFO(node_->get_logger(), "Assigned driver SSL Verify: %s", ssl_verify_ ? "true" : "false");
     RCLCPP_INFO(node_->get_logger(), "Assigned driver Auth Type: %s", auth_type_.c_str());
+    RCLCPP_INFO(node_->get_logger(), "Assigned driver Timeout: %ld sec", timeout_sec_);
+    RCLCPP_INFO(node_->get_logger(), "Assigned driver Connect Timeout: %ld sec", connect_timeout_sec_);
 
     // Load api key from environment
     if (!api_key_name.empty())
@@ -145,6 +151,7 @@ public:
     curl_easy_setopt(curl, CURLOPT_POSTFIELDSIZE, json_body.size());
     curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, write_callback);
     curl_easy_setopt(curl, CURLOPT_WRITEDATA, &response_data);
+    apply_timeouts(curl);
 
     if (!ssl_verify_)
     {
@@ -169,41 +176,7 @@ public:
 
     if (http_code != 200)
     {
-      std::string details;
-
-      // Try to extract a useful error message from JSON error payloads.
-      try
-      {
-        auto err_json = nlohmann::json::parse(response_data);
-        if (err_json.contains("error"))
-        {
-          const auto& err = err_json["error"];
-          if (err.is_object() && err.contains("message"))
-          {
-            if (err["message"].is_string())
-              details = err["message"].get<std::string>();
-            else
-              details = err["message"].dump();
-          }
-          else
-          {
-            details = err.dump();
-          }
-        }
-      }
-      catch (...) {}
-
-      // Fall back to a truncated raw body if parsing didn't work.
-      if (details.empty() && !response_data.empty())
-      {
-        constexpr size_t kMaxLen = 1024;
-        details = response_data.substr(0, std::min(kMaxLen, response_data.size()));
-      }
-
-      std::string msg = "HTTP error: " + std::to_string(http_code);
-      if (!details.empty())
-        msg += " - " + details;
-
+      const std::string msg = build_http_error_message(http_code, response_data);
       record_rest_result(false, http_code, msg);
       throw perception::perception_exception(msg);
     }
@@ -283,6 +256,7 @@ public:
     curl_easy_setopt(curl, CURLOPT_MIMEPOST, mime);
     curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, write_callback);
     curl_easy_setopt(curl, CURLOPT_WRITEDATA, &response_data);
+    apply_timeouts(curl);
 
     // Handle SSL verification
     if (!ssl_verify_)
@@ -328,8 +302,9 @@ public:
 
     if (http_code != 200)
     {
-      record_rest_result(false, http_code, "HTTP error: " + std::to_string(http_code));
-      throw perception_exception("HTTP error: " + std::to_string(http_code));
+      const std::string msg = build_http_error_message(http_code, response_data);
+      record_rest_result(false, http_code, msg);
+      throw perception_exception(msg);
     }
 
     // Parse and return response
@@ -365,7 +340,7 @@ public:
     json_body["input"] = req.prompt;  // Set input text explicitly
 
     std::string body = json_body.dump();
-    std::vector<uint8_t> audio_binary;
+    std::vector<uint8_t> response_binary;
 
     // Set headers
     struct curl_slist* headers = nullptr;
@@ -387,16 +362,17 @@ public:
     curl_easy_setopt(curl, CURLOPT_HTTPHEADER, headers);
     curl_easy_setopt(curl, CURLOPT_POSTFIELDS, body.c_str());
     curl_easy_setopt(curl, CURLOPT_POSTFIELDSIZE, body.size());
+    apply_timeouts(curl);
 
     // Write binary audio data to vector
     curl_easy_setopt(
         curl, CURLOPT_WRITEFUNCTION, +[](void* ptr, size_t size, size_t nmemb, void* userdata) -> size_t {
-          auto* vec = reinterpret_cast<std::vector<uint8_t>*>(userdata);
+              auto* vec = reinterpret_cast<std::vector<uint8_t>*>(userdata);
           size_t total_size = size * nmemb;
           vec->insert(vec->end(), (uint8_t*)ptr, (uint8_t*)ptr + total_size);
           return total_size;
         });
-    curl_easy_setopt(curl, CURLOPT_WRITEDATA, &audio_binary);
+            curl_easy_setopt(curl, CURLOPT_WRITEDATA, &response_binary);
 
     if (!ssl_verify_)
     {
@@ -420,13 +396,15 @@ public:
 
     if (http_code != 200)
     {
-      record_rest_result(false, http_code, "HTTP error: " + std::to_string(http_code));
-      throw perception_exception("HTTP error: " + std::to_string(http_code));
+      const std::string response_text(response_binary.begin(), response_binary.end());
+      const std::string msg = build_http_error_message(http_code, response_text);
+      record_rest_result(false, http_code, msg);
+      throw perception_exception(msg);
     }
 
     // Convert raw PCM to int16_t
-    std::vector<int16_t> samples(audio_binary.size() / 2);
-    std::memcpy(samples.data(), audio_binary.data(), audio_binary.size());
+    std::vector<int16_t> samples(response_binary.size() / 2);
+    std::memcpy(samples.data(), response_binary.data(), response_binary.size());
 
     perception::RESTResponse response;
     response.audio_stream = samples;  // Assuming audio_stream is a vector<int16_t>
@@ -436,6 +414,53 @@ public:
   }
 
 protected:
+  static std::string build_http_error_message(long http_code, const std::string& response_data)
+  {
+    std::string details;
+
+    try
+    {
+      const auto err_json = nlohmann::json::parse(response_data);
+      if (err_json.contains("error"))
+      {
+        const auto& err = err_json["error"];
+        if (err.is_object() && err.contains("message"))
+        {
+          if (err["message"].is_string())
+            details = err["message"].get<std::string>();
+          else
+            details = err["message"].dump();
+        }
+        else
+        {
+          details = err.dump();
+        }
+      }
+    }
+    catch (...) {}
+
+    if (details.empty() && !response_data.empty())
+    {
+      constexpr size_t kMaxLen = 1024;
+      details = response_data.substr(0, std::min(kMaxLen, response_data.size()));
+    }
+
+    std::string msg = "HTTP error: " + std::to_string(http_code);
+    if (!details.empty())
+      msg += " - " + details;
+
+    return msg;
+  }
+
+  void apply_timeouts(CURL* curl)
+  {
+    if (connect_timeout_sec_ > 0)
+      curl_easy_setopt(curl, CURLOPT_CONNECTTIMEOUT, connect_timeout_sec_);
+
+    if (timeout_sec_ > 0)
+      curl_easy_setopt(curl, CURLOPT_TIMEOUT, timeout_sec_);
+  }
+
   void record_rest_result(bool success, long http_code, const std::string& error)
   {
     rest_request_count_++;
@@ -483,6 +508,8 @@ protected:
   bool ssl_verify_;          // Flag for SSL verification
   std::string auth_type_;    // Type of authentication (e.g., Bearer)
   std::string api_key_;      // API key for authentication
+  long timeout_sec_{ 60 };
+  long connect_timeout_sec_{ 10 };
   std::atomic<uint64_t> rest_request_count_{ 0 };
   std::atomic<uint64_t> rest_failure_count_{ 0 };
   std::atomic<bool> last_rest_success_{ true };

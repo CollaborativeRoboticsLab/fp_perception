@@ -28,7 +28,7 @@ Class: `perception::MicrophoneAudioDriver` (PortAudio input)
 - `driver.audio.MicrophoneAudioDriver.chunk_size` (int)
 - `driver.audio.MicrophoneAudioDriver.sample_rate` (int)
 - `driver.audio.MicrophoneAudioDriver.channels` (int)
-- `driver.audio.MicrophoneAudioDriver.buffer_time` (int, seconds)
+- `driver.audio.MicrophoneAudioDriver.capture_buffer_window` (int, seconds)
 
 ### Typical usage
 

@@ -112,7 +112,7 @@ The rolling microphone buffer is sized as:
 
 $$\text{max\_samples} = sample\_rate \times channels \times buffer\_duration$$
 
-where `buffer_duration` comes from `interface.audio_input.buffer_duration`.
+where `audio_retention_window` comes from `interface.audio_input.audio_retention_window`.
 
 When the buffer exceeds this size, the server drops the oldest samples and keeps the latest window.
 

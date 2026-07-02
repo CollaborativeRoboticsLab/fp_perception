@@ -1,6 +1,6 @@
 PerceptionAudio audio
 bool use_device_audio
-int32 device_buffer_time
+int32 audio_request_window
 ---
 std_msgs/Header header
 string transcription

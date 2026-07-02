@@ -45,7 +45,7 @@ Request:
 
 - `PerceptionAudio audio`
 - `bool use_device_audio`
-- `int32 device_buffer_time`
+- `int32 audio_request_window`
 
 Response:
 
@@ -54,7 +54,7 @@ Response:
 - `bool success`
 
 The server uses `use_device_audio` to decide whether to use its internal microphone buffer or the request-provided `audio`.
-When `use_device_audio=true`, `device_buffer_time` controls how many seconds of audio the server collects from its public ring buffer.
+When `use_device_audio=true`, `audio_request_window` controls how many seconds of audio the server collects from its public ring buffer.
 
 ### `perception_msgs/srv/PerceptionSpeech`
 
@@ -77,7 +77,7 @@ Request:
 - `std_msgs/Header header`
 - `string text`
 - `bool use_device_audio`
-- `int32 device_buffer_time`
+- `int32 audio_request_window`
 
 Response:
 

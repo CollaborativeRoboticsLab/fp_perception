@@ -11,6 +11,7 @@ Class: `perception::OpenAISpeechDriver` (REST-based TTS)
 
 - Accepts `perception::text_data` via `synthesize()`.
 - Uses `RestBase::call_tts()` to request PCM audio from the configured REST endpoint.
+- Splits long text into smaller word-bounded chunks, synthesizes those chunks with bounded parallelism, then concatenates the PCM so playback stays in the original text order.
 - Returns the synthesized audio as `perception::audio_data`.
 
 ### Parameters
@@ -21,6 +22,9 @@ Class: `perception::OpenAISpeechDriver` (REST-based TTS)
 - `driver.speech.OpenAISpeechDriver.test_file_path` (string)
 - `driver.speech.OpenAISpeechDriver.voice` (string)
 - `driver.speech.OpenAISpeechDriver.instructions` (string)
+- `driver.speech.OpenAISpeechDriver.chunking_enabled` (bool): enable long-text chunking before TTS requests.
+- `driver.speech.OpenAISpeechDriver.chunk_max_words` (int): maximum number of words sent in a single TTS request.
+- `driver.speech.OpenAISpeechDriver.chunk_parallel_requests` (int): maximum number of chunk requests to synthesize concurrently.
 
 REST base parameters:
 

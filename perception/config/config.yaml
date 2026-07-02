@@ -122,6 +122,9 @@
           test_file_path: test/speech.wav
           voice: coral
           instructions: "Please speak clearly and slowly."
+          chunking_enabled: true
+          chunk_max_words: 100
+          chunk_parallel_requests: 3
           rest:
             uri: https://api.openai.com/v1/audio/speech
             method: POST

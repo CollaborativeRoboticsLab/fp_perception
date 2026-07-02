@@ -662,6 +662,10 @@ protected:
     }
 
     write_sentiment_response(sentiment_result_data, *response);
+
+    RCLCPP_INFO(this->get_logger(),
+                "Sending sentiment response: label='%s' score=%.3f analyzed_text='%s'",
+                response->label.c_str(), response->score, response->analyzed_text.c_str());
   }
 
   perception::audio_data read_latest_public_audio(int duration_seconds)
@@ -718,6 +722,23 @@ protected:
       const auto buffered_end_time = public_audio_buffer_.endTime();
       const double returned_seconds =
         static_cast<double>(out.chunk_size) / static_cast<double>(std::max(1, out.sample_rate));
+
+      if (out.samples.empty() || out.chunk_size <= 0)
+      {
+        RCLCPP_WARN(this->get_logger(),
+                    "Requested timestamped device audio window has no overlap with the buffered range. Falling back to latest %d seconds of buffered audio. requested=[%.9f, %.9f] buffered=[%.9f, %.9f]",
+                    duration_seconds, request.start_time.seconds(), requested_end_time.seconds(),
+                    buffered_start_time.seconds(), buffered_end_time.seconds());
+        return read_latest_public_audio(duration_seconds);
+      }
+
+      if (returned_seconds + 1e-6 < static_cast<double>(duration_seconds))
+      {
+        RCLCPP_WARN(this->get_logger(),
+                    "Requested timestamped device audio window is only partially available. Transcribing %.3f seconds of overlapping audio. requested=[%.9f, %.9f] buffered=[%.9f, %.9f]",
+                    returned_seconds, request.start_time.seconds(), requested_end_time.seconds(),
+                    buffered_start_time.seconds(), buffered_end_time.seconds());
+      }
 
       RCLCPP_INFO(this->get_logger(),
                   "Timestamped device audio window ready: requested=[%.9f, %.9f] buffered=[%.9f, %.9f] returned=%.3f seconds frames=%d",

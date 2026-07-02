@@ -118,10 +118,10 @@ public:
     const double buffered_seconds = static_cast<double>(buffered_frames) / static_cast<double>(sample_rate);
     if (buffered_seconds < 0.5)
     {
-      RCLCPP_WARN(rclcpp::get_logger("AudioBuffer"),
-                  "Public audio buffer remains small after append: added_frames=%zu buffered_frames=%zu buffered_seconds=%.3f retention=%d start=%.9f end=%.9f",
-                  incoming_frames, buffered_frames, buffered_seconds, max_duration_seconds,
-                  buffer_start_time_.seconds(), buffer_end_time_.seconds());
+      RCLCPP_DEBUG(rclcpp::get_logger("AudioBuffer"),
+                   "Public audio buffer remains small after append: added_frames=%zu buffered_frames=%zu buffered_seconds=%.3f retention=%d start=%.9f end=%.9f",
+                   incoming_frames, buffered_frames, buffered_seconds, max_duration_seconds,
+                   buffer_start_time_.seconds(), buffer_end_time_.seconds());
     }
 
     lock.unlock();
@@ -188,8 +188,8 @@ public:
 
     audio_data out = buffer_;
     const size_t requested_frames = static_cast<size_t>(sample_rate) * static_cast<size_t>(duration_seconds);
-    out.samples.assign(requested_frames * static_cast<size_t>(channels), 0);
-    out.chunk_size = static_cast<int>(requested_frames);
+    out.samples.clear();
+    out.chunk_size = 0;
     out.chunk_count = 1;
     out.sample_rate = sample_rate;
     out.channels = channels;
@@ -209,13 +209,14 @@ public:
 
     frames_to_copy = std::min(frames_to_copy, available_frames - source_start_frame);
     frames_to_copy = std::min(frames_to_copy, requested_frames - output_start_frame);
+    if (frames_to_copy == 0)
+      return out;
 
     const size_t source_start_sample = source_start_frame * static_cast<size_t>(channels);
-    const size_t output_start_sample = output_start_frame * static_cast<size_t>(channels);
     const size_t samples_to_copy = frames_to_copy * static_cast<size_t>(channels);
-    std::copy(buffer_.samples.begin() + static_cast<std::ptrdiff_t>(source_start_sample),
-              buffer_.samples.begin() + static_cast<std::ptrdiff_t>(source_start_sample + samples_to_copy),
-              out.samples.begin() + static_cast<std::ptrdiff_t>(output_start_sample));
+    out.samples.assign(buffer_.samples.begin() + static_cast<std::ptrdiff_t>(source_start_sample),
+                       buffer_.samples.begin() + static_cast<std::ptrdiff_t>(source_start_sample + samples_to_copy));
+    out.chunk_size = static_cast<int>(frames_to_copy);
 
     return out;
   }
@@ -280,7 +281,7 @@ private:
   {
     const int64_t nanoseconds = static_cast<int64_t>((static_cast<long double>(frames) * 1000000000.0L) /
                                                      static_cast<long double>(std::max(1, sample_rate)));
-    return rclcpp::Duration(0, nanoseconds);
+    return rclcpp::Duration::from_nanoseconds(nanoseconds);
   }
 
   static size_t durationToFrames(const rclcpp::Duration& duration, int sample_rate)

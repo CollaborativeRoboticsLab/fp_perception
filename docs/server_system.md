@@ -93,6 +93,8 @@ Note: if both `use_ros_vision_driver=true` and `use_non_ros_vision_driver=true`,
 - `interface.audio_input.topic` (string)
 - `interface.audio_input.frame_id` (string)
 - `interface.audio_input.frequency` (int)
+- `interface.audio_input.audio_retention_window` (int, seconds)
+- `interface.audio_input.default_audio_request_window` (int, seconds)
 
 If enabled, the server publishes `perception_msgs/msg/PerceptionAudio` at the configured rate.
 
@@ -140,6 +142,8 @@ When the buffer exceeds this size, the server drops the oldest samples and keeps
 
 If `use_ros_vision_driver=true`, the server can republish frames from the ROS image subscriber driver.
 If `use_non_ros_vision_driver=true`, the server can also publish frames from the OpenCV driver.
+
+The checked-in config currently enables the ROS vision path and publishes on `perception/camera`.
 
 ## End-to-end flows
 

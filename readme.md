@@ -11,9 +11,10 @@ It enables modular development and dynamic loading of components at runtime usin
 Start here:
 
 - [Server plugin loading and device and data acquisition](docs/server_system.md) 
-- [ROS Topic, Service and Action Interfaces](docs/interfaces.md)
+- [ROS topics and services](docs/interfaces.md)
 - [Testing the System and Interfaces](docs/test_the_system.md)
 - [Base Classes](docs/base_classes.md)
+- [Plugin Configuration](docs/plugin_configuration.md)
 
 Drivers:
 
@@ -88,6 +89,8 @@ python3 src/perception/perception_driver_audio/find_devices.py
 
 See [Test the System](docs/test_the_system.md) for startup validation, generated WAV checks, and service-call examples.
 
+The launch files load the installed config from `install/perception/share/perception/config/config.yaml`. After editing `perception/config/config.yaml`, rebuild `perception` and re-source the workspace before relaunching.
+
 ```sh
 export OPENAI_API_KEY=
 export HUGGINGFACE_API_KEY=
@@ -106,6 +109,6 @@ ros2 launch perception server.launch.py
 ## Future Extensions
 
 - [ ] Dynamic runtime reconfiguration
-- [ ] Built-in diagnostics
+- [ ] Richer diagnostics dashboards and tooling
 - [ ] Visualization tools for debugging perception pipelines
 - [ ] Performance benchmarking and logging

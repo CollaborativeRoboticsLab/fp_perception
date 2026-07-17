@@ -22,20 +22,20 @@ The server passes both the image and the prompt to the driver.
 
 ### Parameters
 
-The driver reads parameters under `driver.image_analysis.OpenAIDriver.*`:
+The driver reads parameters under `driver.image_analysis.OpenAIImageAnalysisDriver.*`:
 
 - `name` (string): informational name
-- `model` (string): model used for image analysis (default `gpt-4.1`)
+- `model` (string): model used for image analysis (current default `gpt-5-mini`)
 - `detail` (string): image detail level (`auto`, `low`, `high`)
 - `test_file_path` (string): image path used by the driver `test()` function
 - `test_prompt` (string): prompt used by the driver `test()` function
 
 REST settings (provided by `RestBase`):
 
-- `driver.image_analysis.OpenAIDriver.rest.uri` (string): should be `https://api.openai.com/v1/responses`
-- `driver.image_analysis.OpenAIDriver.rest.method` (string): `POST`
-- `driver.image_analysis.OpenAIDriver.rest.ssl_verify` (bool)
-- `driver.image_analysis.OpenAIDriver.rest.auth_type` (string): `Bearer`
+- `driver.image_analysis.OpenAIImageAnalysisDriver.rest.uri` (string): should be `https://api.openai.com/v1/responses`
+- `driver.image_analysis.OpenAIImageAnalysisDriver.rest.method` (string): `POST`
+- `driver.image_analysis.OpenAIImageAnalysisDriver.rest.ssl_verify` (bool)
+- `driver.image_analysis.OpenAIImageAnalysisDriver.rest.auth_type` (string): `Bearer`
 
 Environment variables:
 

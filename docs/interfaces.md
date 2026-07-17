@@ -83,6 +83,7 @@ Response:
 
 - `string label`
 - `float64 score`
+- `string analyzed_text`
 
 When `use_device_audio` is `true`, the server transcribes its microphone buffer first and then runs sentiment analysis on the transcribed text.
 

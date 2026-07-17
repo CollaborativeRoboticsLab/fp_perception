@@ -23,7 +23,7 @@ source /opt/ros/jazzy/setup.bash
 source install/setup.bash
 ```
 
-The default development config has `run_tests: true`, so launch will exercise the loaded plugins before the server settles into normal operation.
+The checked-in config currently has `run_tests: false`. If you want launch-time plugin self-tests, set `run_tests: true` in `perception/config/config.yaml`, then rebuild `perception` and re-source the workspace before relaunching.
 
 Optional sanity checks:
 
@@ -109,7 +109,7 @@ You should see a nonzero publish rate and messages with populated `samples`. The
 
 ## Transcription service (device audio)
 
-Default service name is typically `perception/transcription`.
+Default service name is `perception/transcription`.
 
 This reads from the server's public audio buffer for `audio_request_window` seconds and transcribes it. Speak into the microphone immediately before or during the call.
 
@@ -167,7 +167,7 @@ ros2 service call /perception/transcription perception_msgs/srv/PerceptionTransc
 
 ## Sentiment service (device audio)
 
-Default service name is typically `perception/sentiment_analysis`.
+Default service name is `perception/sentiment_analysis`.
 
 If `use_device_audio: true`, the server will:
 
@@ -208,7 +208,7 @@ ros2 service call /perception/sentiment_analysis perception_msgs/srv/PerceptionS
 
 ## Speech synthesis service (device audio playback)
 
-Default service name is typically `perception/speech`.
+Default service name is `perception/speech`.
 
 If `use_device_audio: true`, the server will synthesize speech and play it through the configured speaker driver.
 
@@ -252,7 +252,7 @@ The system is tested with Realsense D435 Camera. So the current devcontainer inc
 ros2 launch realsense2_camera rs_launch.py
 ```
 
-Default service name is typically `perception/image_analysis`.
+Default service name is `perception/image_analysis`.
 
 This is the easiest way to test from the CLI because you don't need to embed image bytes into the request.
 
@@ -277,3 +277,5 @@ Notes:
 
 - Requires `interface.image_analysis.provide_service: true` and at least one enabled vision driver such as `use_ros_vision_driver: true` or `use_non_ros_vision_driver: true` in config.
 - `image` is ignored when `use_device_vision: true`, but must still be present to satisfy the request type.
+- The checked-in config enables the ROS vision driver by default and reads from `driver.vision.DefaultDriver.topic`, currently `/camera/camera/color/image_raw`.
+- After editing `perception/config/config.yaml`, rebuild with `colcon build --packages-select perception` so the installed launch-time config is updated.

@@ -12,7 +12,7 @@ export OPENAI_API_KEY=
 export HUGGINGFACE_API_KEY=
 
 source install/setup.bash
-ros2 launch perception server.launch.py
+ros2 launch fp_perception server.launch.py
 ```
 
 In a second terminal, source the workspace:
@@ -23,16 +23,16 @@ source /opt/ros/jazzy/setup.bash
 source install/setup.bash
 ```
 
-The checked-in config currently has `run_tests: false`. If you want launch-time plugin self-tests, set `run_tests: true` in `perception/config/config.yaml`, then rebuild `perception` and re-source the workspace before relaunching.
+The checked-in config currently has `run_tests: false`. If you want launch-time plugin self-tests, set `run_tests: true` in `src/fp_perception/fp_perception/config/config.yaml`, then rebuild `fp_perception` and re-source the workspace before relaunching.
 
 Optional sanity checks:
 
 ```bash
 ros2 service list | grep perception
-ros2 interface show perception_msgs/srv/PerceptionTranscribe
-ros2 interface show perception_msgs/srv/PerceptionSentiment
-ros2 interface show perception_msgs/srv/PerceptionSpeech
-ros2 interface show perception_msgs/srv/PerceptionImageAnalysis
+ros2 interface show fp_perception_msgs/srv/PerceptionTranscribe
+ros2 interface show fp_perception_msgs/srv/PerceptionSentiment
+ros2 interface show fp_perception_msgs/srv/PerceptionSpeech
+ros2 interface show fp_perception_msgs/srv/PerceptionImageAnalysis
 ```
 
 ## Startup device and plugin validation
@@ -80,7 +80,7 @@ After the startup tests finish, verify the generated WAV files directly through 
 cd ~/colcon_ws
 
 # find the device name and route for your speaker from the PortAudio log, e.g. 'ALC285 Analog' with 'hw:3,0' route
-python3 src/perception/perception_driver_audio/find_devices.py
+python3 src/fp_perception/fp_perception_driver_audio/find_devices.py
 
 # Confirm the microphone test recording is audible.
 aplay -D plughw:2,0 test/mic_test.wav
@@ -119,7 +119,7 @@ Latest-buffer smoke test:
 
 ```bash
 source install/setup.bash
-ros2 service call /perception/transcription perception_msgs/srv/PerceptionTranscribe "{
+ros2 service call /perception/transcription fp_perception_msgs/srv/PerceptionTranscribe "{
   audio: {
     header: {stamp: {sec: 0, nanosec: 0}, frame_id: ''},
     sample_rate: 0,
@@ -142,7 +142,7 @@ echo "Speak for the next 5 seconds..."
 sleep 5
 
 source install/setup.bash
-ros2 service call /perception/transcription perception_msgs/srv/PerceptionTranscribe "{
+ros2 service call /perception/transcription fp_perception_msgs/srv/PerceptionTranscribe "{
   audio: {
     header: {stamp: {sec: ${STAMP_SEC}, nanosec: ${STAMP_NSEC}}, frame_id: ''},
     sample_rate: 0,
@@ -181,7 +181,7 @@ Latest-buffer smoke test:
 
 ```bash
 source install/setup.bash
-ros2 service call /perception/sentiment_analysis perception_msgs/srv/PerceptionSentiment "{
+ros2 service call /perception/sentiment_analysis fp_perception_msgs/srv/PerceptionSentiment "{
   header: {stamp: {sec: 0, nanosec: 0}, frame_id: ''},
   text: '',
   use_device_audio: true,
@@ -198,7 +198,7 @@ echo "Speak with a positive or negative phrase for the next 5 seconds..."
 sleep 5
 
 source install/setup.bash
-ros2 service call /perception/sentiment_analysis perception_msgs/srv/PerceptionSentiment "{
+ros2 service call /perception/sentiment_analysis fp_perception_msgs/srv/PerceptionSentiment "{
   header: {stamp: {sec: ${STAMP_SEC}, nanosec: ${STAMP_NSEC}}, frame_id: ''},
   text: '',
   use_device_audio: true,
@@ -216,7 +216,7 @@ Device-playback smoke test:
 
 ```bash
 source install/setup.bash
-ros2 service call /perception/speech perception_msgs/srv/PerceptionSpeech "{
+ros2 service call /perception/speech fp_perception_msgs/srv/PerceptionSpeech "{
   input: {
     header: {stamp: {sec: 0, nanosec: 0}, frame_id: ''},
     text: 'Hello from perception',
@@ -242,7 +242,7 @@ Expected outcome for these three service smoke tests:
 - If you request a longer `audio_request_window` than the server buffer duration, increase `interface.audio_input.audio_retention_window`.
 - If you don’t hear speech output with `use_device_audio: true`, ensure the speaker driver is enabled and the container can access an output device.
 - If `aplay` works but the speaker driver does not, compare the `aplay -D plughw:X,Y` route against the `hw:X,Y` shown in the PortAudio resolved-device log.
-- If `test/mic_test.wav` is silent, confirm the microphone input source is selected in the host audio settings and rerun `ros2 launch perception server.launch.py` with `run_tests: true`.
+- If `test/mic_test.wav` is silent, confirm the microphone input source is selected in the host audio settings and rerun `ros2 launch fp_perception server.launch.py` with `run_tests: true`.
 
 ### Image analysis service (device vision)
 
@@ -257,7 +257,7 @@ Default service name is `perception/image_analysis`.
 This is the easiest way to test from the CLI because you don't need to embed image bytes into the request.
 
 ```bash
-ros2 service call /perception/image_analysis perception_msgs/srv/PerceptionImageAnalysis "{
+ros2 service call /perception/image_analysis fp_perception_msgs/srv/PerceptionImageAnalysis "{
   header: {stamp: {sec: 0, nanosec: 0}, frame_id: ''},
   image: {
     header: {stamp: {sec: 0, nanosec: 0}, frame_id: ''},
@@ -278,4 +278,4 @@ Notes:
 - Requires `interface.image_analysis.provide_service: true` and at least one enabled vision driver such as `use_ros_vision_driver: true` or `use_non_ros_vision_driver: true` in config.
 - `image` is ignored when `use_device_vision: true`, but must still be present to satisfy the request type.
 - The checked-in config enables the ROS vision driver by default and reads from `driver.vision.DefaultDriver.topic`, currently `/camera/camera/color/image_raw`.
-- After editing `perception/config/config.yaml`, rebuild with `colcon build --packages-select perception` so the installed launch-time config is updated.
+- After editing `src/fp_perception/fp_perception/config/config.yaml`, rebuild with `colcon build --packages-select fp_perception` so the installed launch-time config is updated.

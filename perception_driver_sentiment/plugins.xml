@@ -1,8 +1,0 @@
-<library path="perception_driver_sentiment">
-    <class type="perception::SentimentDriver" base_class_type="perception::DriverBase">
-        <description>
-            A plugin that provide sentiment analysis service through prompt tools.
-            It uses the prompt tools library to determine sentiment of a given text.
-        </description>
-    </class>
-</library>

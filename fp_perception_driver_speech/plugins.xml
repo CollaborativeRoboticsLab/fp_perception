@@ -1,0 +1,7 @@
+<library path="fp_perception_driver_speech">
+    <class type="fp_perception::OpenAISpeechDriver" base_class_type="fp_perception::DriverBase">
+        <description>
+            A plugin that provide text to audio service through OpenAI API.
+        </description>
+    </class>
+</library>

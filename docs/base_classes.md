@@ -5,7 +5,7 @@ This package is built around a small set of base classes and typed role interfac
 
 ## DriverBase
 
-`perception::DriverBase` is the common base class for all perception plugins.
+`fp_perception::DriverBase` is the common base class for all perception plugins.
 
 ### Lifecycle
 
@@ -37,7 +37,7 @@ Server and pipeline code use typed interfaces:
 
 ## RestBase
 
-`perception::RestBase` derives from `DriverBase` and provides a reusable REST client built on libcurl.
+`fp_perception::RestBase` derives from `DriverBase` and provides a reusable REST client built on libcurl.
 
 ### REST initialization
 

@@ -1,7 +1,7 @@
 
 # Server system
 
-The perception server (`perception::PerceptionServer`) is a ROS 2 node that loads perception "drivers" as pluginlib plugins and exposes a simple set of ROS interfaces (topics and services) for audio, vision, transcription, speech synthesis, sentiment, and image analysis.
+The perception server (`fp_perception::PerceptionServer`) is a ROS 2 node that loads perception "drivers" as pluginlib plugins and exposes a simple set of ROS interfaces (topics and services) for audio, vision, transcription, speech synthesis, sentiment, and image analysis.
 
 This document focuses on:
 
@@ -13,16 +13,16 @@ This document focuses on:
 
 ### Drivers are plugins
 
-- Drivers implement `perception::DriverBase`.
-- The server loads drivers at runtime using `pluginlib::ClassLoader<perception::DriverBase>`.
-- Each driver is selected by a fully-qualified class name parameter (for example `perception::MicrophoneAudioDriver`).
+- Drivers implement `fp_perception::DriverBase`.
+- The server loads drivers at runtime using `pluginlib::ClassLoader<fp_perception::DriverBase>`.
+- Each driver is selected by a fully-qualified class name parameter (for example `fp_perception::MicrophoneAudioDriver`).
 - Loaded plugins are cast to typed role interfaces such as `AudioSourceDriver`, `AudioSinkDriver`, `TranscriptionDriver`, `SpeechSynthesisDriver`, `SentimentAnalysisDriver`, `VisionSourceDriver`, and `ImageAnalysisDriver`.
 
 ### Typed data exchange
 
-- Runtime workflows use typed interfaces and shared structs such as `perception::audio_data`, `perception::text_data`, `transcription_request`, `sentiment_request`, and `image_analysis_request`.
+- Runtime workflows use typed interfaces and shared structs such as `fp_perception::audio_data`, `fp_perception::text_data`, `transcription_request`, `sentiment_request`, and `image_analysis_request`.
 - `DriverBase` remains the pluginlib base and lifecycle surface; its legacy untyped data hooks are kept only for compatibility with old callers.
-- The server converts between ROS messages (`perception_msgs/*`, `sensor_msgs/*`) and internal typed structs at the node boundary.
+- The server converts between ROS messages (`fp_perception_msgs/*`, `sensor_msgs/*`) and internal typed structs at the node boundary.
 
 ### Device acquisition lives in the plugins
 
@@ -74,14 +74,14 @@ And:
 
 These parameters select which pluginlib class gets loaded:
 
-- `ros_vision_driver` (default `perception::DefaultDriver`)
-- `non_ros_vision_driver` (default `perception::OpenCVDriver`)
-- `microphone_driver` (default `perception::MicrophoneAudioDriver`)
-- `speaker_driver` (default `perception::SpeakerAudioDriver`)
-- `transcription_driver` (default `perception::OpenAIDriver`)
-- `speech_synthesis_driver` (default `perception::OpenAISpeechDriver`)
-- `sentiment_driver` (default `perception::SentimentDriver`)
-- `image_analysis_driver` (default `perception::OpenAIImageAnalysisDriver`)
+- `ros_vision_driver` (default `fp_perception::DefaultDriver`)
+- `non_ros_vision_driver` (default `fp_perception::OpenCVDriver`)
+- `microphone_driver` (default `fp_perception::MicrophoneAudioDriver`)
+- `speaker_driver` (default `fp_perception::SpeakerAudioDriver`)
+- `transcription_driver` (default `fp_perception::OpenAIDriver`)
+- `speech_synthesis_driver` (default `fp_perception::OpenAISpeechDriver`)
+- `sentiment_driver` (default `fp_perception::SentimentDriver`)
+- `image_analysis_driver` (default `fp_perception::OpenAIImageAnalysisDriver`)
 
 Note: if both `use_ros_vision_driver=true` and `use_non_ros_vision_driver=true`, the current server code loads both vision drivers and the publish loop can emit frames from both sources.
 
@@ -96,7 +96,7 @@ Note: if both `use_ros_vision_driver=true` and `use_non_ros_vision_driver=true`,
 - `interface.audio_input.audio_retention_window` (int, seconds)
 - `interface.audio_input.default_audio_request_window` (int, seconds)
 
-If enabled, the server publishes `perception_msgs/msg/PerceptionAudio` at the configured rate.
+If enabled, the server publishes `fp_perception_msgs/msg/PerceptionAudio` at the configured rate.
 
 #### Audio output topic (optional subscribe)
 

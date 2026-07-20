@@ -1,18 +1,18 @@
 
 # Speech drivers
 
-This page documents the speech synthesis plugin in `perception_driver_speech`.
+This page documents the speech synthesis plugin in `fp_perception_driver_speech`.
 
 ## OpenAISpeechDriver
 
-Class: `perception::OpenAISpeechDriver` (REST-based TTS)
+Class: `fp_perception::OpenAISpeechDriver` (REST-based TTS)
 
 ### What it does
 
-- Accepts `perception::text_data` via `synthesize()`.
+- Accepts `fp_perception::text_data` via `synthesize()`.
 - Uses `RestBase::call_tts()` to request PCM audio from the configured REST endpoint.
 - Splits long text into smaller word-bounded chunks, synthesizes those chunks with bounded parallelism, then concatenates the PCM so playback stays in the original text order.
-- Returns the synthesized audio as `perception::audio_data`.
+- Returns the synthesized audio as `fp_perception::audio_data`.
 
 ### Parameters
 
@@ -39,7 +39,7 @@ Environment:
 
 ### Usage with the server
 
-- The server offers `perception_msgs/srv/PerceptionSpeech`.
+- The server offers `fp_perception_msgs/srv/PerceptionSpeech`.
 - If `use_device_audio=true`, the server routes synthesized audio to the speaker driver.
 - Otherwise, it returns the audio in the service response.
 - If `use_diagnostics=true`, the driver publishes request health on `/diagnostics` via `diagnostic_updater`.

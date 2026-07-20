@@ -1,17 +1,17 @@
 
 # Audio drivers
 
-This page documents the audio input/output plugins in `perception_driver_audio`.
+This page documents the audio input/output plugins in `fp_perception_driver_audio`.
 
 ## Concepts
 
-- Audio data is represented as `perception::audio_data` (used inside drivers) and `perception_msgs/msg/PerceptionAudio` (used on ROS topics/services).
+- Audio data is represented as `fp_perception::audio_data` (used inside drivers) and `fp_perception_msgs/msg/PerceptionAudio` (used on ROS topics/services).
 - Device acquisition uses PortAudio.
 - Plugins are loaded by the perception server using pluginlib and used through typed audio interfaces.
 
 ## MicrophoneAudioDriver
 
-Class: `perception::MicrophoneAudioDriver` (PortAudio input)
+Class: `fp_perception::MicrophoneAudioDriver` (PortAudio input)
 
 ### Device acquisition
 
@@ -38,7 +38,7 @@ Class: `perception::MicrophoneAudioDriver` (PortAudio input)
 
 ## SpeakerAudioDriver
 
-Class: `perception::SpeakerAudioDriver` (PortAudio output)
+Class: `fp_perception::SpeakerAudioDriver` (PortAudio output)
 
 ### Device acquisition
 

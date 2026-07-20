@@ -1,0 +1,12 @@
+<library path="fp_perception_driver_audio">
+    <class type="fp_perception::MicrophoneAudioDriver" base_class_type="fp_perception::DriverBase">
+        <description>
+            A plugin that provide basic audio driver functionality for listening to microphone audio
+        </description>
+    </class>
+    <class type="fp_perception::SpeakerAudioDriver" base_class_type="fp_perception::DriverBase">
+        <description>
+            A plugin that provide basic audio driver functionality for playing audio through speakers
+        </description>
+    </class>
+</library>

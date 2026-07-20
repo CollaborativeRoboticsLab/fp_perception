@@ -1,11 +1,11 @@
 
 # Vision drivers
 
-This page documents the vision plugins in `perception_driver_vision`.
+This page documents the vision plugins in `fp_perception_driver_vision`.
 
 ## DefaultDriver (ROS image subscription)
 
-Class: `perception::DefaultDriver`
+Class: `fp_perception::DefaultDriver`
 
 ### What it does
 
@@ -25,7 +25,7 @@ Class: `perception::DefaultDriver`
 
 ## OpenCVDriver (direct device capture)
 
-Class: `perception::OpenCVDriver`
+Class: `fp_perception::OpenCVDriver`
 
 ### What it does
 

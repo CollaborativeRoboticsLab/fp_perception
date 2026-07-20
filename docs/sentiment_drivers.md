@@ -1,11 +1,11 @@
 
 # Sentiment drivers
 
-This page documents the sentiment analysis plugin in `perception_driver_sentiment`.
+This page documents the sentiment analysis plugin in `fp_perception_driver_sentiment`.
 
 ## SentimentDriver
 
-Class: `perception::SentimentDriver` (REST-based sentiment inference)
+Class: `fp_perception::SentimentDriver` (REST-based sentiment inference)
 
 ### What it does
 
@@ -30,7 +30,7 @@ Environment:
 
 ### Usage with the server
 
-- The server offers `perception_msgs/srv/PerceptionSentiment`.
+- The server offers `fp_perception_msgs/srv/PerceptionSentiment`.
 - If `use_device_audio=true`, the server transcribes device audio first and then runs sentiment on the transcription.
 - Otherwise, it runs sentiment directly on the request text.
 - If `use_diagnostics=true`, the driver publishes request health on `/diagnostics` via `diagnostic_updater`.

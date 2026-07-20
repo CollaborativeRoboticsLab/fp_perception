@@ -1,0 +1,7 @@
+<library path="fp_perception_driver_transcribe">
+    <class type="fp_perception::OpenAIDriver" base_class_type="fp_perception::DriverBase">
+        <description>
+            A plugin that provide transciption service through OpenAI api.
+        </description>
+    </class>
+</library>

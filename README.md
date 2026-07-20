@@ -1,8 +1,8 @@
-# Perception
+# First Person Perception Stack
 
 ## Overview
 
-The `perception` package provides a **standardized, plugin-based architecture** for managing **drivers** (and related processing) that power perception systems in **human-robot interaction (HRI)** scenarios.
+The `fp_perception` package provides a **standardized, plugin-based architecture** for managing **drivers** (and related processing) that power perception systems in **human-robot interaction (HRI)** scenarios.
 
 It enables modular development and dynamic loading of components at runtime using ROS 2's [`pluginlib`](https://github.com/ros/pluginlib), simplifying integration, testing, and extension of perception pipelines.
 
@@ -43,8 +43,8 @@ Drivers:
 - `RestBase` is used to implement drivers that interact with REST APIs (e.g., OpenAI, HuggingFace).
 
 - Driver READMEs:
-  - [perception_driver_vision/readme.md](perception_driver_vision/readme.md)
-  - [perception_driver_audio/readme.md](perception_driver_audio/readme.md)
+  - [fp_perception_driver_vision/readme.md](fp_perception_driver_vision/readme.md)
+  - [fp_perception_driver_audio/readme.md](fp_perception_driver_audio/readme.md)
 
 - Plugin Configuration:
   - [docs/plugin_configuration.md](docs/plugin_configuration.md)
@@ -59,7 +59,7 @@ cd perception_ws/src
 
 Clone the repository
 ```sh
-git clone https://github.com/CollaborativeRoboticsLab/perception.git
+git clone https://github.com/CollaborativeRoboticsLab/fp_perception.git
 ```
 
 Install dependencies
@@ -84,23 +84,23 @@ colcon build
 If using microphone or speaker, configure the audio drivers by `device_name` when possible. The test guide shows how to confirm the selected PortAudio device and map it to an ALSA `plughw:X,Y` route for direct WAV playback checks.
 
 ```sh
-python3 src/perception/perception_driver_audio/find_devices.py
+python3 src/fp_perception/fp_perception_driver_audio/find_devices.py
 ```
 
 See [Test the System](docs/test_the_system.md) for startup validation, generated WAV checks, and service-call examples.
 
-The launch files load the installed config from `install/perception/share/perception/config/config.yaml`. After editing `perception/config/config.yaml`, rebuild `perception` and re-source the workspace before relaunching.
+The launch files load the installed config from `install/fp_perception/share/fp_perception/config/config.yaml`. After editing `src/fp_perception/fp_perception/config/config.yaml`, rebuild `fp_perception` and re-source the workspace before relaunching.
 
 ```sh
 export OPENAI_API_KEY=
 export HUGGINGFACE_API_KEY=
 source install/setup.bash
-ros2 launch perception server.launch.py
+ros2 launch fp_perception server.launch.py
 ```
 
 ## Writing Your Own Plugins
 
-1. Inherit from `perception::DriverBase` (or `perception::RestBase` for REST-backed drivers).
+1. Inherit from `fp_perception::DriverBase` (or `fp_perception::RestBase` for REST-backed drivers).
 2. Implement required methods (`initialize`, `deinitialize`) and whichever data methods you need (`getData*`, `setData*`).
 3. Register your plugin using `PLUGINLIB_EXPORT_CLASS`.
 4. Define a plugin XML manifest.

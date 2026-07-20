@@ -1,11 +1,11 @@
 # Plugin configuration
 
-The perception launch files load parameters from `perception/config/config.yaml`, which is installed to `install/perception/share/perception/config/config.yaml` during the build.
+The fp_perception launch files load parameters from `src/fp_perception/fp_perception/config/config.yaml`, which is installed to `install/fp_perception/share/fp_perception/config/config.yaml` during the build.
 
 At a high level:
 
 1. Enable the feature group with `use_*`.
-2. Pick the plugin class to load, for example `microphone_driver: perception::MicrophoneAudioDriver`.
+2. Pick the plugin class to load, for example `microphone_driver: fp_perception::MicrophoneAudioDriver`.
 3. Configure the ROS interfaces under `interface.*`.
 4. Configure per-plugin parameters under `driver.*`.
 
@@ -31,14 +31,14 @@ The checked-in config currently looks like this:
     use_diagnostics: true
 
     # Pluginlib class selection
-    ros_vision_driver: perception::DefaultDriver
-    non_ros_vision_driver: perception::OpenCVDriver
-    microphone_driver: perception::MicrophoneAudioDriver
-    speaker_driver: perception::SpeakerAudioDriver
-    transcription_driver: perception::OpenAIDriver
-    sentiment_driver: perception::SentimentDriver
-    speech_synthesis_driver: perception::OpenAISpeechDriver
-    image_analysis_driver: perception::OpenAIImageAnalysisDriver
+    ros_vision_driver: fp_perception::DefaultDriver
+    non_ros_vision_driver: fp_perception::OpenCVDriver
+    microphone_driver: fp_perception::MicrophoneAudioDriver
+    speaker_driver: fp_perception::SpeakerAudioDriver
+    transcription_driver: fp_perception::OpenAIDriver
+    sentiment_driver: fp_perception::SentimentDriver
+    speech_synthesis_driver: fp_perception::OpenAISpeechDriver
+    image_analysis_driver: fp_perception::OpenAIImageAnalysisDriver
 
     interface:
       audio_input:
@@ -99,13 +99,13 @@ The checked-in config currently looks like this:
           device_name: "ALC285 Analog"
           sample_rate: 48000
           channels: 2
-          test_file_path: install/perception_driver_audio/share/perception_driver_audio/audio/hello-1.wav
+          test_file_path: install/fp_perception_driver_audio/share/fp_perception_driver_audio/audio/hello-1.wav
 
       transcription:
         OpenAIDriver:
           name: OpenAIDriver
           model: whisper-1
-          test_file_path: install/perception_driver_audio/share/perception_driver_audio/audio/hello-1.wav
+          test_file_path: install/fp_perception_driver_audio/share/fp_perception_driver_audio/audio/hello-1.wav
           rest:
             uri: https://api.openai.com/v1/audio/transcriptions
             method: POST
@@ -142,7 +142,7 @@ The checked-in config currently looks like this:
         OpenAIImageAnalysisDriver:
           name: OpenAIImageAnalysisDriver
           model: gpt-5-mini
-          test_file_path: install/perception_driver_image_analysis/share/perception_driver_image_analysis/image/image.png
+          test_file_path: install/fp_perception_driver_image_analysis/share/fp_perception_driver_image_analysis/image/image.png
           test_prompt: "Does this image contain a cat?"
           detail: low
           rest:
@@ -162,6 +162,6 @@ The checked-in config currently looks like this:
 After editing the config, rebuild and re-source so the installed copy is refreshed:
 
 ```sh
-colcon build --packages-select perception
+colcon build --packages-select fp_perception
 source install/setup.bash
 ```

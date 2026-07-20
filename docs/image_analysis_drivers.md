@@ -7,7 +7,7 @@ This document describes the image analysis driver plugins and how they integrate
 
 Plugin type:
 
-- `perception::OpenAIImageAnalysisDriver`
+- `fp_perception::OpenAIImageAnalysisDriver`
 
 This driver is REST-backed and uses the OpenAI **Responses API** to analyze an image and return text.
 

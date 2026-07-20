@@ -1,11 +1,11 @@
 
 # Transcription drivers
 
-This page documents the transcription plugin in `perception_driver_transcribe`.
+This page documents the transcription plugin in `fp_perception_driver_transcribe`.
 
 ## OpenAIDriver
 
-Class: `perception::OpenAIDriver` (REST-based audio transcription)
+Class: `fp_perception::OpenAIDriver` (REST-based audio transcription)
 
 ### What it does
 
@@ -32,7 +32,7 @@ Environment:
 
 ### Usage with the server
 
-- The server offers `perception_msgs/srv/PerceptionTranscribe`.
+- The server offers `fp_perception_msgs/srv/PerceptionTranscribe`.
 - If `use_device_audio=true`, the server transcribes its internal rolling microphone buffer.
 - Otherwise, it transcribes the request-provided `PerceptionAudio`.
 - If `use_diagnostics=true`, the driver publishes request health on `/diagnostics` via `diagnostic_updater`.

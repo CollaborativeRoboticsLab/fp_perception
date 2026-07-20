@@ -1,0 +1,7 @@
+<library path="fp_perception_driver_image_analysis">
+    <class type="fp_perception::OpenAIImageAnalysisDriver" base_class_type="fp_perception::DriverBase">
+        <description>
+            A plugin that provide image analysis service through OpenAI api.
+        </description>
+    </class>
+</library>

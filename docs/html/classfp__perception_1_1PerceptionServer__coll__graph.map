@@ -1,0 +1,11 @@
+<map id="fp_perception::PerceptionServer" name="fp_perception::PerceptionServer">
+<area shape="rect" id="Node000001" title=" " alt="" coords="716,135,904,175"/>
+<area shape="rect" id="Node000002" title=" " alt="" coords="339,5,442,31"/>
+<area shape="poly" id="edge1_Node000001_Node000002" title=" " alt="" coords="456,7,509,4,569,5,633,14,693,34,727,55,756,82,798,133,794,137,752,85,724,59,691,39,631,20,569,10,509,9,456,12"/>
+<area shape="rect" id="Node000003" href="$structfp__perception_1_1PerceptionServer_1_1DriverSpec.html" title=" " alt="" coords="297,135,485,175"/>
+<area shape="poly" id="edge2_Node000001_Node000003" title=" " alt="" coords="499,153,716,153,716,158,499,158"/>
+<area shape="rect" id="Node000004" href="$classfp__perception_1_1AudioBuffer.html" title=" " alt="" coords="293,200,488,225"/>
+<area shape="poly" id="edge3_Node000001_Node000004" title=" " alt="" coords="501,198,692,173,715,169,716,174,692,178,502,203"/>
+<area shape="rect" id="Node000005" href="$structfp__perception_1_1audio__data.html" title="Struct to hold audio data." alt="" coords="5,200,196,225"/>
+<area shape="poly" id="edge4_Node000004_Node000005" title=" " alt="" coords="210,210,293,210,293,215,210,215"/>
+</map>

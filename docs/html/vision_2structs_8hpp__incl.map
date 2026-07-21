@@ -1,0 +1,9 @@
+<map id="fp_perception_base/include/fp_perception_base/vision/structs.hpp" name="fp_perception_base/include/fp_perception_base/vision/structs.hpp">
+<area shape="rect" id="Node000001" title=" " alt="" coords="76,5,255,60"/>
+<area shape="rect" id="Node000002" title=" " alt="" coords="5,108,64,133"/>
+<area shape="poly" id="edge1_Node000001_Node000002" title=" " alt="" coords="127,62,65,103,62,98,124,58"/>
+<area shape="rect" id="Node000003" title=" " alt="" coords="88,108,243,133"/>
+<area shape="poly" id="edge2_Node000001_Node000003" title=" " alt="" coords="168,60,168,94,163,94,163,60"/>
+<area shape="rect" id="Node000004" title=" " alt="" coords="267,108,399,133"/>
+<area shape="poly" id="edge3_Node000001_Node000004" title=" " alt="" coords="218,58,300,99,297,104,215,62"/>
+</map>

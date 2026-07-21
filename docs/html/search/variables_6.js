@@ -1,0 +1,20 @@
+var searchData=
+[
+  ['image_0',['image',['../structfp__perception_1_1vision__frame.html#a699acc390ba6c83133a3c61f1ef68f6b',1,'fp_perception::vision_frame']]],
+  ['image_5fanalysis_5fdriver_5f_1',['image_analysis_driver_',['../classfp__perception_1_1ImageAnalysisPipeline.html#a1983c507bb932c7f878dde58be9ae72c',1,'fp_perception::ImageAnalysisPipeline::image_analysis_driver_'],['../classfp__perception_1_1PerceptionServer.html#a3159af4f9fc80b824afcca7ddc37f67e',1,'fp_perception::PerceptionServer::image_analysis_driver_']]],
+  ['image_5fanalysis_5fenabled_5f_2',['image_analysis_enabled_',['../classfp__perception_1_1PerceptionServer.html#a691f473e44c3f13a6549df2f5328bb0d',1,'fp_perception::PerceptionServer']]],
+  ['image_5fanalysis_5fpipeline_5f_3',['image_analysis_pipeline_',['../classfp__perception_1_1PerceptionServer.html#af1f687f3028bfb6aef05c515c70ad831',1,'fp_perception::PerceptionServer']]],
+  ['image_5fanalysis_5fservice_5f_4',['image_analysis_service_',['../classfp__perception_1_1PerceptionServer.html#ae97d3ff3e350cb87909d734630868dcc',1,'fp_perception::PerceptionServer']]],
+  ['image_5fanalysis_5fservice_5fname_5f_5',['image_analysis_service_name_',['../classfp__perception_1_1PerceptionServer.html#a17e05f3f263f4fc8d8ebd383f65a5a91',1,'fp_perception::PerceptionServer']]],
+  ['image_5fpublisher_5f_6',['image_publisher_',['../classfp__perception_1_1PerceptionServer.html#a331847506ca9a59dd918f5efe0230f5e',1,'fp_perception::PerceptionServer']]],
+  ['image_5fsub_5f_7',['image_sub_',['../classfp__perception_1_1DefaultDriver.html#a761416c64c3ed5381dd41eb143ad364c',1,'fp_perception::DefaultDriver']]],
+  ['initialization_5fmutex_5f_8',['initialization_mutex_',['../classfp__perception_1_1PerceptionServer.html#ac1024159c6b62597b564b3611121c094',1,'fp_perception::PerceptionServer']]],
+  ['initialized_5f_9',['initialized_',['../classfp__perception_1_1PerceptionServer.html#a298e22a0f0dc1f7edb9343e7da5b6a2e',1,'fp_perception::PerceptionServer']]],
+  ['initialized_5ftime_5f_10',['initialized_time_',['../classfp__perception_1_1AudioBuffer.html#ab957a44c505110235f682bd320cf5d49',1,'fp_perception::AudioBuffer']]],
+  ['input_5foverflow_5fcount_5f_11',['input_overflow_count_',['../classfp__perception_1_1MicrophoneAudioDriver.html#afe6989fd66abf0095f6837091e91550f',1,'fp_perception::MicrophoneAudioDriver']]],
+  ['instructions_12',['instructions',['../structfp__perception_1_1text__data.html#a4b07068b145606e14bf7260da8f3ff5c',1,'fp_perception::text_data']]],
+  ['instructions_5f_13',['instructions_',['../classfp__perception_1_1OpenAISpeechDriver.html#a7ed0e57ea624f2ec0bc3fd50ba747435',1,'fp_perception::OpenAISpeechDriver']]],
+  ['interface_5fdescription_14',['interface_description',['../structfp__perception_1_1PerceptionServer_1_1DriverSpec.html#ad0024d96d262eb480dd1a59d47cdc5fc',1,'fp_perception::PerceptionServer::DriverSpec']]],
+  ['interface_5fname_5f_15',['interface_name_',['../classfp__perception_1_1DefaultDriver.html#a769b168026bc9d8c99f77bf53d031694',1,'fp_perception::DefaultDriver']]],
+  ['is_5frunning_5f_16',['is_running_',['../classfp__perception_1_1DriverBase.html#a63f20b33904577a6073c9b19509e4320',1,'fp_perception::DriverBase']]]
+];

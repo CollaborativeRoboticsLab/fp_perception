@@ -1,0 +1,17 @@
+<map id="fp_perception_base/include/fp_perception_base/transcription/structs.hpp" name="fp_perception_base/include/fp_perception_base/transcription/structs.hpp">
+<area shape="rect" id="Node000001" title=" " alt="" coords="43,5,266,60"/>
+<area shape="rect" id="Node000002" title=" " alt="" coords="5,203,64,229"/>
+<area shape="poly" id="edge1_Node000001_Node000002" title=" " alt="" coords="139,62,52,193,48,190,135,59"/>
+<area shape="rect" id="Node000003" title=" " alt="" coords="89,203,221,229"/>
+<area shape="poly" id="edge2_Node000001_Node000003" title=" " alt="" coords="157,60,157,189,152,189,152,60"/>
+<area shape="rect" id="Node000004" href="$audio_2structs_8hpp.html" title=" " alt="" coords="196,108,345,148"/>
+<area shape="poly" id="edge3_Node000001_Node000004" title=" " alt="" coords="189,58,238,97,235,101,186,62"/>
+<area shape="poly" id="edge5_Node000004_Node000002" title=" " alt="" coords="212,151,77,198,72,200,70,195,75,194,210,146"/>
+<area shape="poly" id="edge6_Node000004_Node000003" title=" " alt="" coords="247,150,183,197,180,193,243,146"/>
+<area shape="rect" id="Node000005" title=" " alt="" coords="245,203,307,229"/>
+<area shape="poly" id="edge4_Node000004_Node000005" title=" " alt="" coords="275,148,277,189,272,190,269,148"/>
+<area shape="rect" id="Node000006" title=" " alt="" coords="331,196,530,236"/>
+<area shape="poly" id="edge7_Node000004_Node000006" title=" " alt="" coords="307,146,385,187,383,192,305,150"/>
+<area shape="rect" id="Node000007" title=" " alt="" coords="554,196,742,236"/>
+<area shape="poly" id="edge8_Node000004_Node000007" title=" " alt="" coords="346,144,552,190,551,196,345,149"/>
+</map>

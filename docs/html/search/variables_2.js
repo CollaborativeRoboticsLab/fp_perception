@@ -1,0 +1,21 @@
+var searchData=
+[
+  ['callback_5flock_5fmiss_5fcount_5f_0',['callback_lock_miss_count_',['../classfp__perception_1_1SpeakerAudioDriver.html#a085430c56b4c3ef13687a4aff5b2850a',1,'fp_perception::SpeakerAudioDriver']]],
+  ['capture_5fbuffer_5fwindow_5f_1',['capture_buffer_window_',['../classfp__perception_1_1MicrophoneAudioDriver.html#a11c4ca75f8eb8ad6d5a906eb08448f36',1,'fp_perception::MicrophoneAudioDriver']]],
+  ['capture_5fdevice_2',['capture_device',['../classfp__perception_1_1OpenCVDriver.html#a4eeee241d464f4f2203ef5ea448e9dc4',1,'fp_perception::OpenCVDriver']]],
+  ['capture_5ffailure_5fcount_5f_3',['capture_failure_count_',['../classfp__perception_1_1OpenCVDriver.html#a3c265e8e9ac2bd391dec11f7cd33e50f',1,'fp_perception::OpenCVDriver']]],
+  ['capture_5fsample_5frate_5f_4',['capture_sample_rate_',['../classfp__perception_1_1MicrophoneAudioDriver.html#a16894b19b760ba71166e823895588427',1,'fp_perception::MicrophoneAudioDriver']]],
+  ['channels_5',['channels',['../structfp__perception_1_1audio__data.html#aa1bdd8b08d69ed1e2feaae6a9bf77c87',1,'fp_perception::audio_data::channels'],['../namespacetest__mic.html#acaecab73b7e329e15effe376f1dacfac',1,'test_mic.channels']]],
+  ['channels_5f_6',['channels_',['../classfp__perception_1_1MicrophoneAudioDriver.html#afa3958f4bbe9a733d9bca467368ebaad',1,'fp_perception::MicrophoneAudioDriver::channels_'],['../classfp__perception_1_1SpeakerAudioDriver.html#a61b7909ffac8618185e9621af23ca420',1,'fp_perception::SpeakerAudioDriver::channels_']]],
+  ['chunk_7',['chunk',['../namespacetest__mic.html#a230ea07ea11ec1baba0d6ad5c6f7660f',1,'test_mic']]],
+  ['chunk_5fcount_8',['chunk_count',['../structfp__perception_1_1audio__data.html#a1dc908b8679f2133c898ba7a9a6c7058',1,'fp_perception::audio_data']]],
+  ['chunk_5fmax_5fwords_5f_9',['chunk_max_words_',['../classfp__perception_1_1OpenAISpeechDriver.html#a1e0f0c38a65c69d9787a013a88646cb1',1,'fp_perception::OpenAISpeechDriver']]],
+  ['chunk_5fparallel_5frequests_5f_10',['chunk_parallel_requests_',['../classfp__perception_1_1OpenAISpeechDriver.html#a3d45556548923a2b833374b8fd350b3a',1,'fp_perception::OpenAISpeechDriver']]],
+  ['chunk_5fsize_11',['chunk_size',['../structfp__perception_1_1audio__data.html#ae44017996c5ea52d7b0d0da071ab7375',1,'fp_perception::audio_data']]],
+  ['chunk_5fsize_5f_12',['chunk_size_',['../classfp__perception_1_1MicrophoneAudioDriver.html#a9005a583947e6d18dc5f04186767ae0e',1,'fp_perception::MicrophoneAudioDriver']]],
+  ['chunking_5fenabled_5f_13',['chunking_enabled_',['../classfp__perception_1_1OpenAISpeechDriver.html#ad68585c3a05e1f2ac18ab2bf5cd74c86',1,'fp_perception::OpenAISpeechDriver']]],
+  ['condition_5fvariable_5f_14',['condition_variable_',['../classfp__perception_1_1AudioBuffer.html#a8cca13a3d711edca2080dcee387c8784',1,'fp_perception::AudioBuffer']]],
+  ['confidence_15',['confidence',['../structfp__perception_1_1RESTResponse.html#a690f89e1d299528147d0197105e77b81',1,'fp_perception::RESTResponse']]],
+  ['config_5f_16',['config_',['../classfp__perception_1_1AlgorithmBase.html#a9ea51202cdc098c735a0f1198ba99c41',1,'fp_perception::AlgorithmBase']]],
+  ['connect_5ftimeout_5fsec_5f_17',['connect_timeout_sec_',['../classfp__perception_1_1RestBase.html#a0a864e456c292d322d497deeaf9e0dce',1,'fp_perception::RestBase']]]
+];

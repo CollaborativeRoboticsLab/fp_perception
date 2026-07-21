@@ -1,0 +1,26 @@
+var searchData=
+[
+  ['sample_5frate_0',['sample_rate',['../structfp__perception_1_1audio__data.html#a8ef8b10c52092956b80e1f72774f04ae',1,'fp_perception::audio_data']]],
+  ['sample_5frate_5f_1',['sample_rate_',['../classfp__perception_1_1MicrophoneAudioDriver.html#afad44a6ec039dfd3d336f4201121f2d3',1,'fp_perception::MicrophoneAudioDriver::sample_rate_'],['../classfp__perception_1_1SpeakerAudioDriver.html#a61efe07edc70208e9aadb711899bd921',1,'fp_perception::SpeakerAudioDriver::sample_rate_']]],
+  ['samples_2',['samples',['../structfp__perception_1_1audio__data.html#a75e26999090c3559559f97a31812a0a7',1,'fp_perception::audio_data']]],
+  ['score_3',['score',['../structfp__perception_1_1sentiment__result.html#ab53e68c0b8420d7aaa740f7fac1c139b',1,'fp_perception::sentiment_result']]],
+  ['sentiment_5fdriver_5f_4',['sentiment_driver_',['../classfp__perception_1_1PerceptionServer.html#ab6592b2eb6e14ab659e9b0dc20514460',1,'fp_perception::PerceptionServer::sentiment_driver_'],['../classfp__perception_1_1SentimentPipeline.html#ae38b67484c28614352f6376e89a7f806',1,'fp_perception::SentimentPipeline::sentiment_driver_'],['../classfp__perception_1_1AlgorithmBase.html#add493628c624108d8ee73ad8f1b05ab7',1,'fp_perception::AlgorithmBase::sentiment_driver_']]],
+  ['sentiment_5fdriver_5fmutex_5f_5',['sentiment_driver_mutex_',['../classfp__perception_1_1PerceptionServer.html#a335f89285d6d4f9a65df9567e12092d0',1,'fp_perception::PerceptionServer']]],
+  ['sentiment_5fenabled_5f_6',['sentiment_enabled_',['../classfp__perception_1_1PerceptionServer.html#a1897b9c8888c2a6ea3439489fa4051ef',1,'fp_perception::PerceptionServer']]],
+  ['sentiment_5fpipeline_5f_7',['sentiment_pipeline_',['../classfp__perception_1_1PerceptionServer.html#ab2b5b00b5f3a1194cd393872bdf19574',1,'fp_perception::PerceptionServer']]],
+  ['sentiment_5fservice_5f_8',['sentiment_service_',['../classfp__perception_1_1PerceptionServer.html#a97e67eb1dff6658c76086b8507812bbc',1,'fp_perception::PerceptionServer']]],
+  ['sentiment_5fservice_5fname_5f_9',['sentiment_service_name_',['../classfp__perception_1_1PerceptionServer.html#ab4b9d4c853e63922a9bbd0bdf5fbfaed',1,'fp_perception::PerceptionServer']]],
+  ['speaker_5fdriver_5f_10',['speaker_driver_',['../classfp__perception_1_1PerceptionServer.html#a9f8cc4da6ab67e9010d0a9016f2e914a',1,'fp_perception::PerceptionServer::speaker_driver_'],['../classfp__perception_1_1SpeechPipeline.html#afb35e76e5c47cdea4d8efb033af47c58',1,'fp_perception::SpeechPipeline::speaker_driver_']]],
+  ['speech_5fdriver_5f_11',['speech_driver_',['../classfp__perception_1_1SpeechPipeline.html#aab283e089508a3563a14e714719366bb',1,'fp_perception::SpeechPipeline::speech_driver_'],['../classfp__perception_1_1PerceptionServer.html#a3120d767893d1f4de6bb3dd9feb256d3',1,'fp_perception::PerceptionServer::speech_driver_']]],
+  ['speech_5fenabled_5f_12',['speech_enabled_',['../classfp__perception_1_1PerceptionServer.html#a49cf81fe3fe63987312ebd017d0c7bbc',1,'fp_perception::PerceptionServer']]],
+  ['speech_5fpipeline_5f_13',['speech_pipeline_',['../classfp__perception_1_1PerceptionServer.html#a12350b82216284d85a4ec8ec19700a5b',1,'fp_perception::PerceptionServer']]],
+  ['speech_5fservice_5f_14',['speech_service_',['../classfp__perception_1_1PerceptionServer.html#aa54cca69a9aed03b135db11efa53935c',1,'fp_perception::PerceptionServer']]],
+  ['speech_5fservice_5fname_5f_15',['speech_service_name_',['../classfp__perception_1_1PerceptionServer.html#af8b616df7039c567e575eccb2ed79b11',1,'fp_perception::PerceptionServer']]],
+  ['ssl_5fverify_5f_16',['ssl_verify_',['../classfp__perception_1_1RestBase.html#ad12fb17e62cee03283198a721cf44b63',1,'fp_perception::RestBase']]],
+  ['stamp_17',['stamp',['../structfp__perception_1_1vision__frame.html#ac59dee93aa5ad7e779a110ff3d9b829c',1,'fp_perception::vision_frame']]],
+  ['start_5ftime_18',['start_time',['../structfp__perception_1_1audio__buffer__request.html#ae6b88ef603a2d5885c569d9da040c9b0',1,'fp_perception::audio_buffer_request']]],
+  ['stream_5f_19',['stream_',['../classFilePartSource.html#aa3dc2f1c90c8c51d737c9bc40d305f00',1,'FilePartSource::stream_'],['../classfp__perception_1_1MicrophoneAudioDriver.html#a205dd25105387269d30e78501100e4b4',1,'fp_perception::MicrophoneAudioDriver::stream_']]],
+  ['stream_5fdict_5f_20',['stream_dict_',['../classfp__perception_1_1SpeakerAudioDriver.html#a210148e54577bc562e4c82854b6fcd11',1,'fp_perception::SpeakerAudioDriver']]],
+  ['success_21',['success',['../structfp__perception_1_1speech__pipeline__result.html#abadd67e73aa564320cf7c89baeeea0a2',1,'fp_perception::speech_pipeline_result::success'],['../structfp__perception_1_1image__analysis__result.html#a49b51c911186f8215340d4a85effd7db',1,'fp_perception::image_analysis_result::success'],['../structfp__perception_1_1RESTResponse.html#a0dced274a33a2ddd85501b379a8b938c',1,'fp_perception::RESTResponse::success'],['../structfp__perception_1_1sentiment__result.html#aeec1bc7c39025b3a704f509a51d675a6',1,'fp_perception::sentiment_result::success'],['../structfp__perception_1_1transcription__result.html#ab878ed896ad9b19f48b63fb4fde8ea4c',1,'fp_perception::transcription_result::success']]],
+  ['successful_5fcapture_5fcount_5f_22',['successful_capture_count_',['../classfp__perception_1_1OpenCVDriver.html#a4b85ccb9118cddfdefe4b34427ac4404',1,'fp_perception::OpenCVDriver']]]
+];

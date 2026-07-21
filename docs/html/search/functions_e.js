@@ -1,0 +1,26 @@
+var searchData=
+[
+  ['schedule_5fdeferred_5finitialization_0',['schedule_deferred_initialization',['../classfp__perception_1_1PerceptionServer.html#ade891a2a07fc6092fb53327d7850798a',1,'fp_perception::PerceptionServer']]],
+  ['sentiment_5fcallback_1',['sentiment_callback',['../classfp__perception_1_1PerceptionServer.html#af834d9ebe6dcf8c15409190d9cfb8906',1,'fp_perception::PerceptionServer']]],
+  ['sentimentdriver_2',['SentimentDriver',['../classfp__perception_1_1SentimentDriver.html#a694f9c93a916d3499f085cfbd8b47fe8',1,'fp_perception::SentimentDriver']]],
+  ['sentimentpipeline_3',['SentimentPipeline',['../classfp__perception_1_1SentimentPipeline.html#a1318b894361fc5363286a09619560350',1,'fp_perception::SentimentPipeline']]],
+  ['set_5faudio_5finput_5fdriver_4',['set_audio_input_driver',['../classfp__perception_1_1AlgorithmBase.html#a613fa04f64f2bb9308c1b4a8f2713325',1,'fp_perception::AlgorithmBase']]],
+  ['set_5fsentiment_5fdriver_5',['set_sentiment_driver',['../classfp__perception_1_1AlgorithmBase.html#a5b3c3a550ee624e10224068477ae13bb',1,'fp_perception::AlgorithmBase']]],
+  ['set_5ftranscription_5fdriver_6',['set_transcription_driver',['../classfp__perception_1_1AlgorithmBase.html#a29654ca36f2e055ef91bb4e7ea624f45',1,'fp_perception::AlgorithmBase']]],
+  ['set_5fvision_5fdriver_7',['set_vision_driver',['../classfp__perception_1_1AlgorithmBase.html#a6c0a27618d35eb8db8ce05c011f1a16a',1,'fp_perception::AlgorithmBase']]],
+  ['setup_5fdiagnostics_8',['setup_diagnostics',['../classfp__perception_1_1MicrophoneAudioDriver.html#a44334cd51e53641667d0e971e4bd73e2',1,'fp_perception::MicrophoneAudioDriver::setup_diagnostics()'],['../classfp__perception_1_1SpeakerAudioDriver.html#abce1b8a1a6c82d6bb1c506942cc9897a',1,'fp_perception::SpeakerAudioDriver::setup_diagnostics()']]],
+  ['speakeraudiodriver_9',['SpeakerAudioDriver',['../classfp__perception_1_1SpeakerAudioDriver.html#a31ac6213a72dfcdf48bde4bb7b5bbc8f',1,'fp_perception::SpeakerAudioDriver']]],
+  ['speech_5fcallback_10',['speech_callback',['../classfp__perception_1_1PerceptionServer.html#adc41a19ec239743646c5b9853c4e9764',1,'fp_perception::PerceptionServer']]],
+  ['speechpipeline_11',['SpeechPipeline',['../classfp__perception_1_1SpeechPipeline.html#a0a7253ded7b9ed90cf5d36074d13a10c',1,'fp_perception::SpeechPipeline']]],
+  ['split_5flong_5fsegment_12',['split_long_segment',['../classfp__perception_1_1OpenAISpeechDriver.html#a89fb58326d676b45ad3fac0e740f1990',1,'fp_perception::OpenAISpeechDriver']]],
+  ['split_5ftext_5finto_5fchunks_13',['split_text_into_chunks',['../classfp__perception_1_1OpenAISpeechDriver.html#aa464d8a6640d170958e43fb105da6bc6',1,'fp_perception::OpenAISpeechDriver']]],
+  ['start_14',['start',['../classfp__perception_1_1AlgorithmBase.html#acfc51ce79abd4cb05a1bb514f13578f3',1,'fp_perception::AlgorithmBase']]],
+  ['start_5fbackground_5ftasks_15',['start_background_tasks',['../classfp__perception_1_1PerceptionServer.html#a189afa2aee179c5bb1e9a27bfc8fddd1',1,'fp_perception::PerceptionServer']]],
+  ['starttime_16',['startTime',['../classfp__perception_1_1AudioBuffer.html#a2951f5c08a3c8152f4703514f6915c58',1,'fp_perception::AudioBuffer']]],
+  ['stop_17',['stop',['../classfp__perception_1_1AlgorithmBase.html#a811145d57871088ed3695ab85bffa8e9',1,'fp_perception::AlgorithmBase']]],
+  ['stop_5fbackground_5ftasks_18',['stop_background_tasks',['../classfp__perception_1_1PerceptionServer.html#aa9fb70a2c50cc8f4839df6e10d8f5768',1,'fp_perception::PerceptionServer']]],
+  ['stopplayback_19',['stopplayback',['../classfp__perception_1_1AudioSinkDriver.html#a265385e5c51f581b04fffee14c05e615',1,'fp_perception::AudioSinkDriver::stopPlayback()'],['../classfp__perception_1_1SpeakerAudioDriver.html#a3784e56ca644cad2b9579804340da4a2',1,'fp_perception::SpeakerAudioDriver::stopPlayback()']]],
+  ['stream_20',['stream',['../classFilePartSource.html#a80b668b1f620533efaf57e8f7960999e',1,'FilePartSource']]],
+  ['synthesize_21',['synthesize',['../classfp__perception_1_1SpeechSynthesisDriver.html#aeea6d5fef4a0e0d8e9a93670d905c537',1,'fp_perception::SpeechSynthesisDriver::synthesize()'],['../classfp__perception_1_1OpenAISpeechDriver.html#afe83066215e504e30a14415ffef74e62',1,'fp_perception::OpenAISpeechDriver::synthesize(const text_data &amp;new_text) override']]],
+  ['synthesize_5fchunk_22',['synthesize_chunk',['../classfp__perception_1_1OpenAISpeechDriver.html#a3a25de95450031717d05cd3d5b5e8164',1,'fp_perception::OpenAISpeechDriver']]]
+];

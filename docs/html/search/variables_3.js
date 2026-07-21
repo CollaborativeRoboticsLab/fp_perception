@@ -1,0 +1,21 @@
+var searchData=
+[
+  ['default_5faudio_5frequest_5fwindow_5f_0',['default_audio_request_window_',['../classfp__perception_1_1PerceptionServer.html#a68e1d0ad45874480a1fcda01270d15a2',1,'fp_perception::PerceptionServer']]],
+  ['default_5fplugin_5fname_1',['default_plugin_name',['../structfp__perception_1_1PerceptionServer_1_1DriverSpec.html#a13aecf022a1d3bdd169614777b647b7b',1,'fp_perception::PerceptionServer::DriverSpec']]],
+  ['deferred_5finitialize_5ftimer_5f_2',['deferred_initialize_timer_',['../classfp__perception_1_1PerceptionServer.html#a8bc3c6de0e10b03a117392abf0cde000',1,'fp_perception::PerceptionServer']]],
+  ['detail_5f_3',['detail_',['../classfp__perception_1_1OpenAIImageAnalysisDriver.html#a9011b5182d7ac31e4f54a410a00cf28a',1,'fp_perception::OpenAIImageAnalysisDriver']]],
+  ['device_5faudio_5fstart_5ftime_4',['device_audio_start_time',['../structfp__perception_1_1sentiment__request.html#a9a6ec31769d0ef43b4baf972e5d0531d',1,'fp_perception::sentiment_request::device_audio_start_time'],['../structfp__perception_1_1transcription__request.html#a360ca57f7204d56e4bdb0733390dcd71',1,'fp_perception::transcription_request::device_audio_start_time']]],
+  ['device_5fid_5',['device_id',['../classfp__perception_1_1OpenCVDriver.html#a6bf42573fde3aa0569b4c6ac5d874977',1,'fp_perception::OpenCVDriver']]],
+  ['device_5fid_5f_6',['device_id_',['../classfp__perception_1_1MicrophoneAudioDriver.html#afcff5d5b8b4f4e95803516b3b5223ae5',1,'fp_perception::MicrophoneAudioDriver::device_id_'],['../classfp__perception_1_1SpeakerAudioDriver.html#a82d5242ee8d09ad58b6aa2fb59117942',1,'fp_perception::SpeakerAudioDriver::device_id_']]],
+  ['device_5findex_7',['device_index',['../namespacetest__mic.html#a578b7ea3159ce2d28211622c909a9cdf',1,'test_mic']]],
+  ['device_5fname_5f_8',['device_name_',['../classfp__perception_1_1SpeakerAudioDriver.html#ab5ed40f39491ad6413469070abd23779',1,'fp_perception::SpeakerAudioDriver::device_name_'],['../classfp__perception_1_1MicrophoneAudioDriver.html#a52ccbef79d2ef24f28d7fcd7eecaf9bd',1,'fp_perception::MicrophoneAudioDriver::device_name_']]],
+  ['diagnostics_5fenabled_5f_9',['diagnostics_enabled_',['../classfp__perception_1_1DriverBase.html#a9dc20e04df8afd2039c6550457adface',1,'fp_perception::DriverBase']]],
+  ['diagnostics_5ftimer_5f_10',['diagnostics_timer_',['../classfp__perception_1_1DriverBase.html#ab7228d8ef66a46a0090fca70b4ce154b',1,'fp_perception::DriverBase']]],
+  ['diagnostics_5fupdater_5f_11',['diagnostics_updater_',['../classfp__perception_1_1DriverBase.html#abefad6929b8fb08f879b516efdbd7b3c',1,'fp_perception::DriverBase']]],
+  ['driver_5f_12',['driver_',['../classfp__perception_1_1TranscriptionPipeline.html#aaf33e82d52b39a578a37d2ed7d87e754',1,'fp_perception::TranscriptionPipeline']]],
+  ['driver_5fdescription_13',['driver_description',['../structfp__perception_1_1PerceptionServer_1_1DriverSpec.html#a4fbeeb3d233b3df0669e3ea56729f808',1,'fp_perception::PerceptionServer::DriverSpec']]],
+  ['driver_5floader_5f_14',['driver_loader_',['../classfp__perception_1_1PerceptionServer.html#a540b0c059d5565e9932a44514b583dbc',1,'fp_perception::PerceptionServer']]],
+  ['dropped_5fcallback_5fchunks_5f_15',['dropped_callback_chunks_',['../classfp__perception_1_1MicrophoneAudioDriver.html#a84f162d404c47593f374f750e1745a08',1,'fp_perception::MicrophoneAudioDriver']]],
+  ['duration_16',['duration',['../namespacetest__mic.html#ac4e4253e4ec595661c5a376e5d58427b',1,'test_mic']]],
+  ['duration_5fseconds_17',['duration_seconds',['../structfp__perception_1_1audio__buffer__request.html#ab69ebe3f68c68eb0fcca71a716305927',1,'fp_perception::audio_buffer_request']]]
+];

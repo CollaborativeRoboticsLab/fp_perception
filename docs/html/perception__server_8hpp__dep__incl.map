@@ -1,7 +1,0 @@
-<map id="fp_perception/include/fp_perception/perception_server.hpp" name="fp_perception/include/fp_perception/perception_server.hpp">
-<area shape="rect" id="Node000001" title=" " alt="" coords="102,5,290,60"/>
-<area shape="rect" id="Node000002" href="$server__component_8cpp.html" title=" " alt="" coords="5,108,184,148"/>
-<area shape="poly" id="edge1_Node000001_Node000002" title=" " alt="" coords="159,72,117,110,113,106,155,68"/>
-<area shape="rect" id="Node000003" href="$server__node_8cpp.html" title=" " alt="" coords="208,108,387,148"/>
-<area shape="poly" id="edge2_Node000001_Node000003" title=" " alt="" coords="237,68,279,106,275,110,233,72"/>
-</map>

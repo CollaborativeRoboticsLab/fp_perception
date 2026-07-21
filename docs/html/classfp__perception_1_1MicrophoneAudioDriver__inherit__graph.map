@@ -1,7 +1,0 @@
-<map id="fp_perception::MicrophoneAudioDriver" name="fp_perception::MicrophoneAudioDriver">
-<area shape="rect" id="Node000001" title="MicrophoneAudioDriver class for handling audio input from a microphone." alt="" coords="8,167,203,207"/>
-<area shape="rect" id="Node000002" href="$classfp__perception_1_1AudioSourceDriver.html" title=" " alt="" coords="5,79,205,119"/>
-<area shape="poly" id="edge1_Node000001_Node000002" title=" " alt="" coords="108,133,108,166,103,166,103,133"/>
-<area shape="rect" id="Node000003" href="$classfp__perception_1_1DriverBase.html" title=" " alt="" coords="10,5,201,31"/>
-<area shape="poly" id="edge2_Node000002_Node000003" title=" " alt="" coords="108,44,108,79,103,79,103,44"/>
-</map>

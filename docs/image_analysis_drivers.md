@@ -7,11 +7,11 @@ This document describes the image analysis driver plugins and how they integrate
 
 Plugin type:
 
-- `fp_perception::OpenAIImageAnalysisDriver`
+### fp_perception::OpenAIImageAnalysisDriver
 
 This driver is REST-backed and uses the OpenAI **Responses API** to analyze an image and return text.
 
-### How requests are formed
+#### How requests are formed
 
 The driver sends a request to `https://api.openai.com/v1/responses` with:
 
@@ -20,7 +20,7 @@ The driver sends a request to `https://api.openai.com/v1/responses` with:
 
 The server passes both the image and the prompt to the driver.
 
-### Parameters
+#### Parameters
 
 The driver reads parameters under `driver.image_analysis.OpenAIImageAnalysisDriver.*`:
 
@@ -41,7 +41,7 @@ Environment variables:
 
 - `OPENAI_API_KEY`: required for authorization
 
-### Output
+#### Output
 
 The driver returns a single string containing the model output text.
 

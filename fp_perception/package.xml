@@ -3,11 +3,13 @@
 <package format="3">
   <name>fp_perception</name>
   <version>0.1.2</version>
-  <description>TODO: Package description</description>
+  <description>Plugin-based perception server for human-robot interaction scenarios.</description>
 
+  <maintainer email="kalanaratnayake95@gmail.com">Kalana Ratnayake</maintainer>
   <maintainer email="kalana.ratnayakemudiyanselage@canberra.edu.au">Kalana Ratnayake</maintainer>
 
   <author email="kalana.ratnayakemudiyanselage@canberra.edu.au">Kalana Ratnayake</author>
+  <author email="kalanaratnayake95@gmail.com">Kalana Ratnayake</author>
 
   <license>MIT</license>
 

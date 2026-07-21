@@ -9,6 +9,7 @@ INPUT = .
 FILE_PATTERNS = *.c *.cc *.cpp *.cxx *.h *.hh *.hpp *.hxx *.md *.markdown *.dox *.py
 RECURSIVE = YES
 EXCLUDE = ./build ./install ./log ./docs/html
+EXCLUDE_PATTERNS = */external/* */third_party/* */3rdparty/* */vendor/*
 EXTRACT_ALL = YES
 EXTRACT_PRIVATE = YES
 EXTRACT_STATIC = YES

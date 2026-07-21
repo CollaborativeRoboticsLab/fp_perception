@@ -5,7 +5,7 @@ This document describes the topics and services exposed/consumed by the percepti
 
 ## Messages
 
-### `fp_perception_msgs/msg/PerceptionAudio`
+### fp_perception_msgs/msg/PerceptionAudio
 
 Fields:
 
@@ -23,7 +23,7 @@ Usage notes:
 - The server publishes this message when `interface.audio_input.publish` is enabled.
 - The server can also subscribe to audio output and forward it into the speaker driver.
 
-### `fp_perception_msgs/msg/PerceptionText`
+### fp_perception_msgs/msg/PerceptionText
 
 Fields:
 
@@ -39,7 +39,7 @@ Usage notes:
 
 ## Services
 
-### `fp_perception_msgs/srv/PerceptionTranscribe`
+### fp_perception_msgs/srv/PerceptionTranscribe
 
 Request:
 
@@ -56,7 +56,7 @@ Response:
 The server uses `use_device_audio` to decide whether to use its internal microphone buffer or the request-provided `audio`.
 When `use_device_audio=true`, `audio_request_window` controls how many seconds of audio the server collects from its public ring buffer.
 
-### `fp_perception_msgs/srv/PerceptionSpeech`
+### fp_perception_msgs/srv/PerceptionSpeech
 
 Request:
 
@@ -70,7 +70,7 @@ Response:
 
 When `use_device_audio` is `true`, the server routes the synthesized audio to the speaker driver instead of returning it.
 
-### `fp_perception_msgs/srv/PerceptionSentiment`
+### fp_perception_msgs/srv/PerceptionSentiment
 
 Request:
 
@@ -87,7 +87,7 @@ Response:
 
 When `use_device_audio` is `true`, the server transcribes its microphone buffer first and then runs sentiment analysis on the transcribed text.
 
-### `fp_perception_msgs/srv/PerceptionImageAnalysis`
+### fp_perception_msgs/srv/PerceptionImageAnalysis
 
 Request:
 
